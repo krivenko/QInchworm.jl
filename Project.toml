@@ -3,6 +3,11 @@ uuid = "c1b6c5a0-2f71-4f50-a75d-692762eff855"
 authors = ["Igor Krivenko <igor.s.krivenko@gmail.com>", "Hugo U. R. Strand <hugo.strand@gmail.com>"]
 version = "0.1.0"
 
+[deps]
+Keldysh = "50f2bc7e-5fd7-11e9-13c7-85fb88b4f34f"
+KeldyshED = "675b6b9c-7c2f-11e9-3bf3-dfd4d61640f7"
+Sobol = "ed01d8cd-4d21-5b2a-85b4-cc3bdc58bad4"
+
 [compat]
 julia = "1.5"
 
