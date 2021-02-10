@@ -1,5 +1,9 @@
+"""
+Fermionic quantum impurity problem solving
+using Quasi Monte Carlo and the inch-worm algorithm.
+"""
 module QInchworm
 
-# Write your package code here.
+include("ppgf.jl")
 
-end
+end # module QInchworm
