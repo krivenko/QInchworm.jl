@@ -41,8 +41,11 @@ the pseud-particle Green's function sandwitched in between.
   `c_i` is +1/-1 for creation/annihilation operator respectively, and 
   `o_i` is a spin-orbital index
 """
-function operator_product(ed::EDCore, G, s::Integer, z_i, z_f, vertices)
-    s_a = s
+function operator_product(ed::EDCore, G, s_i::Integer, z_i, z_f, vertices)
+
+    length(vertices) == 0 && return G[s_i][z_f, z_i]
+
+    s_a = s_i
     (z_a, c_a, o_a) = vertices[1]
 
     prod0 = G[s_a][z_a, z_i]
