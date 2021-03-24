@@ -72,7 +72,7 @@ function operator_product(ed::EDCore, G, s_i::Integer, z_i, z_f, vertices)
         s_a = s_b
     end
 
-    s_a != s && return 0 * prod0
+    s_a != s_i && return 0 * prod0
 
     prod
 end;
