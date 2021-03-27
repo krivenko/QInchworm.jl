@@ -21,9 +21,9 @@ function atomic_ppgf(grid::TimeGrid, ed::EDCore, β::Real)
     
     for (s, E) in zip(ed.subspaces, energies(ed))
         G_s = TimeGF(grid, length(s))
-        for t1 in grid, t2 in grid
+        for t1 in grid, t2 in grid[1:t1.idx]
             Δt = t1.val.val - t2.val.val
-            G_s[t1, t2] = Diagonal(exp.(-1im * Δt * (E .+ λ)))
+            G_s[t1, t2] = -im * Diagonal(exp.(-1im * Δt * (E .+ λ)))
         end
         push!(G, G_s)
     end    
@@ -48,9 +48,9 @@ function operator_product(ed::EDCore, G, s_i::Integer, z_i, z_f, vertices)
     s_a = s_i
     (z_a, c_a, o_a) = vertices[1]
 
-    prod0 = G[s_a][z_a, z_i]
+    prod0 = im * G[s_a][z_a, z_i]
     prod = prod0
-
+    
     for (vidx, (z_a, c_a, o_a)) in enumerate(vertices)
 
         connection = c_a > 0 ? cdag_connection : c_connection
@@ -67,7 +67,7 @@ function operator_product(ed::EDCore, G, s_i::Integer, z_i, z_f, vertices)
             z_b = z_f
         end
 
-        prod = G[s_b][z_b, z_a] * m_ba * prod
+        prod = im * G[s_b][z_b, z_a] * m_ba * prod
 
         s_a = s_b
     end

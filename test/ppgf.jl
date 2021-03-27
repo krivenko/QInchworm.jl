@@ -39,7 +39,7 @@ import QInchworm.ppgf: operator_product
     # Real-time Kadanoff-Baym contour
     
     contour = kd.twist(kd.Contour(kd.full_contour, tmax=30., β=β));
-    grid = kd.TimeGrid(contour, npts_real=100, npts_imag=100);
+    grid = kd.TimeGrid(contour, npts_real=10, npts_imag=10);
     
     # Single particle Green's function
     
@@ -58,16 +58,16 @@ import QInchworm.ppgf: operator_product
     λ = log(Z) / β # Pseudo-particle chemical potential (enforcing Tr[G0(β)]=Tr[ρ]=1)
     
     for (G0_s, E) in zip(G0, KeldyshED.energies(ed))
-        for t1 in grid, t2 in grid
+        for t1 in grid, t2 in grid[1:t1.idx]
             Δt = t1.val.val - t2.val.val
-            G0_s[t1, t2] = Diagonal(exp.(-1im * Δt * (E .+ λ)))
+            G0_s[t1, t2] = -im * Diagonal(exp.(-1im * Δt * (E .+ λ)))
         end
     end
     
     t_0, t_beta = kd.branch_bounds(grid, kd.imaginary_branch)
     
     for (G0_s, ρ_s) in zip(G0, ρ)
-        @test ρ_s ≈ G0_s[t_beta, t_0]
+        @test ρ_s ≈ im * G0_s[t_beta, t_0]
     end
 
     G0_ref = atomic_ppgf(grid, ed, β)
@@ -119,19 +119,42 @@ import QInchworm.ppgf: operator_product
             m_1 = ked.cdag_matrix(ed, idx1, sidx1)
             m_2 = ked.c_matrix(ed, idx2, sidx2)
 
-            prod = G0[sidx1][t_beta, tau_i] * m_2 * G0[sidx2][tau_i, t_0] * m_1
-
+            prod = (im)^2 * G0[sidx1][t_beta, tau_i] * m_2 * G0[sidx2][tau_i, t_0] * m_1
+            
             # -- This is the general configuration evaluator function
             prod_ref = operator_product(
                 ed, G0, sidx1, t_0, t_beta, [(t_0, +1, idx1),(tau_i, -1, idx2)])
-
+            
             @test isapprox(prod, prod_ref, atol=1e-12, rtol=1e-12)
-        
+
             g_tau_i -= tr(prod)
         end    
         push!(g_tau, g_tau_i)
     end
     
     @test isapprox(g_tau, g[:matsubara], atol=1e-12, rtol=1-12)
+
+    g_ref = copy(g)
+
+    z_i, z_f = grid[1], grid[end]
+    
+    for z1 in grid, z2 in grid
+
+        g[z1, z2] = 0
+        
+        v1 = (z1, +1, idx1)
+        v2 = (z2, -1, idx2)
+        
+        sign = -1 * (z1.idx < z2.idx)
+        verts = sort([v1, v2], by = x -> x[1].idx)
+        
+        for (sidx, s) in enumerate(ed.subspaces)
+            prod = operator_product(ed, G0, sidx, z_i, z_f, verts)
+            g[z1, z2] -= sign * tr(prod)
+        end
+
+    end
+    
+    @test isapprox(g, g_ref, atol=1e-12, rtol=1-12)
     
 end
