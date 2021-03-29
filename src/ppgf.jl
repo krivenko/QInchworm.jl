@@ -9,26 +9,67 @@ import KeldyshED: EDCore, energies, partition_function
 import KeldyshED: c_connection, cdag_connection
 import KeldyshED: c_matrix, cdag_matrix
 
+import KeldyshED; ked = KeldyshED;
+
 export atomic_ppgf
 export operator_product
+
+
+"""
+Get matrix representation of operator expression in each sector
+
+NB! Requires that the operator expression does not mix symmetry sectors
+"""
+function operator_matrix_representation(
+    op_expr::ked.OperatorExpr{S}, ed::ked.EDCore) where {S <: Number}
+
+    op = ked.Operator{ked.FullHilbertSpace, S}(op_expr, ed.full_hs.soi)
+    
+    op_sector_matrices = Vector{Matrix{S}}()    
+    for (sidx, subspace) in enumerate(ed.subspaces)
+        op_matrix = Matrix{S}(undef, length(subspace), length(subspace))
+        i_state = ked.StateVector{ked.HilbertSubspace, S}(subspace)
+        for i in 1:length(subspace)
+            i_state[i] = one(S)
+            f_state = op * i_state
+            op_matrix[:, i] = f_state.amplitudes
+            i_state[i] = zero(S)
+        end
+        push!(op_sector_matrices, op_matrix)
+    end
+    op_sector_matrices
+end
+
+
+function total_density_operator(ed::ked.EDCore)
+    N = sum([ op.n(label...) for (label, i) in ed.full_hs.soi ])
+end
+
 
 function atomic_ppgf(grid::TimeGrid, ed::EDCore, β::Real)
 
     G = Vector{TimeGF}()
+
+    N_op = total_density_operator(ed)
+    N = operator_matrix_representation(N_op, ed)
+    z_β = grid[kd.imaginary_branch][end]
     
     Z = partition_function(ed, β)
     λ = log(Z) / β # Pseudo-particle chemical potential (enforcing Tr[G0(β)]=Tr[ρ]=1)
     
-    for (s, E) in zip(ed.subspaces, energies(ed))
+    for (s, E, n) in zip(ed.subspaces, energies(ed), N)
         G_s = TimeGF(grid, length(s))
-        for t1 in grid, t2 in grid[1:t1.idx]
-            Δt = t1.val.val - t2.val.val
-            G_s[t1, t2] = -im * Diagonal(exp.(-1im * Δt * (E .+ λ)))
+        ξ = (-1)^n[1,1] # Statistics sign
+        for z1 in grid, z2 in grid[1:z1.idx]
+            Δz = z1.val.val - z2.val.val
+            sign = ξ^(z1.idx > z_β.idx && z_β.idx >= z2.idx)
+            G_s[z1, z2] = -im * sign * Diagonal(exp.(-im * Δz * (E .+ λ)))
         end
         push!(G, G_s)
     end    
     return G
 end
+
 
 """
     operator_product(...)
