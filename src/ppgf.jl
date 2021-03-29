@@ -1,7 +1,7 @@
 
 module ppgf
 
-import LinearAlgebra: Diagonal
+import LinearAlgebra: Diagonal, tr
 
 import Keldysh: TimeGrid, TimeGF
 import Keldysh; kd = Keldysh;
@@ -47,6 +47,10 @@ function total_density_operator(ed::ked.EDCore)
 end
 
 
+"""
+Compute atomic pseudo-particle Green's function on the time grid
+for a time-independent problem defined by the EDCore instance.
+"""
 function atomic_ppgf(grid::TimeGrid, ed::EDCore, β::Real)
 
     G = Vector{TimeGF}()
@@ -121,6 +125,59 @@ function operator_product(ed::EDCore, G, s_i::Integer, z_i, z_f, vertices)
     s_a != s_i && return 0 * prod0
 
     prod
-end;
+end
+
+
+"""
+Compute the first order pseudi-particle diagram contribution to 
+the single-particle Green's function g_{o1, o2}(z, z')
+"""
+function first_order_spgf(ppgf::Vector{S}, ed::ked.EDCore, o1, o2) where {S <: kd.TimeGF}
+
+    grid = ppgf[1].grid
+    g = kd.TimeGF(grid)
+    
+    for z1 in grid, z2 in grid
+
+        sign = 1
+    
+        # Operator verticies
+        v1 = (z1, +1, o2)
+        v2 = (z2, -1, o1)
+        
+        # (twisted contour) time ordered operator verticies
+        v1, v2 = sort([v1, v2], by = x -> x[1].idx)
+
+        # -- Determine start and end time on twisted contour
+        if z1.val.domain == kd.imaginary_branch && z2.val.domain == kd.imaginary_branch
+            # Equilibrium start at \tau = 0 and end at \tau = \beta
+            tau_grid = grid[kd.imaginary_branch]
+            z_i, z_f = tau_grid[1], tau_grid[end]
+        
+            # Creation/annihilator operator commutation sign
+            # why only on imaginary time branch?
+            sign *= -(-1)^(z1.idx <= z2.idx)
+        else
+            # Atleast one time is in real-time            
+            z_max = sort([z1, z2], 
+                by = x -> real(x.val.val) - (x.val.domain == kd.imaginary_branch))[end]
+            
+            if z_max.val.domain == kd.forward_branch
+                z_f = z_max
+                z_i = grid[1 + grid[end].idx - z_max.idx]
+            else
+                z_i = z_max
+                z_f = grid[1 + grid[end].idx - z_max.idx]
+            end
+        end
+    
+        for (sidx, s) in enumerate(ed.subspaces)
+            prod = operator_product(ed, ppgf, sidx, z_i, z_f, [v1, v2])
+            g[z2, z1] += -im * sign * tr(prod)
+        end
+    end
+    return g
+end
+
 
 end # module ppgf

@@ -12,6 +12,9 @@ import KeldyshED; op = KeldyshED.Operators;
 
 import QInchworm.ppgf: atomic_ppgf
 import QInchworm.ppgf: operator_product
+import QInchworm.ppgf: operator_matrix_representation
+import QInchworm.ppgf: total_density_operator
+import QInchworm.ppgf: first_order_spgf
 
 @testset "atomic ppgf" begin
 
@@ -56,11 +59,20 @@ import QInchworm.ppgf: operator_product
     
     Z = KeldyshED.partition_function(ed, β)
     λ = log(Z) / β # Pseudo-particle chemical potential (enforcing Tr[G0(β)]=Tr[ρ]=1)
+
+    t_β = grid[kd.imaginary_branch][end]
+    N = operator_matrix_representation(total_density_operator(ed), ed)
     
-    for (G0_s, E) in zip(G0, KeldyshED.energies(ed))
+    for (G0_s, E, n) in zip(G0, KeldyshED.energies(ed), N)
+        ξ = (-1)^n[1,1] # Statistics sign        
         for t1 in grid, t2 in grid[1:t1.idx]
             Δt = t1.val.val - t2.val.val
-            G0_s[t1, t2] = -im * Diagonal(exp.(-1im * Δt * (E .+ λ)))
+            if t1.val.domain == kd.forward_branch && 
+               t2.val.domain != kd.forward_branch                
+                Δt += -im*β
+            end            
+            sign = ξ^(t1.idx > t_β.idx && t_β.idx >= t2.idx)
+            G0_s[t1, t2] = -im * sign * Diagonal(exp.(-1im * Δt * (E .+ λ)))
         end
     end
     
@@ -134,27 +146,8 @@ import QInchworm.ppgf: operator_product
     
     @test isapprox(g_tau, g[:matsubara], atol=1e-12, rtol=1-12)
 
-    g_ref = copy(g)
+    g_ref = first_order_spgf(G0, ed, d, d)
 
-    z_i, z_f = grid[1], grid[end]
-    
-    for z1 in grid, z2 in grid
-
-        g[z1, z2] = 0
-        
-        v1 = (z1, +1, idx1)
-        v2 = (z2, -1, idx2)
-        
-        sign = -1 * (z1.idx < z2.idx)
-        verts = sort([v1, v2], by = x -> x[1].idx)
-        
-        for (sidx, s) in enumerate(ed.subspaces)
-            prod = operator_product(ed, G0, sidx, z_i, z_f, verts)
-            g[z1, z2] -= sign * tr(prod)
-        end
-
-    end
-    
     @test isapprox(g, g_ref, atol=1e-12, rtol=1-12)
     
 end
