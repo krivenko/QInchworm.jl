@@ -4,6 +4,7 @@ module ppgf
 import LinearAlgebra: Diagonal
 
 import Keldysh: TimeGrid, TimeGF
+import Keldysh; kd = Keldysh;
 
 import KeldyshED: EDCore, energies, partition_function
 import KeldyshED: c_connection, cdag_connection
@@ -42,7 +43,7 @@ end
 
 
 function total_density_operator(ed::ked.EDCore)
-    N = sum([ op.n(label...) for (label, i) in ed.full_hs.soi ])
+    N = sum([ ked.Operators.n(label...) for (label, i) in ed.full_hs.soi ])
 end
 
 
@@ -62,6 +63,10 @@ function atomic_ppgf(grid::TimeGrid, ed::EDCore, β::Real)
         ξ = (-1)^n[1,1] # Statistics sign
         for z1 in grid, z2 in grid[1:z1.idx]
             Δz = z1.val.val - z2.val.val
+            if z1.val.domain == kd.forward_branch && 
+               z2.val.domain != kd.forward_branch                
+                Δz += -im*β
+            end            
             sign = ξ^(z1.idx > z_β.idx && z_β.idx >= z2.idx)
             G_s[z1, z2] = -im * sign * Diagonal(exp.(-im * Δz * (E .+ λ)))
         end
