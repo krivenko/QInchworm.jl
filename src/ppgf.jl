@@ -137,28 +137,31 @@ function first_order_spgf(ppgf::Vector{S}, ed::ked.EDCore, o1, o2) where {S <: k
     grid = ppgf[1].grid
     g = kd.TimeGF(grid)
     
-    for z1 in grid, z2 in grid
-
-        sign = 1
+    N_op = total_density_operator(ed)
+    N = operator_matrix_representation(N_op, ed)
     
+    for z1 in grid, z2 in grid
+        
+        # Creation/annihilator operator commutation sign
+        sign = (-1)^(z1.idx < z2.idx)
+
         # Operator verticies
-        v1 = (z1, +1, o2)
-        v2 = (z2, -1, o1)
+        v1 = (z1, -1, o1)
+        v2 = (z2, +1, o2)
         
         # (twisted contour) time ordered operator verticies
-        v1, v2 = sort([v1, v2], by = x -> x[1].idx)
-
+        v1, v2 = sort([v1, v2], by = x -> x[1].idx, rev=true)
+        
         # -- Determine start and end time on twisted contour
         if z1.val.domain == kd.imaginary_branch && z2.val.domain == kd.imaginary_branch
             # Equilibrium start at \tau = 0 and end at \tau = \beta
+            real_time = false
             tau_grid = grid[kd.imaginary_branch]
             z_i, z_f = tau_grid[1], tau_grid[end]
-        
-            # Creation/annihilator operator commutation sign
-            # why only on imaginary time branch?
-            sign *= -(-1)^(z1.idx <= z2.idx)
         else
             # Atleast one time is in real-time            
+            real_time = true
+
             z_max = sort([z1, z2], 
                 by = x -> real(x.val.val) - (x.val.domain == kd.imaginary_branch))[end]
             
@@ -170,14 +173,14 @@ function first_order_spgf(ppgf::Vector{S}, ed::ked.EDCore, o1, o2) where {S <: k
                 z_f = grid[1 + grid[end].idx - z_max.idx]
             end
         end
-    
+
         for (sidx, s) in enumerate(ed.subspaces)
-            prod = operator_product(ed, ppgf, sidx, z_i, z_f, [v1, v2])
-            g[z2, z1] += -im * sign * tr(prod)
+            ξ = (-1)^N[sidx][1, 1]
+            prod = operator_product(ed, ppgf, sidx, z_i, z_f, [v2, v1])            
+            g[z1, z2] += -im * sign * ξ^real_time * tr(prod)
         end
     end
     return g
 end
-
 
 end # module ppgf
