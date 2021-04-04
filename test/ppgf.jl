@@ -15,81 +15,8 @@ import QInchworm.ppgf: operator_product
 import QInchworm.ppgf: operator_matrix_representation
 import QInchworm.ppgf: total_density_operator
 import QInchworm.ppgf: first_order_spgf
+import QInchworm.ppgf: check_ppgf_real_time_symmetries
 
-
-function check_ppgf_real_time_symmetries(G, ed)
-
-    grid = G[1].grid
-    
-    grid_bwd = grid[kd.backward_branch]
-    zb_i, zb_f = grid_bwd[1], grid_bwd[end]
-
-    grid_fwd = grid[kd.forward_branch]
-    zf_i, zf_f = grid_fwd[1], grid_fwd[end]
-
-    # Symmetry between G_{--} and G_{++}
-
-    for zb_1 in grid_bwd
-        for zb_2 in grid_bwd[1:zb_1.idx]
-            @test zb_1.idx >= zb_2.idx
-
-            zf_1 = grid[zf_f.idx - zb_1.idx + 1]
-            zf_2 = grid[zf_f.idx - zb_2.idx + 1]
-        
-            @test zb_1.val.val ≈ zf_1.val.val
-            @test zb_2.val.val ≈ zf_2.val.val
-        
-            @test zf_2.idx >= zf_1.idx
-        
-            for g_s in G
-                @test g_s[zb_1, zb_2] ≈ -conj(g_s[zf_2, zf_1])
-            end
-        end
-    end
-
-    # Symmetry along anti-diagonal of G_{+-}
-
-    for zf_1 in grid_fwd
-        for zb_1 in grid_bwd[1:zf_f.idx - zf_1.idx + 1]
-        
-            zf_2 = grid[zf_f.idx - (zb_1.idx - zb_i.idx)]
-            zb_2 = grid[zb_f.idx - (zf_1.idx - zf_i.idx)]
-        
-            @test zf_1.val.val ≈ zb_2.val.val
-            @test zb_1.val.val ≈ zf_2.val.val
-        
-            for g_s in G
-                @test g_s[zf_1, zb_1] ≈ -conj(g_s[zf_2, zb_2])
-            end
-        end
-    end
-
-    # Symmetry between G_{M-} and G_{+M}
-
-    z_0 = grid[kd.imaginary_branch][1]
-    z_β = grid[kd.imaginary_branch][end]
-    β = im * z_β.val.val
-
-    N_op = total_density_operator(ed)
-    N = operator_matrix_representation(N_op, ed)
-
-    for zf in grid_bwd
-    
-        zb = grid[zf_f.idx - zf.idx + 1]
-        @test zf.val.val ≈ zb.val.val
-    
-        for τ in grid[kd.imaginary_branch]
-            τ_β = grid[z_β.idx - (τ.idx - z_0.idx)]
-            @test τ_β.val.val ≈ -im*β - τ.val.val 
-        
-            for (sidx, g_s) in enumerate(G)
-                ξ = (-1)^N[sidx][1, 1]
-                @test g_s[τ, zf] ≈ -ξ * conj(g_s[zb, τ_β])
-            end
-        end
-    end
-    return true
-end
 
 @testset "atomic ppgf" begin
 
