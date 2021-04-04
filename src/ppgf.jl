@@ -290,6 +290,46 @@ function set_matsubara(g, τ, value)
 end
 
 
+""" Set real-time ppgf symmetry connected time pairs
+
+NB! times has to be in the inching region with z2 ∈ backward_branch. """
+function set_ppgf_symmetric(G_s, n, z1, z2, val)
+
+    grid = G_s.grid
+    
+    grid_bwd = grid[kd.backward_branch]
+    zb_i, zb_f = grid_bwd[1], grid_bwd[end]
+
+    grid_fwd = grid[kd.forward_branch]
+    zf_i, zf_f = grid_fwd[1], grid_fwd[end]
+
+    z_0 = grid[kd.imaginary_branch][1]
+    z_β = grid[kd.imaginary_branch][end]    
+    
+    η = 1
+    
+    if z1.val.domain == kd.backward_branch && 
+       z2.val.domain == kd.backward_branch
+        z3 = grid[zf_f.idx - z2.idx + 1]
+        z4 = grid[zf_f.idx - z1.idx + 1]
+    elseif z1.val.domain == kd.imaginary_branch &&
+           z2.val.domain == kd.backward_branch
+        z3 = grid[zf_f.idx - z2.idx + 1]
+        z4 = grid[z_β.idx - (z1.idx - z_0.idx)]
+        η = -1
+    elseif z1.val.domain == kd.forward_branch &&
+           z2.val.domain == kd.backward_branch
+        z3 = grid[zf_f.idx - (z2.idx - zb_i.idx)]
+        z4 = grid[zb_f.idx - (z1.idx - zf_i.idx)]
+    else
+        @test false
+    end
+    
+    ξ = η^n[1, 1]
+    G_s[z3, z4] = -ξ * conj(val)
+    G_s[z1, z2] = val
+end
+
 end # module ppgf
 
 
