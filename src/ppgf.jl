@@ -271,6 +271,26 @@ function set_ppgf_initial_conditions(G)
 end
 
 
+function ppgf_real_time_initial_conditions(G::Vector{S}, ed::ked.EDCore) where {S <: kd.TimeGF}
+
+    N_op = total_density_operator(ed)
+    N = operator_matrix_representation(N_op, ed)
+
+    grid = G[1].grid
+    zb0 = grid[kd.backward_branch][end]
+    zf0 = grid[kd.forward_branch][1]
+    τ_0 = grid[kd.imaginary_branch][1]
+    τ_β = grid[kd.imaginary_branch][end]
+    
+    for (g, n) in zip(G, N)
+        for τ in grid[kd.imaginary_branch]
+            set_ppgf_symmetric(g, n, τ, zb0, g[τ, τ_0])
+        end
+        g[zf0, zb0] = (-1)^n[1,1] * g[τ_β, τ_0]
+    end
+end
+
+
 """Set all time translation invariant values of the Matsubara branch"""
 function set_matsubara(g, τ, value)
 
@@ -282,7 +302,7 @@ function set_matsubara(g, τ, value)
     sidx = τ.idx
     eidx = τ_beta.idx
     
-    for τ_1 in grid[sidx:eidx]
+    for τ_1 in g.grid[sidx:eidx]
         i1 = τ_1.idx
         i2 = τ_0.idx + τ_1.idx - τ.idx
         g[i1, i2] = value 
@@ -329,6 +349,34 @@ function set_ppgf_symmetric(G_s, n, z1, z2, val)
     G_s[z3, z4] = -ξ * conj(val)
     G_s[z1, z2] = val
 end
+
+
+function partition_function(G::Vector{S}) where {S <: kd.TimeGF}
+    Q = 0
+    for (s, G_s) in enumerate(G)
+        g_s = G_s[kd.imaginary_branch, kd.imaginary_branch]
+        g_s = vcat(g_s[:, 1]...)
+        Q += im * tr(g_s[end])
+    end
+    Q
+end
+
+
+function normalize(G::Vector{S}, β) where {S <: kd.TimeGF}
+    Z = partition_function(G)
+    λ = log(Z) / β
+    #tau_grid = G[1].grid[kd.imaginary_branch]
+    tau_grid = G[1].grid[kd.imaginary_branch]
+    τ_0 = tau_grid[1]
+    for (idx, τ) in enumerate(tau_grid)
+        for (s, G_s) in enumerate(G)
+            val = G[s][τ, τ_0] .* exp(-1im * τ.val.val * λ)
+            set_matsubara(G_s, τ, val)
+        end
+    end
+    G
+end
+
 
 end # module ppgf
 
