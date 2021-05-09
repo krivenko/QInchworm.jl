@@ -54,6 +54,12 @@ Compute atomic pseudo-particle Green's function on the time grid
 for a time-independent problem defined by the EDCore instance.
 """
 function atomic_ppgf(grid::TimeGrid, ed::EDCore, β::Real)
+    Z = partition_function(ed, β)
+    λ = log(Z) / β # Pseudo-particle chemical potential (enforcing Tr[G0(β)]=Tr[ρ]=1)
+    return atomic_ppgf(grid, ed, β, λ)
+end
+
+function atomic_ppgf(grid::TimeGrid, ed::EDCore, β::Real, λ::Real)
 
     G = Vector{TimeGF}()
 
@@ -61,8 +67,6 @@ function atomic_ppgf(grid::TimeGrid, ed::EDCore, β::Real)
     N = operator_matrix_representation(N_op, ed)
     z_β = grid[kd.imaginary_branch][end]
     
-    Z = partition_function(ed, β)
-    λ = log(Z) / β # Pseudo-particle chemical potential (enforcing Tr[G0(β)]=Tr[ρ]=1)
     
     for (s, E, n) in zip(ed.subspaces, energies(ed), N)
         G_s = TimeGF(grid, length(s))
@@ -93,7 +97,7 @@ the pseud-particle Green's function sandwitched in between.
   `c_i` is +1/-1 for creation/annihilation operator respectively, and 
   `o_i` is a spin-orbital index
 """
-function operator_product(ed::EDCore, G, s_i::Integer, z_i, z_f, vertices)
+function operator_product_depr(ed::EDCore, G, s_i::Integer, z_i, z_f, vertices)
 
     length(vertices) == 0 && return G[s_i][z_f, z_i]
 
@@ -127,6 +131,40 @@ function operator_product(ed::EDCore, G, s_i::Integer, z_i, z_f, vertices)
     s_a != s_i && return 0 * prod0
 
     prod
+end
+
+function operator_product(ed::EDCore, G, s_i::Integer, z_i, z_f, vertices)
+
+    length(vertices) == 0 && return G[s_i][z_f, z_i], s_i
+
+    s_a = s_i
+    (z_a, c_a, o_a) = vertices[1]
+
+    prod0 = im * G[s_a][z_a, z_i]
+    prod = prod0
+
+    for (vidx, (z_a, c_a, o_a)) in enumerate(vertices)
+
+        connection = c_a > 0 ? cdag_connection : c_connection
+        matrix = c_a > 0 ? cdag_matrix : c_matrix
+
+        s_b = connection(ed, o_a, s_a)
+        s_b == nothing && return 0 * prod0, -1
+
+        m_ba = matrix(ed, o_a, s_a)
+
+        if vidx < length(vertices)
+            z_b = vertices[vidx + 1][1]
+        else
+            z_b = z_f
+        end
+
+        prod = im * G[s_b][z_b, z_a] * m_ba * prod
+
+        s_a = s_b
+    end
+
+    prod, s_a
 end
 
 
@@ -178,8 +216,10 @@ function first_order_spgf(ppgf::Vector{S}, ed::ked.EDCore, o1, o2) where {S <: k
 
         for (sidx, s) in enumerate(ed.subspaces)
             ξ = (-1)^N[sidx][1, 1]
-            prod = operator_product(ed, ppgf, sidx, z_i, z_f, [v2, v1])            
-            g[z1, z2] += -im * sign * ξ^real_time * tr(prod)
+            prod, sidx_f = operator_product(ed, ppgf, sidx, z_i, z_f, [v2, v1])            
+            if sidx == sidx_f
+                g[z1, z2] += -im * sign * ξ^real_time * tr(prod)
+            end
         end
     end
     return g
