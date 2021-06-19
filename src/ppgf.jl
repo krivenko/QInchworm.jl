@@ -5,7 +5,7 @@ import Test.@test
 
 import LinearAlgebra: Diagonal, tr, I
 
-import Keldysh: TimeGrid, TimeGF
+import Keldysh: AbstractTimeGrid, GenericTimeGF
 import Keldysh; kd = Keldysh;
 
 import KeldyshED: EDCore, energies, partition_function
@@ -53,31 +53,30 @@ end
 Compute atomic pseudo-particle Green's function on the time grid
 for a time-independent problem defined by the EDCore instance.
 """
-function atomic_ppgf(grid::TimeGrid, ed::EDCore, β::Real)
+function atomic_ppgf(grid::AbstractTimeGrid, ed::EDCore, β::Real)
     Z = partition_function(ed, β)
     λ = log(Z) / β # Pseudo-particle chemical potential (enforcing Tr[G0(β)]=Tr[ρ]=1)
     return atomic_ppgf(grid, ed, β, λ)
 end
 
-function atomic_ppgf(grid::TimeGrid, ed::EDCore, β::Real, λ::Real)
+function atomic_ppgf(grid::AbstractTimeGrid, ed::EDCore, β::Real, λ::Real)
 
-    G = Vector{TimeGF}()
+    G = Vector{GenericTimeGF}()
 
     N_op = total_density_operator(ed)
     N = operator_matrix_representation(N_op, ed)
     z_β = grid[kd.imaginary_branch][end]
     
-    
     for (s, E, n) in zip(ed.subspaces, energies(ed), N)
-        G_s = TimeGF(grid, length(s))
+        G_s = GenericTimeGF(grid, length(s))
         ξ = (-1)^n[1,1] # Statistics sign
-        for z1 in grid, z2 in grid[1:z1.idx]
-            Δz = z1.val.val - z2.val.val
-            if z1.val.domain == kd.forward_branch && 
-               z2.val.domain != kd.forward_branch                
+        for z1 in grid, z2 in grid[1:z1.cidx]
+            Δz = z1.bpoint.val - z2.bpoint.val
+            if z1.bpoint.domain == kd.forward_branch && 
+               z2.bpoint.domain != kd.forward_branch                
                 Δz += -im*β
             end            
-            sign = ξ^(z1.idx > z_β.idx && z_β.idx >= z2.idx)
+            sign = ξ^(z1.cidx > z_β.cidx && z_β.cidx >= z2.cidx)
             G_s[z1, z2] = -im * sign * Diagonal(exp.(-im * Δz * (E .+ λ)))
         end
         push!(G, G_s)
@@ -172,10 +171,10 @@ end
 Compute the first order pseudi-particle diagram contribution to 
 the single-particle Green's function g_{o1, o2}(z, z')
 """
-function first_order_spgf(ppgf::Vector{S}, ed::ked.EDCore, o1, o2) where {S <: kd.TimeGF}
+function first_order_spgf(ppgf::Vector{S}, ed::ked.EDCore, o1, o2) where {S <: kd.GenericTimeGF}
 
     grid = ppgf[1].grid
-    g = kd.TimeGF(grid)
+    g = kd.GenericTimeGF(grid, 1, true)
     
     N_op = total_density_operator(ed)
     N = operator_matrix_representation(N_op, ed)
@@ -183,17 +182,17 @@ function first_order_spgf(ppgf::Vector{S}, ed::ked.EDCore, o1, o2) where {S <: k
     for z1 in grid, z2 in grid
         
         # Creation/annihilator operator commutation sign
-        sign = (-1)^(z1.idx < z2.idx)
+        sign = (-1)^(z1.cidx < z2.cidx)
 
         # Operator verticies
         v1 = (z1, -1, o1)
         v2 = (z2, +1, o2)
         
         # (twisted contour) time ordered operator verticies
-        v1, v2 = sort([v1, v2], by = x -> x[1].idx, rev=true)
+        v1, v2 = sort([v1, v2], by = x -> x[1].cidx, rev=true)
         
         # -- Determine start and end time on twisted contour
-        if z1.val.domain == kd.imaginary_branch && z2.val.domain == kd.imaginary_branch
+        if z1.bpoint.domain == kd.imaginary_branch && z2.bpoint.domain == kd.imaginary_branch
             # Equilibrium start at \tau = 0 and end at \tau = \beta
             real_time = false
             tau_grid = grid[kd.imaginary_branch]
@@ -203,14 +202,14 @@ function first_order_spgf(ppgf::Vector{S}, ed::ked.EDCore, o1, o2) where {S <: k
             real_time = true
 
             z_max = sort([z1, z2], 
-                by = x -> real(x.val.val) - (x.val.domain == kd.imaginary_branch))[end]
+                by = x -> real(x.bpoint.val) - (x.bpoint.domain == kd.imaginary_branch))[end]
             
-            if z_max.val.domain == kd.forward_branch
+            if z_max.bpoint.domain == kd.forward_branch
                 z_f = z_max
-                z_i = grid[1 + grid[end].idx - z_max.idx]
+                z_i = grid[1 + grid[end].cidx - z_max.cidx]
             else
                 z_i = z_max
-                z_f = grid[1 + grid[end].idx - z_max.idx]
+                z_f = grid[1 + grid[end].cidx - z_max.cidx]
             end
         end
 
@@ -239,16 +238,16 @@ function check_ppgf_real_time_symmetries(G, ed)
     # Symmetry between G_{--} and G_{++}
 
     for zb_1 in grid_bwd
-        for zb_2 in grid_bwd[1:zb_1.idx]
-            @test zb_1.idx >= zb_2.idx
+        for zb_2 in grid_bwd[1:zb_1.cidx]
+            @test zb_1.cidx >= zb_2.cidx
 
-            zf_1 = grid[zf_f.idx - zb_1.idx + 1]
-            zf_2 = grid[zf_f.idx - zb_2.idx + 1]
+            zf_1 = grid[zf_f.cidx - zb_1.cidx + 1]
+            zf_2 = grid[zf_f.cidx - zb_2.cidx + 1]
         
-            @test zb_1.val.val ≈ zf_1.val.val
-            @test zb_2.val.val ≈ zf_2.val.val
+            @test zb_1.bpoint.val ≈ zf_1.bpoint.val
+            @test zb_2.bpoint.val ≈ zf_2.bpoint.val
         
-            @test zf_2.idx >= zf_1.idx
+            @test zf_2.cidx >= zf_1.cidx
         
             for g_s in G
                 @test g_s[zb_1, zb_2] ≈ -conj(g_s[zf_2, zf_1])
@@ -259,13 +258,13 @@ function check_ppgf_real_time_symmetries(G, ed)
     # Symmetry along anti-diagonal of G_{+-}
 
     for zf_1 in grid_fwd
-        for zb_1 in grid_bwd[1:zf_f.idx - zf_1.idx + 1]
+        for zb_1 in grid_bwd[1:zf_f.cidx - zf_1.cidx + 1]
         
-            zf_2 = grid[zf_f.idx - (zb_1.idx - zb_i.idx)]
-            zb_2 = grid[zb_f.idx - (zf_1.idx - zf_i.idx)]
+            zf_2 = grid[zf_f.cidx - (zb_1.cidx - zb_i.cidx)]
+            zb_2 = grid[zb_f.cidx - (zf_1.cidx - zf_i.cidx)]
         
-            @test zf_1.val.val ≈ zb_2.val.val
-            @test zb_1.val.val ≈ zf_2.val.val
+            @test zf_1.bpoint.val ≈ zb_2.bpoint.val
+            @test zb_1.bpoint.val ≈ zf_2.bpoint.val
         
             for g_s in G
                 @test g_s[zf_1, zb_1] ≈ -conj(g_s[zf_2, zb_2])
@@ -277,19 +276,19 @@ function check_ppgf_real_time_symmetries(G, ed)
 
     z_0 = grid[kd.imaginary_branch][1]
     z_β = grid[kd.imaginary_branch][end]
-    β = im * z_β.val.val
+    β = im * z_β.bpoint.val
 
     N_op = total_density_operator(ed)
     N = operator_matrix_representation(N_op, ed)
 
     for zf in grid_bwd
     
-        zb = grid[zf_f.idx - zf.idx + 1]
-        @test zf.val.val ≈ zb.val.val
+        zb = grid[zf_f.cidx - zf.cidx + 1]
+        @test zf.bpoint.val ≈ zb.bpoint.val
     
         for τ in grid[kd.imaginary_branch]
-            τ_β = grid[z_β.idx - (τ.idx - z_0.idx)]
-            @test τ_β.val.val ≈ -im*β - τ.val.val 
+            τ_β = grid[z_β.cidx - (τ.cidx - z_0.cidx)]
+            @test τ_β.bpoint.val ≈ -im*β - τ.bpoint.val 
         
             for (sidx, g_s) in enumerate(G)
                 ξ = (-1)^N[sidx][1, 1]
@@ -311,7 +310,7 @@ function set_ppgf_initial_conditions(G)
 end
 
 
-function ppgf_real_time_initial_conditions(G::Vector{S}, ed::ked.EDCore) where {S <: kd.TimeGF}
+function ppgf_real_time_initial_conditions(G::Vector{S}, ed::ked.EDCore) where {S <: kd.GenericTimeGF}
 
     N_op = total_density_operator(ed)
     N = operator_matrix_representation(N_op, ed)
@@ -391,7 +390,7 @@ function set_ppgf_symmetric(G_s, n, z1, z2, val)
 end
 
 
-function partition_function(G::Vector{S}) where {S <: kd.TimeGF}
+function partition_function(G::Vector{S}) where {S <: kd.GenericTimeGF}
     Q = 0
     for (s, G_s) in enumerate(G)
         g_s = G_s[kd.imaginary_branch, kd.imaginary_branch]
@@ -402,7 +401,7 @@ function partition_function(G::Vector{S}) where {S <: kd.TimeGF}
 end
 
 
-function normalize(G::Vector{S}, β) where {S <: kd.TimeGF}
+function normalize(G::Vector{S}, β) where {S <: kd.GenericTimeGF}
     Z = partition_function(G)
     λ = log(Z) / β
     #tau_grid = G[1].grid[kd.imaginary_branch]

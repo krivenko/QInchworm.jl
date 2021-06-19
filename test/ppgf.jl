@@ -27,6 +27,9 @@ import QInchworm.ppgf: check_ppgf_real_time_symmetries
     B = +0.0 # Magnetic field
     μ = -0.1 # Chemical potential
 
+    nt = 10
+    ntau = 10
+
     # Hubbard-atom Hamiltonian
 
     H = U * (op.n("up") - 1/2) * (op.n("do") - 1/2) 
@@ -42,8 +45,8 @@ import QInchworm.ppgf: check_ppgf_real_time_symmetries
     
     # Real-time Kadanoff-Baym contour
     
-    contour = kd.twist(kd.Contour(kd.full_contour, tmax=30., β=β));
-    grid = kd.TimeGrid(contour, npts_real=10, npts_imag=10);
+    contour = kd.twist(kd.FullContour(tmax=30., β=β));
+    grid = kd.FullTimeGrid(contour, nt, ntau);
     
     # Single particle Green's function
     
@@ -79,8 +82,8 @@ import QInchworm.ppgf: check_ppgf_real_time_symmetries
 
     # -- Compute Tr[\rho c^+_1 c_2] using ED ρ and ppgf G0 cf spgf
 
-    g_ref = KeldyshED.computegf(ed, grid, [(d, d)], β)[1];
-    n_ref = kd.density(g_ref)[1]
+    g_ref = KeldyshED.computegf(ed, grid, d, d);
+    n_ref = im * g_ref[t_beta, t_0]
     
     idx1 = d
     idx2 = d
@@ -110,8 +113,10 @@ import QInchworm.ppgf: check_ppgf_real_time_symmetries
     
     for (o1, o2) in [(u, u), (u, d), (d, u), (d, d)]
         g = first_order_spgf(G0, ed, o1, o2);
-        g_ref = ked.computegf(ed, grid, [(o1, o2)], β)[1];
-        @test isapprox(g, g_ref, atol=1e-12, rtol=1-12)
+        g_ref = ked.computegf(ed, grid, o1, o2);
+        for z1 in grid, z2 in grid
+            @test isapprox(g[z1, z2], g_ref[z1, z2], atol=1e-12, rtol=1-12)
+        end
     end
     
 end
