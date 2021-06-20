@@ -53,13 +53,14 @@ end
 Compute atomic pseudo-particle Green's function on the time grid
 for a time-independent problem defined by the EDCore instance.
 """
-function atomic_ppgf(grid::AbstractTimeGrid, ed::EDCore, β::Real)
+function atomic_ppgf(grid::AbstractTimeGrid, ed::EDCore)
+    β = grid.contour.β
     Z = partition_function(ed, β)
     λ = log(Z) / β # Pseudo-particle chemical potential (enforcing Tr[G0(β)]=Tr[ρ]=1)
-    return atomic_ppgf(grid, ed, β, λ)
+    return atomic_ppgf(grid, ed, λ)
 end
 
-function atomic_ppgf(grid::AbstractTimeGrid, ed::EDCore, β::Real, λ::Real)
+function atomic_ppgf(grid::AbstractTimeGrid, ed::EDCore, λ::Real)
 
     G = Vector{GenericTimeGF}()
 
@@ -74,7 +75,7 @@ function atomic_ppgf(grid::AbstractTimeGrid, ed::EDCore, β::Real, λ::Real)
             Δz = z1.bpoint.val - z2.bpoint.val
             if z1.bpoint.domain == kd.forward_branch && 
                z2.bpoint.domain != kd.forward_branch                
-                Δz += -im*β
+                Δz += -im*grid.contour.β
             end            
             sign = ξ^(z1.cidx > z_β.cidx && z_β.cidx >= z2.cidx)
             G_s[z1, z2] = -im * sign * Diagonal(exp.(-im * Δz * (E .+ λ)))

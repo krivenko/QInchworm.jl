@@ -55,7 +55,7 @@ import QInchworm.ppgf: check_ppgf_real_time_symmetries
         
     # Atomic propagator G0, array of (matrix valued) TimeGF one for each ed subspace
 
-    G0 = atomic_ppgf(grid, ed, β)
+    G0 = atomic_ppgf(grid, ed)
     @test check_ppgf_real_time_symmetries(G0, ed)
     
     t_0, t_beta = kd.branch_bounds(grid, kd.imaginary_branch)
