@@ -15,6 +15,9 @@ const SectorGF = Vector{MatrixGF}
 const Operator = op.RealOperatorExpr
 const Operators = Vector{Operator}
 
+const OperatorBlocks = Dict{Tuple{Int64, Int64}, Matrix{Float64}}
+const SectorBlockMatrix = Dict{Int64, Tuple{Int64, Matrix{ComplexF64}}}
+
 import QInchworm.ppgf: atomic_ppgf
 
 @enum InteractionEnum pair_flag=1 determinant_flag=2 identity_flag=3
@@ -128,6 +131,19 @@ function eval(exp::Expansion, pairs::NodePairs)
     return val
 end
 
+function operator_to_sector_block_matrix(exp::Expansion, op::Operator)
+
+    sbm = SectorBlockMatrix()
+
+    op_blocks = ked.operator_blocks(exp.ed, op)
+
+    for ((s_f, s_i), mat) in op_blocks
+        sbm[s_i] = (s_f, mat)
+    end
+
+    return sbm
+end
+
 function operator(exp::Expansion, node::Node)
     op::Operator = Operator()
     if node.operator_ref.kind == pair_flag
@@ -139,34 +155,59 @@ function operator(exp::Expansion, node::Node)
     else
         throw(BoundsError())
     end
-    return op
+    return operator_to_sector_block_matrix(exp, op)
+end
+
+function Base.:*(A::SectorBlockMatrix, B::SectorBlockMatrix)
+    C = SectorBlockMatrix()
+    for (s_i, (s, B_mat)) in B
+        if haskey(A, s)
+            s_f, A_mat = A[s]
+            C[s_i] = (s_f, A_mat * B_mat)
+        end
+    end
+    return C
+end
+
+function sbm_from_ppgf(z2::Time, z1::Time, P::SectorGF)
+    M = SectorBlockMatrix()
+    for (sidx, p) in enumerate(P)
+        M[sidx] = (sidx, p(z2, z1))
+    end
+    return M
 end
 
 function eval(exp::Expansion, nodes::Nodes)
-    vals = Vector{Matrix{ComplexF64}}()
 
-#    for p0 in exp.P0
-#        n = kd.norbitals(p0)
-#        I_nn = Matrix(1.0*la.I, n, n)
-#        push!(vals, I_nn)
-#    end
+    println("------")
+    node = first(nodes)
+    val = operator(exp, node)
+    println(val)
 
-    for node in nodes
-        println(node)
+    prev_node = node
+    for (nidx, node) in enumerate(nodes[2:end])
+        println("------")
+        println("node = $node")
+
+        z1 = prev_node.time
+        z2 = node.time
+        println("z1 = $z1")
+        println("z2 = $z2")
+
         op = operator(exp, node)
-        println(op)
-        op_blocks = ked.operator_blocks(exp.ed, op)
-        print(op_blocks)        
+        println("op = $op")
+
+        p_val = sbm_from_ppgf(z2, z1, exp.P0)
+        println("p_val = $p_val")
+        
+        val = op * p_val * val
+        println(val)
+
+        prev_node = node
     end
-    
-    for (sidx, p0) in enumerate(exp.P0)
-        n = kd.norbitals(p0)
-        val = Matrix(1.0*la.I, n, n)
-        #for node in nodes
-        #end
-    end
-    
-    return vals
+    println("======")
+        
+    return val
 end
 
 function eval(exp::Expansion, conf::Configuration)
