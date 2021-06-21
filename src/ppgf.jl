@@ -303,7 +303,8 @@ end
 
 function set_ppgf_initial_conditions(G)
     for g in G
-        g.data .*= 0.
+        #g.data .*= 0.
+        g = zero(g)
         for z in g.grid
             g[z, z] += -im * I
         end
@@ -339,13 +340,16 @@ function set_matsubara(g, τ, value)
     τ_0 = tau_grid[1]
     τ_beta = tau_grid[end]
 
-    sidx = τ.idx
-    eidx = τ_beta.idx
+    sidx = τ.cidx
+    eidx = τ_beta.cidx
     
     for τ_1 in g.grid[sidx:eidx]
-        i1 = τ_1.idx
-        i2 = τ_0.idx + τ_1.idx - τ.idx
-        g[i1, i2] = value 
+        i1 = τ_1.cidx
+        i2 = τ_0.cidx + τ_1.cidx - τ.cidx
+        #g[i1, i2] = value 
+        t1 = g.grid[i1]
+        t2 = g.grid[i2]
+        g[t1, t2] = value 
     end
 end
 
@@ -368,19 +372,19 @@ function set_ppgf_symmetric(G_s, n, z1, z2, val)
     
     η = 1
     
-    if z1.val.domain == kd.backward_branch && 
-       z2.val.domain == kd.backward_branch
-        z3 = grid[zf_f.idx - z2.idx + 1]
-        z4 = grid[zf_f.idx - z1.idx + 1]
-    elseif z1.val.domain == kd.imaginary_branch &&
-           z2.val.domain == kd.backward_branch
-        z3 = grid[zf_f.idx - z2.idx + 1]
-        z4 = grid[z_β.idx - (z1.idx - z_0.idx)]
+    if z1.bpoint.domain == kd.backward_branch && 
+       z2.bpoint.domain == kd.backward_branch
+        z3 = grid[zf_f.cidx - z2.cidx + 1]
+        z4 = grid[zf_f.cidx - z1.cidx + 1]
+    elseif z1.bpoint.domain == kd.imaginary_branch &&
+           z2.bpoint.domain == kd.backward_branch
+        z3 = grid[zf_f.cidx - z2.cidx + 1]
+        z4 = grid[z_β.cidx - (z1.cidx - z_0.cidx)]
         η = -1
-    elseif z1.val.domain == kd.forward_branch &&
-           z2.val.domain == kd.backward_branch
-        z3 = grid[zf_f.idx - (z2.idx - zb_i.idx)]
-        z4 = grid[zb_f.idx - (z1.idx - zf_i.idx)]
+    elseif z1.bpoint.domain == kd.forward_branch &&
+           z2.bpoint.domain == kd.backward_branch
+        z3 = grid[zf_f.cidx - (z2.cidx - zb_i.cidx)]
+        z4 = grid[zb_f.cidx - (z1.cidx - zf_i.cidx)]
     else
         @test false
     end
@@ -410,7 +414,7 @@ function normalize(G::Vector{S}, β) where {S <: kd.GenericTimeGF}
     τ_0 = tau_grid[1]
     for (idx, τ) in enumerate(tau_grid)
         for (s, G_s) in enumerate(G)
-            val = G[s][τ, τ_0] .* exp(-1im * τ.val.val * λ)
+            val = G[s][τ, τ_0] .* exp(-1im * τ.bpoint.val * λ)
             set_matsubara(G_s, τ, val)
         end
     end
