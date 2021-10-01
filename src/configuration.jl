@@ -1,3 +1,6 @@
+
+module configuration
+
 import PyCall; PyCall.pygui(:tk);
 import PyPlot; const plt = PyPlot;
 
@@ -221,6 +224,7 @@ function eval(exp::Expansion, nodes::Nodes)
         
         op = operator(exp, node)
         P_interp = sbm_from_ppgf(node.time, prev_node.time, P)
+        
         val = (im * op * P_interp) * val
 
         prev_node = node
@@ -294,9 +298,8 @@ end
         plt.show()
     end
     
-    ip_1 = InteractionPair(op.c("0"), op.c_dag("0"), Δ)
-
-    ppsc_exp = Expansion(ed, grid, [ip_1])
+    ip = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
+    ppsc_exp = Expansion(ed, grid, [ip])
 
     # -- Plot
 
@@ -468,3 +471,5 @@ end
     end
     
 end
+
+end # module configuration
