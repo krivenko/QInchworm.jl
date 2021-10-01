@@ -7,6 +7,7 @@ import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 import QInchworm.ppgf
 
 import QInchworm; cfg = QInchworm.configuration
+
 import QInchworm.configuration: Expansion, InteractionPair
 import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePairs
 
@@ -135,12 +136,16 @@ import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePai
     # of the 0th site of the two-fermion system.
     
     H_ref = - μ * op.n("0") + V * op.c_dag("1") * op.c("0") + V * op.c_dag("0") * op.c("1") + ϵ * op.n("1")
-    soi_ref = KeldyshED.Hilbert.SetOfIndices([["0", "1"]]);
+    soi_ref = KeldyshED.Hilbert.SetOfIndices([["0"], ["1"]]);
     ed_ref = KeldyshED.EDCore(H_ref, soi_ref)
-    
+
     idx = KeldyshED.Hilbert.IndicesType(["0"])
     g_ref = KeldyshED.computegf(ed_ref, grid, idx, idx);
 
-    @test g[kd.imaginary_branch] ≈ g_ref[kd.imaginary_branch]
+    diff = maximum(abs.((g[:matsubara] - g_ref[:matsubara])/g_ref[:matsubara]))
+    println("diff = $diff")
+    
+    @test isapprox(g[:matsubara], g_ref[:matsubara], atol=0.05)
+    #@test g[kd.imaginary_branch, kd.imaginary_branch] ≈ g_ref[kd.imaginary_branch, kd.imaginary_branch]
 
 end
