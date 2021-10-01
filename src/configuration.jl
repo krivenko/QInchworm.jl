@@ -1,15 +1,12 @@
 
 module configuration
 
-import PyCall; PyCall.pygui(:tk);
-import PyPlot; const plt = PyPlot;
-
-using Test
-
-import LinearAlgebra; la = LinearAlgebra
-
 import Keldysh; kd = Keldysh
 import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
+
+import QInchworm.ppgf
+
+# -- Types
 
 const Time = kd.BranchPoint
 const Times = Vector{Time}
@@ -23,8 +20,6 @@ const Operators = Vector{Operator}
 
 const OperatorBlocks = Dict{Tuple{Int64, Int64}, Matrix{Float64}}
 const SectorBlockMatrix = Dict{Int64, Tuple{Int64, Matrix{ComplexF64}}}
-
-import QInchworm.ppgf
 
 @enum InteractionEnum pair_flag=1 determinant_flag=2 identity_flag=3 inch_flag=4
 
@@ -199,7 +194,7 @@ function Base.:*(A::SectorBlockMatrix, B::Number)
     return B * A
 end
 
-function sbm_from_ppgf(z2::Time, z1::Time, P::SectorGF)
+function sector_block_matrix_from_ppgf(z2::Time, z1::Time, P::SectorGF)
     M = SectorBlockMatrix()
     for (sidx, p) in enumerate(P)
         M[sidx] = (sidx, p(z2, z1))
@@ -223,7 +218,7 @@ function eval(exp::Expansion, nodes::Nodes)
         end
         
         op = operator(exp, node)
-        P_interp = sbm_from_ppgf(node.time, prev_node.time, P)
+        P_interp = sector_block_matrix_from_ppgf(node.time, prev_node.time, P)
         
         val = (im * op * P_interp) * val
 
@@ -235,241 +230,6 @@ end
 
 function eval(exp::Expansion, conf::Configuration)
   return eval(exp, conf.pairs) * eval(exp, conf.nodes)
-end
-
-@testset "node" begin
-
-    β = 10.
-
-    nt = 10
-    ntau = 30
-    tmax = 1.
-
-    # -- Single state
-    
-    V = -0.1 # Hybridization
-    μ = +0.1 # Chemical potential
-
-    H = - μ * op.n("0")
-    
-    # -- Exact Diagonalization solver
-    
-    soi = KeldyshED.Hilbert.SetOfIndices([["0"]]);
-    ed = KeldyshED.EDCore(H, soi)
-    ρ = KeldyshED.density_matrix(ed, β)
-    
-    # -- Real-time Kadanoff-Baym contour
-    
-    contour = kd.twist(kd.FullContour(tmax=tmax, β=β));
-    grid = kd.FullTimeGrid(contour, nt, ntau);
-    
-    # -- Propagators
-    
-    ϵ = +0.1
-    f = (t1, t2) -> -1.0im * (kd.heaviside(t1.bpoint, t2.bpoint)
-                    - kd.fermi(ϵ, contour.β)) * exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ)
-    
-    g_bath = kd.FullTimeGF(f, grid, 1, kd.fermionic, true)
-    
-    Δ = deepcopy(g_bath)
-    Δ.mat.data .*= V^2
-    Δ.rm.data .*= V^2
-    Δ.gtr.data .*= V^2
-    Δ.les.data .*= V^2
-
-    # -- Plotting
-    if false
-        τ = kd.imagtimes(grid)
-
-        plt.figure(figsize=(6, 3))
-        plt.subplot(1, 2, 1)
-        plt.plot(τ, g_bath[:matsubara], label=plt.L"$g_\varepsilon(\tau)$")
-        plt.xlabel(plt.L"$\tau$");
-        plt.legend(loc="lower right");
-        plt.ylim([-1., 0]);
-        
-        plt.subplot(1, 2, 2)
-        plt.plot(τ, Δ[:matsubara], label=plt.L"$\Delta(\tau) = V^2 g_\varepsilon$")
-        plt.xlabel(plt.L"$\tau$");
-        plt.legend(loc="lower right");
-        plt.ylim([-0.01, 0]);
-        plt.tight_layout()
-        
-        plt.show()
-    end
-    
-    ip = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
-    ppsc_exp = Expansion(ed, grid, [ip])
-
-    # -- Plot
-
-    if false        
-        plt.figure(figsize=(6, 4))
-        τ = kd.imagtimes(grid)
-        
-        for (s, P0_s) in enumerate(ppsc_exp.P0)
-            p0_s = P0_s[kd.imaginary_branch, kd.imaginary_branch]
-            p0_s = vcat(p0_s[:, 1]...)
-            plt.plot(τ, -imag(p0_s), "--", label="-Im[P0_$(s)]")
-            plt.plot(τ, real(p0_s), "-k")
-        end
-
-        plt.xlabel(plt.L"$\tau$")
-        plt.ylabel(plt.L"$\hat{G}(\tau)$");
-        plt.legend(); 
-        #plt.ylim([0, 1.1]);
-        plt.grid(true)
-        plt.show()
-    end
-
-    if false
-        # -- Explicit configuration
-        
-        im_branch = contour[kd.imaginary_branch]
-
-        zi = im_branch(0.0)
-        zf = im_branch(1.0)
-        zw = im_branch(0.5)
-
-        ni = Node(zi)
-        nf = Node(zf)
-        nw = InchNode(zw)
-
-        z1 = im_branch(0.2)
-        z2 = im_branch(0.6)
-        p1 = NodePair(z2, z1, 1)
-
-        z3 = im_branch(0.4)
-        z4 = im_branch(0.8)
-        p2 = NodePair(z4, z3, 1)
-
-        println("p1 = $p1")
-        println("p2 = $p2")
-        
-        conf = Configuration([nf, nw, ni], [p1, p2])
-
-        println("conf = $conf")
-        println("---")
-        println("conf.nodes = $(conf.nodes)")
-        println("---")
-        println("conf.pairs = $(conf.pairs)")
-        
-        val = eval(ppsc_exp, conf.pairs)
-        println(val)
-
-        vals = eval(ppsc_exp, conf.nodes)
-        println(vals)
-    end
-    
-    # -- 1st order inching
-    
-    tau_grid = grid[kd.imaginary_branch]
-    τ_0 = tau_grid[1]
-    τ_beta = tau_grid[end]
-
-    Δτ = -imag(tau_grid[2].bpoint.val - tau_grid[1].bpoint.val)
-
-    ni = Node(τ_0.bpoint)
-    
-    for (fidx, τ_f) in enumerate(tau_grid[2:end])
-
-        τ_w = tau_grid[fidx]
-
-        println("fidx = $fidx, τ_f = $(τ_f)")
-
-        nf = Node(τ_f.bpoint)
-        nw = InchNode(τ_w.bpoint)
-
-        conf0 = Configuration([nf, nw, ni], NodePairs())
-        val = eval(ppsc_exp, conf0)
-
-        for τ_1 in tau_grid[1:fidx]
-
-            n1 = Node(τ_1.bpoint)
-            
-            begin
-                p = NodePair(nf.time, n1.time, 1)
-                conf = Configuration([nf, nw, ni], [p])
-                val += + im * Δτ^2 * eval(ppsc_exp, conf)
-            end
-            
-            begin
-                p = NodePair(n1.time, nf.time, 1)
-                conf = Configuration([nf, nw, ni], [p])
-                val += - im * Δτ^2 * eval(ppsc_exp, conf)
-            end
-
-        end
-
-        for (s, P_s) in enumerate(ppsc_exp.P)
-            sf, mat = val[s]
-            ppgf.set_matsubara(P_s, τ_f, mat)
-        end
-
-    end
-
-    Z = ppgf.partition_function(ppsc_exp.P)
-    λ = log(Z) / β
-
-    ppgf.normalize(ppsc_exp.P, β);
-    
-        
-    
-    # -- Plot
-
-    if true
-        plt.figure(figsize=(6, 4))
-        τ = kd.imagtimes(grid)
-        
-        for (s, P0_s) in enumerate(ppsc_exp.P0)
-            p0_s = P0_s[kd.imaginary_branch, kd.imaginary_branch]
-            p0_s = vcat(p0_s[:, 1]...)
-            plt.plot(τ, -imag(p0_s), "--", label="-Im[P0_$(s)]")
-            plt.plot(τ, real(p0_s), "-k")
-        end
-
-        for (s, P_s) in enumerate(ppsc_exp.P)
-            p_s = P_s[kd.imaginary_branch, kd.imaginary_branch]
-            p_s = vcat(p_s[:, 1]...)
-            plt.plot(τ, -imag(p_s), "-", label="-Im[P_$(s)]")
-            plt.plot(τ, real(p_s), "-k")
-        end
-        
-        plt.xlabel(plt.L"$\tau$")
-        plt.ylabel(plt.L"$\hat{G}(\tau)$");
-        plt.legend(); 
-        #plt.ylim([0, 1.1]);
-        plt.grid(true)
-        plt.show()
-    end
-    
-    # --
-    
-    if false
-        im_branch = contour[kd.imaginary_branch]
-    
-        zi = im_branch(0.)
-        zf = im_branch(1.)
-        println(zi)
-        println(zf)
-
-        z1 = im_branch(0.2)
-        z2 = im_branch(0.8)
-
-        int_idx = 1
-        op_idx = 1
-        op_ref = OperatorReference(pair, int_idx, op_idx)
-        println(op_ref)
-        
-        n1 = Node(z1, op_ref)
-        n2 = Node(z2, op_ref)
-        println(n1)
-        println(n2)
-        
-        ip_idx = 1
-        p = NodePair(z2, z1, ip_idx)
-    end
-    
 end
 
 end # module configuration
