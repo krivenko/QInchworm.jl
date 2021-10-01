@@ -62,7 +62,7 @@ import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePai
 
     Δτ = -imag(tau_grid[2].bpoint.val - tau_grid[1].bpoint.val)
 
-    ni = Node(τ_0.bpoint)
+    n_0 = Node(τ_0.bpoint)
     
     for (fidx, τ_f) in enumerate(tau_grid[2:end])
 
@@ -70,27 +70,22 @@ import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePai
 
         #println("fidx = $fidx, τ_f = $(τ_f)")
 
-        nf = Node(τ_f.bpoint)
-        nw = InchNode(τ_w.bpoint)
-
-        conf0 = Configuration([nf, nw, ni], NodePairs())
-        val = cfg.eval(ppsc_exp, conf0)
+        n_f = Node(τ_f.bpoint)
+        n_w = InchNode(τ_w.bpoint)
+        nodes = [n_f, n_w, n_0]
+        
+        conf_0 = Configuration(nodes, NodePairs())
+        val = cfg.eval(ppsc_exp, conf_0)
 
         for τ_1 in tau_grid[1:fidx]
 
-            n1 = Node(τ_1.bpoint)
-            
-            begin
-                p = NodePair(nf.time, n1.time, 1)
-                conf = Configuration([nf, nw, ni], [p])
-                val += + im * Δτ^2 * cfg.eval(ppsc_exp, conf)
-            end
-            
-            begin
-                p = NodePair(n1.time, nf.time, 1)
-                conf = Configuration([nf, nw, ni], [p])
-                val += - im * Δτ^2 * cfg.eval(ppsc_exp, conf)
-            end
+            p_fwd = NodePair(n_f.time, τ_1.bpoint, 1)
+            conf_1_fwd = Configuration(nodes, [p_fwd])
+            val += Δτ^2 * cfg.eval(ppsc_exp, conf_1_fwd)
+ 
+            p_bwd = NodePair(τ_1.bpoint, n_f.time, 1)
+            conf_1_bwd = Configuration(nodes, [p_bwd])
+            val += Δτ^2 * cfg.eval(ppsc_exp, conf_1_bwd)            
 
         end
 

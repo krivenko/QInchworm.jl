@@ -6,6 +6,19 @@ import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 import QInchworm.ppgf
 
+# -- Exports
+
+#export Expansion
+#export InteractionEnum
+#export InteractionPair, InteractionPairs
+#export InteractionDeterminant, InteractionDeterminants
+
+#export Configuration
+#export InchNode
+#export Node, Nodes
+#export NodePair, NodePairs
+#export Determinant, Determinants
+
 # -- Types
 
 const Time = kd.BranchPoint
@@ -132,10 +145,28 @@ struct Configuration
     end
 end
 
+function Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint)
+    if t1.domain > t2.domain
+        return true
+    elseif t2.domain < t2.domain
+        return false
+    else # same domain
+        if t1.domain == kd.forward_branch
+            return real(t1.val) < real(t2.val)
+        elseif t1.domain == kd.backward_branch
+            return real(t1.val) > real(t2.val)
+        else
+            return imag(t1.val) > imag(t2.val)
+        end
+    end
+end
+
 function eval(exp::Expansion, pairs::NodePairs)
     val::ComplexF64 = 1.
     for pair in pairs
-        val *= exp.pairs[pair.index].propagator(pair.time_f, pair.time_i)
+        #val *= exp.pairs[pair.index].propagator(pair.time_f, pair.time_i)
+        sign = (-1.)^(pair.time_f < pair.time_i)
+        val *= im * sign * exp.pairs[pair.index].propagator(pair.time_f, pair.time_i)
     end
     return val
 end
@@ -229,7 +260,7 @@ function eval(exp::Expansion, nodes::Nodes)
 end
 
 function eval(exp::Expansion, conf::Configuration)
-  return eval(exp, conf.pairs) * eval(exp, conf.nodes)
+    return eval(exp, conf.pairs) * eval(exp, conf.nodes)
 end
 
 end # module configuration
