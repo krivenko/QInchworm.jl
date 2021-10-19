@@ -8,3 +8,4 @@
 #end
 
 include("ppgf.jl")
+include("nca_equil.jl")
