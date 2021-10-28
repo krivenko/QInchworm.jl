@@ -11,7 +11,6 @@ import QInchworm; cfg = QInchworm.configuration
 import QInchworm.configuration: Expansion, InteractionPair
 import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePairs
 
-
 @testset "nca_equil" begin
 
     # -- Single state

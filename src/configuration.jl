@@ -145,6 +145,7 @@ struct Configuration
     end
 end
 
+# TODO: Can we use kd.heaviside() instead?
 function Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint)
     if t1.domain > t2.domain
         return true
@@ -239,23 +240,23 @@ function eval(exp::Expansion, nodes::Nodes)
     val = operator(exp, node)
 
     P = exp.P # Inch with dressed ppsc propagator from start
-    
+
     prev_node = node
-    
+
     for (nidx, node) in enumerate(nodes[2:end])
 
         if is_inch_node(prev_node)
             P = exp.P0 # Inch with bare ppsc propagator after inch time node
         end
-        
+
         op = operator(exp, node)
         P_interp = sector_block_matrix_from_ppgf(node.time, prev_node.time, P)
-        
+
         val = (im * op * P_interp) * val
 
         prev_node = node
     end
-        
+
     return -im * val
 end
 

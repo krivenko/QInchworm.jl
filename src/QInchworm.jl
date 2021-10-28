@@ -6,5 +6,6 @@ module QInchworm
 
 include("ppgf.jl")
 include("configuration.jl")
+include("qmc_integrate.jl")
 
 end # module QInchworm
