@@ -66,7 +66,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral
     τ_0 = tau_grid[1]
     τ_beta = tau_grid[end]
 
-    Δτ = -imag(tau_grid[2].bpoint.val - tau_grid[1].bpoint.val)
+    Δτ = -imag(step(grid, kd.imaginary_branch))
 
     n_0 = Node(τ_0.bpoint)
 

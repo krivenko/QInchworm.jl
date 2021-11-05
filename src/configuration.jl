@@ -222,6 +222,14 @@ function Base.:*(A::Number, B::SectorBlockMatrix)
     return C
 end
 
+function Base.zero(A::SectorBlockMatrix)
+    Z = SectorBlockMatrix()
+    for (s_i, (s_f, A_mat)) in A
+        Z[s_i] = (s_f, zero(A_mat))
+    end
+    return Z
+end
+
 function Base.:*(A::SectorBlockMatrix, B::Number)
     return B * A
 end
