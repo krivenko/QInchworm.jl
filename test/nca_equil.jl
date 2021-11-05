@@ -11,6 +11,8 @@ import QInchworm; cfg = QInchworm.configuration
 import QInchworm.configuration: Expansion, InteractionPair
 import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePairs
 
+import QInchworm.qmc_integrate: qmc_time_ordered_integral
+
 @testset "nca_equil" begin
 
     # -- Single state
@@ -25,6 +27,10 @@ import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePai
     nt = 10
     ntau = 30
     tmax = 1.
+
+    # -- Quasi Monte Carlo
+    N = 10000
+    τ_qmc = 10
 
     # -- Exact Diagonalization
 
@@ -50,6 +56,7 @@ import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePai
 
     ip = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
     ppsc_exp = Expansion(ed, grid, [ip])
+    ppsc_exp_qmc = Expansion(ed, grid, [ip])
 
     # -----------------------
     # -- 1st order inching --
@@ -74,6 +81,10 @@ import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePai
         conf_0 = Configuration(nodes, NodePairs())
         val = cfg.eval(ppsc_exp, conf_0)
 
+        # -----------------------------
+        # -- Riemann sum integration --
+        # -----------------------------
+
         for τ_1 in tau_grid[1:fidx]
 
             p_fwd = NodePair(n_f.time, τ_1.bpoint, 1)
@@ -91,12 +102,34 @@ import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePai
             ppgf.set_matsubara(P_s, τ_f, mat)
         end
 
+        # -----------------------------------
+        # -- Quasi Monte Carlo integration --
+        # -----------------------------------
+
+        val = qmc_time_ordered_integral(1,
+                                        contour,
+                                        tau_grid[1].bpoint,
+                                        tau_grid[fidx].bpoint,
+                                        init = cfg.eval(ppsc_exp, conf_0),
+                                        τ = τ_qmc,
+                                        N = N) do τ_1
+            conf_1_fwd = Configuration(nodes, [NodePair(n_f.time, τ_1[1], 1)])
+            conf_1_bwd = Configuration(nodes, [NodePair(τ_1[1], n_f.time, 1)])
+            cfg.eval(ppsc_exp_qmc, conf_1_fwd) + cfg.eval(ppsc_exp_qmc, conf_1_bwd)
+        end
+
+        for (s, P_s) in enumerate(ppsc_exp_qmc.P)
+            sf, mat = val[s]
+            ppgf.set_matsubara(P_s, τ_f, mat)
+        end
+
     end
+
+    ppgf.normalize!(ppsc_exp.P, β)
+    ppgf.normalize!(ppsc_exp_qmc.P, β)
 
     Z = ppgf.partition_function(ppsc_exp.P)
     λ = log(Z) / β
-
-    ppgf.normalize!(ppsc_exp.P, β)
 
     # ---------------------
     # -- Regression test --
@@ -105,13 +138,17 @@ import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePai
     τ_i = grid[kd.imaginary_branch][1]
     τ_f = grid[kd.imaginary_branch][end]
 
-    @show ppsc_exp.P[1][τ_f, τ_i] + ppsc_exp.P[2][τ_f, τ_i]
-    @show ppsc_exp.P[1][τ_f, τ_i]
-    @show ppsc_exp.P[2][τ_f, τ_i]
-
     @test ppsc_exp.P[1][τ_f, τ_i] + ppsc_exp.P[2][τ_f, τ_i] ≈ [-im]
     @test ppsc_exp.P[1][τ_f, τ_i][1, 1] ≈ 0.0 - 0.7105404445143371im
     @test ppsc_exp.P[2][τ_f, τ_i][1, 1] ≈ 0.0 - 0.289459555485663im
+
+    @test ppsc_exp_qmc.P[1][τ_f, τ_i] + ppsc_exp_qmc.P[2][τ_f, τ_i] ≈ [-im]
+    @test isapprox(ppsc_exp_qmc.P[1][τ_f, τ_i][1, 1],
+                   0.0 - 0.7148059067403563im,
+                   atol=1e-3)
+    @test isapprox(ppsc_exp_qmc.P[2][τ_f, τ_i][1, 1],
+                   0.0 - 0.2851940932596436im,
+                   atol=1e-3)
 
     # -- Single particle Green's function
 

@@ -101,19 +101,25 @@ exp_p_norm(τ::Real, d::Int) = τ^d
     Quasi Monte Carlo integration with warping.
 
     `f`      Integrand.
+    `init`   Initial value of the integral.
     `p`      Positive model function p_n(u).
     `p_norm` Integral of p_n(u) over the u-domain.
     `trans`  Transformation from x ∈ [0,1]^d onto the u-domain.
     `seq`    Pseudo-random sequence generator.
     `N`      The number of taken samples.
 """
-function qmc_integral(f, p, p_norm, trans, seq, N::Int)
+function qmc_integral(f, init = zero(typeof(f(trans(0))));
+                      p, p_norm, trans, seq, N::Int)
     # Eq. (5)
-    (p_norm / N) * (sum(1:N) do i
+    res = init
+    for i = 1:N
         x = next!(seq)
         u = trans(x)
-        f(u) / p(u)
-    end)
+        f_val = f(u)
+        if isnothing(f_val) continue end
+        res += f_val * (1.0 / p(u))
+    end
+    (p_norm / N) * res
 end
 
 const branch_direction = Dict(
@@ -132,20 +138,22 @@ raw"""
 
     TODO: What about matrix-valued integrands?
 
-    `f`   Integrand.
-    `c`   Time contour to integrate over.
-    `t_i` Starting time point on the contour.
-    `t_f` Final time point on the contour.
-    `τ`   Decay parameter of the exponential model function.
-    `d`   Dimensionality of the integral.
-    `N`   The number of taken samples.
+    `f`    Integrand.
+    `d`    Dimensionality of the integral.
+    `c`    Time contour to integrate over.
+    `t_i`  Starting time point on the contour.
+    `t_f`  Final time point on the contour.
+    `init` Initial value of the integral.
+    `τ`    Decay parameter of the exponential model function.
+    `N`    The number of taken samples.
 """
 function qmc_time_ordered_integral(f,
+                                   d::Int,
                                    c::kd.AbstractContour,
                                    t_i::kd.BranchPoint,
-                                   t_f::kd.BranchPoint,
+                                   t_f::kd.BranchPoint;
+                                   init = zero(typeof(f(repeat([t_i], d)))),
                                    τ::Real,
-                                   d::Int,
                                    N::Int)
     @assert kd.heaviside(c, t_f, t_i)
 
@@ -158,8 +166,13 @@ function qmc_time_ordered_integral(f,
 
     u_i = get_ref(c, t_i)
 
-    qmc_integral(p_d, p_d_norm, trans, seq, N) do refs
-        refs[end] < u_i && return 0. # Discard irrelevant reference values
+    qmc_integral(init,
+                 p = p_d,
+                 p_norm = p_d_norm,
+                 trans = trans,
+                 seq = seq,
+                 N = N) do refs
+        refs[end] < u_i && return nothing # Discard irrelevant reference values
         t_points = [c(r) for r in refs]
         coeff = prod(t -> branch_direction[t.domain], t_points)
         coeff * f(t_points)
