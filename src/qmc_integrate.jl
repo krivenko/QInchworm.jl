@@ -136,14 +136,13 @@ raw"""
 
     using the Sobol sequence for pseudo-random sampling.
 
-    TODO: What about matrix-valued integrands?
-
     `f`    Integrand.
     `d`    Dimensionality of the integral.
     `c`    Time contour to integrate over.
     `t_i`  Starting time point on the contour.
     `t_f`  Final time point on the contour.
     `init` Initial value of the integral.
+    `seq`  Quasi-random sequence generator.
     `τ`    Decay parameter of the exponential model function.
     `N`    The number of taken samples.
 """
@@ -153,12 +152,11 @@ function qmc_time_ordered_integral(f,
                                    t_i::kd.BranchPoint,
                                    t_f::kd.BranchPoint;
                                    init = zero(typeof(f(repeat([t_i], d)))),
+                                   seq = SobolSeq(d),
                                    τ::Real,
                                    N::Int)
     @assert kd.heaviside(c, t_f, t_i)
 
-    # Pseudo-random sequence generator.
-    seq = SobolSeq(d)
     # Model function, its norm and the x -> u transformation
     p_d = make_exp_model_function(c, t_f, τ, d)
     p_d_norm = exp_p_norm(τ, d)
