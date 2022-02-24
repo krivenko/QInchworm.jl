@@ -71,14 +71,17 @@ function atomic_ppgf(grid::AbstractTimeGrid, ed::EDCore, λ::Real)
     for (s, E, n) in zip(ed.subspaces, energies(ed), N)
         G_s = GenericTimeGF(grid, length(s))
         ξ = (-1)^n[1,1] # Statistics sign
-        for z1 in grid, z2 in grid[1:z1.cidx]
-            Δz = z1.bpoint.val - z2.bpoint.val
-            if z1.bpoint.domain == kd.forward_branch &&
-               z2.bpoint.domain != kd.forward_branch
-                Δz += -im*grid.contour.β
-            end
-            sign = ξ^(z1.cidx > z_β.cidx && z_β.cidx >= z2.cidx)
-            G_s[z1, z2] = -im * sign * Diagonal(exp.(-im * Δz * (E .+ λ)))
+	#for z1 in grid, z2 in grid[1:z1.cidx]
+        Threads.@threads for z1 in grid
+	    for z2 in grid[1:z1.cidx]
+                Δz = z1.bpoint.val - z2.bpoint.val
+                if z1.bpoint.domain == kd.forward_branch &&
+                    z2.bpoint.domain != kd.forward_branch
+                    Δz += -im*grid.contour.β
+                end
+                sign = ξ^(z1.cidx > z_β.cidx && z_β.cidx >= z2.cidx)
+                G_s[z1, z2] = -im * sign * Diagonal(exp.(-im * Δz * (E .+ λ)))
+	    end
         end
         push!(G, G_s)
     end
