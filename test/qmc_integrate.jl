@@ -2,9 +2,9 @@ using Test
 
 import Keldysh; kd = Keldysh
 
-import QInchworm.qmc_integrate: get_ref, qmc_time_ordered_integral
+import QInchworm.qmc_integrate: get_ref, qmc_time_ordered_integral, qmc_time_ordered_integral_n_samples
 
-@testset "qmc_integrate" begin
+@testset verbose=true "qmc_integrate" begin
 
     tmax = 1.
     β = 5.
@@ -12,73 +12,179 @@ import QInchworm.qmc_integrate: get_ref, qmc_time_ordered_integral
     # -- Real-time Kadanoff-Baym contour
     contour = kd.twist(kd.FullContour(tmax=tmax, β=β));
 
-    # ---------------
-    # -- get_ref() --
-    # ---------------
-
-    for ref in [0.0, 0.5, 2.0, 5.0, 5.5, 6.5]
-        @test get_ref(contour, contour(ref)) == ref
+    @testset "get_ref()" begin
+        for ref in [0.0, 0.5, 2.0, 5.0, 5.5, 6.5]
+            @test get_ref(contour, contour(ref)) == ref
+        end
     end
 
-    # ---------------------------------
-    # -- qmc_time_ordered_integral() --
-    # ---------------------------------
+    @testset "qmc_time_ordered_integral()" begin
 
-    τ = 5.0
+        τ = 5.0
 
-    # d = 1, constant integrand
-    let d = 1, f = t -> 1.0, c = contour, N = 200000
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(0.5); τ=τ, N=N),
-                       -0.4, rtol=1e-4)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(2.0); τ=τ, N=N),
-                       -0.9-1.0im, rtol=1e-4)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(5.0); τ=τ, N=N),
-                       -0.9-4.0im, rtol=1e-4)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(6.5); τ=τ, N=N),
-                       -0.4-5.0im, rtol=1e-4)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(6.9); τ=τ, N=N),
-                       -5.0im, rtol=1e-4)
+        @testset "d = 1, constant integrand" begin
+            let d = 1, f = t -> 1.0, c = contour, N = 200000
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(0.5); τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, -0.4, rtol=1e-4)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(2.0); τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, -0.9-1.0im, rtol=1e-4)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(5.0); τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, -0.9-4.0im, rtol=1e-4)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(6.5); τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, -0.4-5.0im, rtol=1e-4)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(6.9); τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, -5.0im, rtol=1e-4)
+            end
+        end
+
+        @testset "d = 1, linear in t integrand" begin
+            let d = 1, f = t -> t[1].val, c = contour, N = 200000
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(0.5), τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, -0.28, rtol=1e-4)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(2.0), τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, -0.905, rtol=1e-4)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(5.0), τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, -8.405, rtol=1e-4)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(6.5), τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, -12.78, rtol=1e-4)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(6.9), τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, -12.5, rtol=1e-4)
+            end
+        end
+
+        @testset "d = 2, constant integrand" begin
+            let d = 2, f = t -> 1.0, c = contour, N = 500000
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(0.5), τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, 0.08, rtol=5e-3)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(2.0), τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, -0.095+0.9im, rtol=5e-3)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(5.0), τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, -7.595+3.6im, rtol=5e-3)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(6.5), τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, -12.42+2.0im, rtol=5e-3)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(6.9), τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, -12.5, rtol=5e-3)
+            end
+        end
+
+        @testset "d = 2, bilinear in t1, t2 integrand" begin
+            let d = 2, f = t -> t[1].val * t[2].val, c = contour, N = 1000000
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(0.5), τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, 0.0392, rtol=5e-3)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(2.0), τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, 0.409513, rtol=5e-3)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(5.0), τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, 35.322, rtol=5e-3)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(6.5), τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, 81.6642, rtol=5e-3)
+                val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(6.9), τ=τ, N=N)
+                @show N_samples / N
+                @test isapprox(val, 78.125, rtol=5e-3)
+            end
+        end
     end
 
-    # d = 1, linear in t integrand
-    let d = 1, f = t -> t[1].val, c = contour, N = 200000
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(0.5), τ=τ, N=N),
-                       -0.28, rtol=1e-4)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(2.0), τ=τ, N=N),
-                       -0.905, rtol=1e-4)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(5.0), τ=τ, N=N),
-                       -8.405, rtol=1e-4)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(6.5), τ=τ, N=N),
-                       -12.78, rtol=1e-4)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(6.9), τ=τ, N=N),
-                       -12.5, rtol=1e-4)
-    end
+    @testset "qmc_time_ordered_integral_n_samples()" begin
 
-    # d = 2, constant integrand
-    let d = 2, f = t -> 1.0, c = contour, N = 500000
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(0.5), τ=τ, N=N),
-                       0.08, rtol=5e-3)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(2.0), τ=τ, N=N),
-                       -0.095+0.9im, rtol=5e-3)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(5.0), τ=τ, N=N),
-                       -7.595+3.6im, rtol=5e-3)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(6.5), τ=τ, N=N),
-                       -12.42+2.0im, rtol=5e-3)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(6.9), τ=τ, N=N),
-                       -12.5, rtol=5e-3)
-    end
+        τ = 5.0
 
-    # d = 2, bilinear in t1, t2 integrand
-    let d = 2, f = t -> t[1].val * t[2].val, c = contour, N = 1000000
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(0.5), τ=τ, N=N),
-                       0.0392, rtol=5e-3)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(2.0), τ=τ, N=N),
-                       0.409513, rtol=5e-3)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(5.0), τ=τ, N=N),
-                       35.322, rtol=5e-3)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(6.5), τ=τ, N=N),
-                       81.6642, rtol=5e-3)
-        @test isapprox(qmc_time_ordered_integral(f, d, c, c(0.1), c(6.9), τ=τ, N=N),
-                       78.125, rtol=5e-3)
+        @testset "d = 1, constant integrand" begin
+            let d = 1, f = t -> 1.0, c = contour, N_samples = 50000
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(0.5); τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, -0.4, rtol=1e-4)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(2.0); τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, -0.9-1.0im, rtol=1e-4)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(5.0); τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, -0.9-4.0im, rtol=1e-4)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(6.5); τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, -0.4-5.0im, rtol=1e-4)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(6.9); τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, -5.0im, rtol=1e-4)
+            end
+        end
+
+        @testset "d = 1, linear in t integrand" begin
+            let d = 1, f = t -> t[1].val, c = contour, N_samples = 50000
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(0.5), τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, -0.28, rtol=1e-4)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(2.0), τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, -0.905, rtol=1e-4)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(5.0), τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, -8.405, rtol=1e-4)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(6.5), τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, -12.78, rtol=1e-4)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(6.9), τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, -12.5, rtol=1e-4)
+            end
+        end
+
+        @testset "d = 2, constant integrand" begin
+            let d = 2, f = t -> 1.0, c = contour, N_samples = 50000
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(0.5), τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, 0.08, rtol=5e-3)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(2.0), τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, -0.095+0.9im, rtol=5e-3)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(5.0), τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, -7.595+3.6im, rtol=5e-3)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(6.5), τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, -12.42+2.0im, rtol=5e-3)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(6.9), τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, -12.5, rtol=5e-3)
+            end
+        end
+
+        @testset "d = 2, bilinear in t1, t2 integrand" begin
+            let d = 2, f = t -> t[1].val * t[2].val, c = contour, N_samples = 50000
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(0.5), τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, 0.0392, rtol=5e-3)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(2.0), τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, 0.409513, rtol=5e-3)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(5.0), τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, 35.322, rtol=5e-3)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(6.5), τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, 81.6642, rtol=5e-3)
+                val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(6.9), τ=τ, N_samples=N_samples)
+                @show N_samples / N
+                @test isapprox(val, 78.125, rtol=5e-3)
+            end
+        end
     end
 end

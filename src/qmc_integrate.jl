@@ -61,11 +61,6 @@ function make_exp_model_function(c::kd.AbstractContour,
     u::Vector{Float64} -> begin
         # Transformation u -> v
 
-        #v = similar(u)
-        #v[1] = u_f - u[1]
-        #v[2:end] = -diff(u)
-        #exp(-sum(v) / τ)
-
         # Simplification: \sum_i exp(-v_i / τ) = exp(-(u_f - u[end]) / τ)
         exp(-(u_f - u[end]) / τ)
     end
@@ -105,8 +100,8 @@ exp_p_norm(τ::Real, d::Int) = τ^d
     `p`      Positive model function p_n(u).
     `p_norm` Integral of p_n(u) over the u-domain.
     `trans`  Transformation from x ∈ [0,1]^d onto the u-domain.
-    `seq`    Pseudo-random sequence generator.
-    `N`      The number of taken samples.
+    `seq`    Quasi-random sequence generator.
+    `N`      The number of points taken from the quasi-random sequence.
 """
 function qmc_integral(f, init = zero(typeof(f(trans(0))));
                       p, p_norm, trans, seq, N::Int)
@@ -118,6 +113,38 @@ function qmc_integral(f, init = zero(typeof(f(trans(0))));
         f_val = f(u)
         if isnothing(f_val) continue end
         res += f_val * (1.0 / p(u))
+    end
+    (p_norm / N) * res
+end
+
+"""
+    Quasi Monte Carlo integration with warping.
+
+    This function takes a specified number of valid samples of the integrand.
+    `nothing` returned by the integrand does not count towards this number.
+
+    `f`         Integrand.
+    `init`      Initial value of the integral.
+    `p`         Positive model function p_n(u).
+    `p_norm`    Integral of p_n(u) over the u-domain.
+    `trans`     Transformation from x ∈ [0,1]^d onto the u-domain.
+    `seq`       Quasi-random sequence generator.
+    `N_samples` The number of taken samples.
+"""
+function qmc_integral_n_samples(f, init = zero(typeof(f(trans(0))));
+                                p, p_norm, trans, seq, N_samples::Int)
+    # Eq. (5)
+    res = init
+    i = 1
+    N = 0
+    while i <= N_samples
+        N += 1
+        x = next!(seq)
+        u = trans(x)
+        f_val = f(u)
+        if isnothing(f_val) continue end
+        res += f_val * (1.0 / p(u))
+        i += 1
     end
     (p_norm / N) * res
 end
@@ -144,7 +171,7 @@ raw"""
     `init` Initial value of the integral.
     `seq`  Quasi-random sequence generator.
     `τ`    Decay parameter of the exponential model function.
-    `N`    The number of taken samples.
+    `N`    The number of points taken from the quasi-random sequence.
 """
 function qmc_time_ordered_integral(f,
                                    d::Int,
@@ -164,17 +191,75 @@ function qmc_time_ordered_integral(f,
 
     u_i = get_ref(c, t_i)
 
-    qmc_integral(init,
+    N_samples::Int = 0
+
+    (qmc_integral(init,
                  p = p_d,
                  p_norm = p_d_norm,
                  trans = trans,
                  seq = seq,
                  N = N) do refs
         refs[end] < u_i && return nothing # Discard irrelevant reference values
+        N_samples += 1
         t_points = [c(r) for r in refs]
         coeff = prod(t -> branch_direction[t.domain], t_points)
         coeff * f(t_points)
-    end
+    end, N_samples)
+end
+
+raw"""
+    Evaluate a d-dimensional contour-ordered integral of a function 'f',
+
+    \int_{t_i}^{t_f} dt_1 \int_{t_i}^{t_1} dt_2 \ldots \int_{t_i}^{t_{d-1}} dt_d
+        f(t_1, t_2, \ldots, t_d)
+
+    using the Sobol sequence for pseudo-random sampling.
+
+    This function evaluates the integrand a specified number of times.
+
+    `f`         Integrand.
+    `d`         Dimensionality of the integral.
+    `c`         Time contour to integrate over.
+    `t_i`       Starting time point on the contour.
+    `t_f`       Final time point on the contour.
+    `init`      Initial value of the integral.
+    `seq`       Quasi-random sequence generator.
+    `τ`         Decay parameter of the exponential model function.
+    `N_samples` The number of taken samples.
+"""
+function qmc_time_ordered_integral_n_samples(
+    f,
+    d::Int,
+    c::kd.AbstractContour,
+    t_i::kd.BranchPoint,
+    t_f::kd.BranchPoint;
+    init = zero(typeof(f(repeat([t_i], d)))),
+    seq = SobolSeq(d),
+    τ::Real,
+    N_samples::Int)
+    @assert kd.heaviside(c, t_f, t_i)
+
+    # Model function, its norm and the x -> u transformation
+    p_d = make_exp_model_function(c, t_f, τ, d)
+    p_d_norm = exp_p_norm(τ, d)
+    trans = make_exp_trans(c, t_f, τ)
+
+    u_i = get_ref(c, t_i)
+
+    N::Int = 0
+
+    (qmc_integral_n_samples(init,
+                            p = p_d,
+                            p_norm = p_d_norm,
+                            trans = trans,
+                            seq = seq,
+                            N_samples = N_samples) do refs
+        N += 1
+        refs[end] < u_i && return nothing # Discard irrelevant reference values
+        t_points = [c(r) for r in refs]
+        coeff = prod(t -> branch_direction[t.domain], t_points)
+        coeff * f(t_points)
+    end, N)
 end
 
 end # module qmc_integrate

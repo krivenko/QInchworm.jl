@@ -106,17 +106,19 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral
         # -- Quasi Monte Carlo integration --
         # -----------------------------------
 
-        val = qmc_time_ordered_integral(1,
-                                        contour,
-                                        tau_grid[1].bpoint,
-                                        tau_grid[fidx].bpoint,
-                                        init = cfg.eval(ppsc_exp, conf_0),
-                                        τ = τ_qmc,
-                                        N = N) do τ_1
+        val, N_samples = qmc_time_ordered_integral(
+            1,
+            contour,
+            tau_grid[1].bpoint,
+            tau_grid[fidx].bpoint,
+            init = cfg.eval(ppsc_exp, conf_0),
+            τ = τ_qmc,
+            N = N) do τ_1
             conf_1_fwd = Configuration(nodes, [NodePair(n_f.time, τ_1[1], 1)])
             conf_1_bwd = Configuration(nodes, [NodePair(τ_1[1], n_f.time, 1)])
             cfg.eval(ppsc_exp_qmc, conf_1_fwd) + cfg.eval(ppsc_exp_qmc, conf_1_bwd)
         end
+        @show N_samples / N
 
         for (s, P_s) in enumerate(ppsc_exp_qmc.P)
             sf, mat = val[s]
