@@ -1,5 +1,8 @@
 module DelaunaySimplex
 
+export triangulate
+export integrate_t3
+
 import PyCall as py
 
 function nested_for_loop(f, d::Int, first::Int, last::Int, indices = Int[])
