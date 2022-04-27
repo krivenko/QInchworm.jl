@@ -307,4 +307,57 @@ function qmc_time_ordered_integral_sort(f,
     end
 end
 
+raw"""
+    Evaluate a d-dimensional contour-ordered integral of a function 'f',
+
+    \int_{t_i}^{t_f} dt_1 \int_{t_i}^{t_1} dt_2 \ldots \int_{t_i}^{t_{d-1}} dt_d
+        f(t_1, t_2, \ldots, t_d)
+
+    using the Sobol sequence for pseudo-random sampling and the `Root` transform.
+
+    `f`    Integrand.
+    `d`    Dimensionality of the integral.
+    `c`    Time contour to integrate over.
+    `t_i`  Starting time point on the contour.
+    `t_f`  Final time point on the contour.
+    `init` Initial value of the integral.
+    `seq`  Quasi-random sequence generator.
+    `N`    The number of points taken from the quasi-random sequence.
+"""
+function qmc_time_ordered_integral_root(f,
+                                        d::Int,
+                                        c::kd.AbstractContour,
+                                        t_i::kd.BranchPoint,
+                                        t_f::kd.BranchPoint;
+                                        init = zero(typeof(f(repeat([t_i], d)))),
+                                        seq = SobolSeq(d),
+                                        N::Int)
+    @assert kd.heaviside(c, t_f, t_i)
+
+    # x -> u transformation
+    u_i = get_ref(c, t_i)
+    u_f = get_ref(c, t_f)
+    ref_diff = u_f - u_i
+
+    trans = x -> begin
+        u = Vector{Float64}(undef, d)
+        u[d] = x[d] ^ (1.0/d)
+        for s = d-1:-1:1
+            u[s] = u[s + 1] * (x[s] ^ (1.0 / s))
+        end
+        return u_i .+ u * ref_diff
+    end
+
+    qmc_integral(init,
+                 p = u -> 1.0,
+                 p_norm = (ref_diff ^ d) / factorial(d),
+                 trans = trans,
+                 seq = seq,
+                 N = N) do refs
+        t_points = [c(r) for r in refs]
+        coeff = prod(t -> branch_direction[t.domain], t_points)
+        coeff * f(t_points)
+    end
+end
+
 end # module qmc_integrate
