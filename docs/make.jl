@@ -2,7 +2,9 @@ using QInchworm
 using Documenter
 
 makedocs(;
-    modules=[QInchworm],
+    modules=[
+      QInchworm,
+      ],
     authors="Igor Krivenko <igor.s.krivenko@gmail.com>, Hugo U. R. Strand <hugo.strand@gmail.com>",
     repo="https://github.com/krivenko/QInchworm.jl/blob/{commit}{path}#L{line}",
     sitename="QInchworm.jl",
@@ -12,5 +14,10 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Sub Modules" => Any[
+	  "modules/qmc_integrate.md",
+	  "modules/configuration.md",
+	  "modules/ppgf.md",
+	],
     ],
 )

@@ -1,5 +1,6 @@
-
 module configuration
+
+using DocStringExtensions
 
 import Keldysh; kd = Keldysh
 import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
@@ -34,11 +35,24 @@ const Operators = Vector{Operator}
 const OperatorBlocks = Dict{Tuple{Int64, Int64}, Matrix{Float64}}
 const SectorBlockMatrix = Dict{Int64, Tuple{Int64, Matrix{ComplexF64}}}
 
+"""
+$(TYPEDEF)
+"""
 @enum InteractionEnum pair_flag=1 determinant_flag=2 identity_flag=3 inch_flag=4
 
+"""
+$(TYPEDEF)
+
+Data type for pseudo-particle interactions, containing two operators and one scalar propagator.
+
+$(TYPEDFIELDS)
+"""
 struct InteractionPair
+  "Final time operator"
   operator_f::Operator
+  "Initial time operator"
   operator_i::Operator
+  "Scalar propagator"
   propagator::ScalarGF
 end
 
@@ -46,6 +60,9 @@ function Base.getindex(pair::InteractionPair, idx::Int64)
     return [pair.operator_i, pair.operator_f][idx]
 end
 
+"""
+$(TYPEDEF)
+"""
 const InteractionPairs = Vector{InteractionPair}
 
 struct InteractionDeterminant
@@ -56,12 +73,28 @@ end
 
 const InteractionDeterminants = Vector{InteractionDeterminant}
 
+"""
+$(TYPEDEF)
+
+The `Expansion` struct contains the components needed to define
+a pseudo-particle expansion problem.
+
+$(TYPEDFIELDS)
+"""
 struct Expansion
+  "Exact diagonalization solver for the local degrees of freedom"
   ed::ked.EDCore
+  "Non-interacting pseudo-particle Green's function"
   P0::SectorGF
+  "Interacting pseudo-particle Green's function"  
   P::SectorGF
+  "List of pseudo-particle interactions"
   pairs::InteractionPairs
+  "List of hybridization function determinants (not implemented yet)"
   determinants::InteractionDeterminants
+  """ 
+  $(TYPEDSIGNATURES)
+  """
   function Expansion(ed::ked.EDCore, grid::kd.FullTimeGrid, interaction_pairs::InteractionPairs)
     P0 = ppgf.atomic_ppgf(grid, ed)
     P = deepcopy(P0)
@@ -69,14 +102,33 @@ struct Expansion
   end
 end
 
+"""
+$(TYPEDEF)
+
+Lightweight reference to an `Expansion` operator.
+
+$(TYPEDFIELDS)
+"""
 struct OperatorReference
+  "Interaction type of operator"
   kind::InteractionEnum
+  "Index for interaction"
   interaction_index::Int64
+  "Index to operator"
   operator_index::Int64
 end
 
+"""
+$(TYPEDEF)
+
+Node in time with associated operator
+
+$(TYPEDFIELDS)
+"""
 struct Node
+  "Contour time point"
   time::Time
+  "Reference to operator"
   operator_ref::OperatorReference
 end
 
@@ -92,16 +144,37 @@ function is_inch_node(node::Node)
     return node.operator_ref.kind == inch_flag
 end
 
+"""
+$(TYPEDEF)
+"""
 const Nodes = Vector{Node}
 
+"""
+$(TYPEDEF)
+
+Node with pair of times and an associated interaction index.
+
+$(TYPEDFIELDS)
+"""
 struct NodePair
+  "Final time"
   time_f::Time
+  "Initial time"
   time_i::Time
+  "Index for interaction"
   index::Int64
 end
 
+"""
+$(TYPEDEF)
+"""
 const NodePairs = Vector{NodePair}
 
+"""
+$(TYPEDSIGNATURES)
+
+Returns a list of `Nodes` corresponding to the pair `pair::NodePair`.
+"""
 function Nodes(pair::NodePair)
     n1 = Node(pair.time_i, OperatorReference(pair_flag, pair.index, 1))
     n2 = Node(pair.time_f, OperatorReference(pair_flag, pair.index, 2))
@@ -117,9 +190,21 @@ end
 
 const Determinants = Vector{Determinant}
 
+"""
+$(TYPEDEF)
+
+The `Configuration` struct defines a single diagram in a peudo-particle
+expansion with fixed insertions of pseduo-particle interactions and 
+auxilliary operators.
+
+$(TYPEDFIELDS)
+"""
 struct Configuration
+    "List of nodes in time with associated operators"
     nodes::Nodes
+    "List of pairs of nodes in time associated with a hybridization propagator"
     pairs::NodePairs
+    "List of groups of time nodes associated with expansion determinants"
     determinants::Determinants
     function Configuration(single_nodes::Nodes, pairs::NodePairs)
         nodes::Nodes = deepcopy(single_nodes)
@@ -268,7 +353,12 @@ function eval(exp::Expansion, nodes::Nodes)
     return -im * val
 end
 
-function eval(exp::Expansion, conf::Configuration)
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate the configuration `conf` in the pseud-particle expansion `exp`.
+"""
+function eval(exp::Expansion, conf::Configuration)::SectorBlockMatrix
     return eval(exp, conf.pairs) * eval(exp, conf.nodes)
 end
 
