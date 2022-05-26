@@ -18,6 +18,7 @@ makedocs(;
 	  "modules/qmc_integrate.md",
 	  "modules/configuration.md",
 	  "modules/ppgf.md",
+	  "modules/diagrammatics.md",
 	],
     ],
 )

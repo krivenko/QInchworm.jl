@@ -16,3 +16,4 @@ Modules = [QInchworm.QInchworm]
 - [`QInchworm.qmc_integrate`](@ref QInchworm.qmc_integrate)
 - [`QInchworm.configuration`](@ref QInchworm.configuration)
 - [`QInchworm.ppgf`](@ref QInchworm.ppgf)
+- [`QInchworm.diagrammatics`](@ref QInchworm.diagrammatics)
