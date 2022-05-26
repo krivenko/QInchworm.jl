@@ -6,3 +6,4 @@
 include("ppgf.jl")
 include("qmc_integrate.jl")
 include("nca_equil.jl")
+include("diagrammatics.jl")
