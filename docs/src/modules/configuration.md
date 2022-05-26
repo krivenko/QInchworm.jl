@@ -8,12 +8,6 @@ CurrentModule = QInchworm
 Modules = [QInchworm.configuration]
 ```
 
-```@docs
-configuration.Expansion
-configuration.Configuration
-configuration.eval
-```
-
 ```@autodocs
 Modules = [QInchworm.configuration]
 ```
