@@ -5,7 +5,9 @@ using DocStringExtensions
 """
 $(TYPEDEF)
 
-Datatype for diagram topology. A topology of order ``n`` consists of a partition of ``\\{1...2n\\}`` into ``n`` pairs
+Datatype for diagram topology.
+A topology of order ``n`` consists of a partition of ``\\{1,...,2n\\}`` into ``n`` pairs.
+Diagrammatically a topology can be thought of as a set of arcs connecting vertices located at ``\\{1,...,2n\\}``.
 
 $(TYPEDFIELDS)
 """
@@ -26,6 +28,15 @@ function sortpair(p::Pair{T,T}) where T
   return p.first > p.second ? p.second => p.first : p
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Returns true if two arcs cross
+
+Let ``p_1 = (a, b)``, ``p_2 = (x, y)`` represent two arcs, where without loss of generality we assume ``a < b`` and ``x < y``.
+Now consider the order the points ``\\{a, b, x, y\\}``.
+The orderings ``abxy``, ``axyb``, ``xyab`` are all non-crossing while ``axby`` and ``xayb`` are crossing.
+"""
 function iscrossing(p1::Pair{Int,Int}, p2::Pair{Int,Int})
   p1 = sortpair(p1)
   p2 = sortpair(p2)
@@ -64,8 +75,18 @@ end
 $(TYPEDSIGNATURES)
 
 Given a topology, check if every connected component of the graph induced by
-crossings between the pairs contains a pair with index <= `k`
+crossings between the arcs contains a pair with index <= `k`
 """
 isconnected(t::Topology, k::Int) = _isconnected(t.pairs, k)
+
+"""
+Datatype for a labeled topology.
+A labeled topology is a topology together with an operator for each vertex
+"""
+struct LabeledTopology
+#TODO
+end
+
+# TODO given a vector of iteraction pairs, generated all possible labeled topologies
 
 end # module diagrammatics
