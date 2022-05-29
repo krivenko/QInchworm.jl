@@ -2,6 +2,8 @@ module diagrammatics
 
 using DocStringExtensions
 
+const PairVector = Vector{Pair{Int,Int}}
+
 """
 $(TYPEDEF)
 
@@ -13,9 +15,9 @@ $(TYPEDFIELDS)
 """
 struct Topology
   order::Int
-  pairs::Vector{Pair{Int,Int}}
+  pairs::PairVector
 
-  function Topology(pairs::Vector{Pair{Int,Int}})
+  function Topology(pairs::PairVector)
     new(length(pairs), pairs)
   end
 end
@@ -45,20 +47,35 @@ function iscrossing(p1::Pair{Int,Int}, p2::Pair{Int,Int})
   return false
 end
 
-function _isconnected!(connected::Vector{Pair{Int,Int}}, disconnected::Vector{Pair{Int,Int}})
-  while !isempty(connected)
-    p_c = pop!(connected)
+"""
+$(TYPEDSIGNATURES)
+
+Given a vector of 'connected' arcs and a vector of 'disconnected' arcs
+recursively add disconnected to connected if they cross with any connected.
+This is done by traversing the crossing graph using depth first search.
+"""
+function traverse_crossing_graph_dfs!(connected::PairVector, disconnected::PairVector)
+  stack = copy(connected)
+  resize!(connected, 0)
+  while !isempty(stack)
+    p_c = pop!(stack)
+    push!(connected, p_c)
     # pairs which cross with p_c are connected
     for (i, p_dc) in Iterators.reverse(enumerate(disconnected))
-      iscrossing(p_c, p_dc) && push!(connected, popat!(disconnected, i))
+      iscrossing(p_c, p_dc) && push!(stack, popat!(disconnected, i))
     end
   end
-  return isempty(disconnected)
 end
 
-function _isconnected(pairs::Vector{Pair{Int,Int}}, k::Int)
-  connected = Pair{Int,Int}[]
-  disconnected = Pair{Int,Int}[]
+"""
+$(TYPEDSIGNATURES)
+
+Given a vector of pairs, split it into a 'connected' set containing pairs with
+an index <= `k` and a disconnected set containing the rest
+"""
+function split_k_connected(pairs::PairVector, k::Int)
+  connected = PairVector()
+  disconnected = PairVector()
 
   for p in pairs
     if p.first <= k || p.second <= k
@@ -68,7 +85,7 @@ function _isconnected(pairs::Vector{Pair{Int,Int}}, k::Int)
     end
   end
 
-  return _isconnected!(connected, disconnected)
+  return connected, disconnected
 end
 
 """
@@ -77,16 +94,66 @@ $(TYPEDSIGNATURES)
 Given a topology, check if every connected component of the graph induced by
 crossings between the arcs contains a pair with index <= `k`
 """
-isconnected(t::Topology, k::Int) = _isconnected(t.pairs, k)
-
-"""
-Datatype for a labeled topology.
-A labeled topology is a topology together with an operator for each vertex
-"""
-struct LabeledTopology
-#TODO
+function is_k_connected(t::Topology, k::Int)
+  connected, disconnected = split_k_connected(t.pairs, k)
+  traverse_crossing_graph_dfs!(connected, disconnected)
+  return isempty(disconnected)
 end
 
-# TODO given a vector of iteraction pairs, generated all possible labeled topologies
+
+"""
+$(TYPEDSIGNATURES)
+
+returns the pair `v[i] => v[j]` and a copy of the vector `v` with elements `i`,`j` removed
+"""
+function pop_pair(v::Vector, i, j)
+    v[i] => v[j], [v[k] for k in eachindex(v) if k ∉ (i,j)]
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Given a vector of pairs representing a partial partition of the vertices and a
+vector of unpaired vertices, return a vector of complete partitions.
+"""
+function pair_partitions(pairs::PairVector, unpaired::Vector{Int})
+  length(unpaired) == 0 && return [pairs]
+  @assert length(unpaired) % 2 == 0
+  map(2:length(unpaired)) do i
+    p, rest = pop_pair(unpaired, 1, i)
+    return pair_partitions(push!(copy(pairs), p), rest)
+  end |> Iterators.flatten |> collect
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return all partitions of the vertices into pairs.
+"""
+function pair_partitions(vertices::Vector{Int})
+  @assert length(vertices) % 2 == 0
+  pairs = PairVector()
+  return pair_partitions(pairs, vertices)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return all partitions of ``\\{1,...,2n\\}`` into ``n`` pairs.
+"""
+function pair_partitions(n::Int)
+   return pair_partitions(collect(1:2n))
+end
+
+"""
+$(SIGNATURES)
+
+Return double factorial ``n!!``
+"""
+function double_factorial(n)
+  n == 0 && return 1
+  n == 1 && return 1
+  return n * double_factorial(n - 2)
+end
 
 end # module diagrammatics
