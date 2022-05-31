@@ -106,7 +106,7 @@ version = "0.6.2"
 
 [[deps.KeldyshED]]
 deps = ["ArgParse", "DataStructures", "Distributed", "HDF5", "Keldysh", "LinearAlgebra", "SparseArrays", "Test"]
-path = "/home/joseph/Documents/projects/noneq/code/KeldyshED.jl/main/"
+path = "../../../../KeldyshED.jl/main"
 uuid = "675b6b9c-7c2f-11e9-3bf3-dfd4d61640f7"
 version = "0.6.1"
 
@@ -189,7 +189,7 @@ deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [[deps.QInchworm]]
-deps = ["DocStringExtensions", "Keldysh", "KeldyshED", "LinearAlgebra", "Requires", "Sobol"]
+deps = ["DocStringExtensions", "Keldysh", "KeldyshED", "LinearAlgebra", "Sobol"]
 path = "../.."
 uuid = "c1b6c5a0-2f71-4f50-a75d-692762eff855"
 version = "0.1.0"
