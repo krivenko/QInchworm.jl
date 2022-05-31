@@ -33,9 +33,17 @@ const Operator = op.RealOperatorExpr
 const Operators = Vector{Operator}
 
 const OperatorBlocks = Dict{Tuple{Int64, Int64}, Matrix{Float64}}
+
+""" Representation of local many-body operator in terms of block matrices. 
+
+See also: [`operator_to_sector_block_matrix`](@ref) """
 const SectorBlockMatrix = Dict{Int64, Tuple{Int64, Matrix{ComplexF64}}}
 
 """
+Interaction type classification using `@enum`
+
+Possible values: `pair_flag`, `determinant_flag`, `identity_flag`, `inch_flag`
+
 $(TYPEDEF)
 """
 @enum InteractionEnum pair_flag=1 determinant_flag=2 identity_flag=3 inch_flag=4
@@ -132,15 +140,32 @@ struct Node
   operator_ref::OperatorReference
 end
 
-function Node(time::Time)
+"""
+$(TYPEDSIGNATURES)
+
+Returns a node at time `time::Time` with an associated identity operator.
+"""
+function Node(time::Time)::Node
     return Node(time, OperatorReference(identity_flag, -1, -1))
 end
 
-function InchNode(time::Time)
+"""
+$(TYPEDSIGNATURES)
+
+Returns an "inch" node at time `time::Time` with an associated identity operator.
+
+The Inch node triggers the configuration evaluator to switch from bold to bare pseudo particle propagator.
+"""
+function InchNode(time::Time)::Node
     return Node(time, OperatorReference(inch_flag, -1, -1))
 end
 
-function is_inch_node(node::Node)
+"""
+$(TYPEDSIGNATURES)
+
+Returns `true` if the node is an "inch" node.
+"""
+function is_inch_node(node::Node)::Bool
     return node.operator_ref.kind == inch_flag
 end
 
@@ -257,7 +282,12 @@ function eval(exp::Expansion, pairs::NodePairs)
     return val
 end
 
-function operator_to_sector_block_matrix(exp::Expansion, op::Operator)
+"""
+$(TYPEDSIGNATURES)
+
+Returns the [`SectorBlockMatrix`](@ref) representation of the many-body operator `op::Operator`.
+"""
+function operator_to_sector_block_matrix(exp::Expansion, op::Operator)::SectorBlockMatrix
 
     sbm = SectorBlockMatrix()
 
@@ -270,7 +300,12 @@ function operator_to_sector_block_matrix(exp::Expansion, op::Operator)
     return sbm
 end
 
-function operator(exp::Expansion, node::Node)
+"""
+$(TYPEDSIGNATURES)
+
+Returns the [`SectorBlockMatrix`](@ref) representation of the many-body operator at the given time `node::Node'. 
+"""
+function operator(exp::Expansion, node::Node)::SectorBlockMatrix
     op::Operator = Operator()
     if node.operator_ref.kind == pair_flag
         op = exp.pairs[node.operator_ref.interaction_index][node.operator_ref.operator_index]
@@ -319,6 +354,11 @@ function Base.:*(A::SectorBlockMatrix, B::Number)
     return B * A
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Returns the [`SectorBlockMatrix`](@ref) representation of the pseudo particle propagator evaluated at the times `z1` and `z2`.
+"""
 function sector_block_matrix_from_ppgf(z2::Time, z1::Time, P::SectorGF)
     M = SectorBlockMatrix()
     for (sidx, p) in enumerate(P)
