@@ -293,7 +293,7 @@ function qmc_time_ordered_integral_sort(f,
     u_i = get_ref(c, t_i)
     u_f = get_ref(c, t_f)
     ref_diff = u_f - u_i
-    trans = x -> u_i .+ sort(x) * ref_diff
+    trans = x -> u_i .+ sort(x, rev=true) * ref_diff
 
     qmc_integral(init,
                  p = u -> 1.0,
@@ -341,9 +341,9 @@ function qmc_time_ordered_integral_root(f,
 
     trans = x -> begin
         u = Vector{Float64}(undef, d)
-        u[d] = x[d] ^ (1.0/d)
-        for s = d-1:-1:1
-            u[s] = u[s + 1] * (x[s] ^ (1.0 / s))
+        u[1] = x[1] ^ (1.0 / d)
+        for s = 2:d
+            u[s] = u[s - 1] * (x[s] ^ (1.0 / (d - s + 1)))
         end
         return u_i .+ u * ref_diff
     end
