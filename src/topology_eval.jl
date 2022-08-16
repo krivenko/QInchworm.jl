@@ -105,11 +105,10 @@ end
 const Diagrams = Vector{Diagram}
 
 
-function get_topologies_at_order(order::Int64)::Vector{diag.Topology}
+function get_topologies_at_order(order::Int64, k::Int64 = 1)::Vector{diag.Topology}
 
     topologies = diag.Topology.(diag.pair_partitions(order))
     
-    k = 1
     filter!(topologies) do top
         diag.is_k_connected(top, k)
     end

@@ -9,5 +9,6 @@ include("configuration.jl")
 include("qmc_integrate.jl")
 include("diagrammatics.jl")
 include("topology_eval.jl")
+include("inchworm.jl")
 
 end # module QInchworm
