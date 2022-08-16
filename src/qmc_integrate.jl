@@ -155,13 +155,20 @@ const branch_direction = Dict(
     kd.imaginary_branch => -im
 )
 
+"""
+    Detect the return type of a function applied to a vector of branch points.
+"""
+function contour_function_return_type(f)
+    Base.return_types(f, (Vector{kd.BranchPoint},))[1]
+end
+
 raw"""
     Evaluate a d-dimensional contour-ordered integral of a function 'f',
 
     \int_{t_i}^{t_f} dt_1 \int_{t_i}^{t_1} dt_2 \ldots \int_{t_i}^{t_{d-1}} dt_d
         f(t_1, t_2, \ldots, t_d)
 
-    using the Sobol sequence for pseudo-random sampling.
+    using the Sobol sequence for quasi-random sampling.
 
     `f`    Integrand.
     `d`    Dimensionality of the integral.
@@ -178,7 +185,7 @@ function qmc_time_ordered_integral(f,
                                    c::kd.AbstractContour,
                                    t_i::kd.BranchPoint,
                                    t_f::kd.BranchPoint;
-                                   init = zero(typeof(f(repeat([t_i], d)))),
+                                   init = zero(contour_function_return_type(f)),
                                    seq = SobolSeq(d),
                                    τ::Real,
                                    N::Int)
@@ -213,7 +220,7 @@ raw"""
     \int_{t_i}^{t_f} dt_1 \int_{t_i}^{t_1} dt_2 \ldots \int_{t_i}^{t_{d-1}} dt_d
         f(t_1, t_2, \ldots, t_d)
 
-    using the Sobol sequence for pseudo-random sampling.
+    using the Sobol sequence for quasi-random sampling.
 
     This function evaluates the integrand a specified number of times.
 
@@ -233,7 +240,7 @@ function qmc_time_ordered_integral_n_samples(
     c::kd.AbstractContour,
     t_i::kd.BranchPoint,
     t_f::kd.BranchPoint;
-    init = zero(typeof(f(repeat([t_i], d)))),
+    init = zero(contour_function_return_type(f)),
     seq = SobolSeq(d),
     τ::Real,
     N_samples::Int)
@@ -268,7 +275,7 @@ raw"""
     \int_{t_i}^{t_f} dt_1 \int_{t_i}^{t_1} dt_2 \ldots \int_{t_i}^{t_{d-1}} dt_d
         f(t_1, t_2, \ldots, t_d)
 
-    using the Sobol sequence for pseudo-random sampling and the `Sort` transform.
+    using the Sobol sequence for quasi-random sampling and the `Sort` transform.
 
     `f`    Integrand.
     `d`    Dimensionality of the integral.
@@ -284,7 +291,7 @@ function qmc_time_ordered_integral_sort(f,
                                         c::kd.AbstractContour,
                                         t_i::kd.BranchPoint,
                                         t_f::kd.BranchPoint;
-                                        init = zero(typeof(f(repeat([t_i], d)))),
+                                        init = zero(contour_function_return_type(f)),
                                         seq = SobolSeq(d),
                                         N::Int)
     @assert kd.heaviside(c, t_f, t_i)
@@ -313,7 +320,7 @@ raw"""
     \int_{t_i}^{t_f} dt_1 \int_{t_i}^{t_1} dt_2 \ldots \int_{t_i}^{t_{d-1}} dt_d
         f(t_1, t_2, \ldots, t_d)
 
-    using the Sobol sequence for pseudo-random sampling and the `Root` transform.
+    using the Sobol sequence for quasi-random sampling and the `Root` transform.
 
     `f`    Integrand.
     `d`    Dimensionality of the integral.
@@ -329,7 +336,7 @@ function qmc_time_ordered_integral_root(f,
                                         c::kd.AbstractContour,
                                         t_i::kd.BranchPoint,
                                         t_f::kd.BranchPoint;
-                                        init = zero(typeof(f(repeat([t_i], d)))),
+                                        init = zero(contour_function_return_type(f)),
                                         seq = SobolSeq(d),
                                         N::Int)
     @assert kd.heaviside(c, t_f, t_i)
@@ -351,6 +358,108 @@ function qmc_time_ordered_integral_root(f,
     qmc_integral(init,
                  p = u -> 1.0,
                  p_norm = (ref_diff ^ d) / factorial(d),
+                 trans = trans,
+                 seq = seq,
+                 N = N) do refs
+        t_points = [c(r) for r in refs]
+        coeff = prod(t -> branch_direction[t.domain], t_points)
+        coeff * f(t_points)
+    end
+end
+
+raw"""
+    Evaluate an inchworm-type contour-ordered integral of a function 'f',
+
+    \int_{t_w}^{t_f} dt_1
+    \int_{t_w}^{t_1} dt_2 \ldots
+    \int_{t_w}^{t_{d_{bare}-1}} dt_{d_{bare}}
+    \int_{t_i}^{t_w} dt_{d_{bare}+1} \ldots
+    \int_{t_i}^{t_{d-2}} dt_{d-1}
+    \int_{t_i}^{t_{d-1}} dt_d
+        f(t_1, t_2, \ldots, t_d)
+
+    using the Sobol sequence for quasi-random sampling and a two-piece `Root`
+    transform.
+    The total dimension of the domain `d` is a sum of the amount of integration
+    variables in the bare (`d_{bare}`) and the bold (`d_{bold}`) components.
+
+Parameters
+----------
+
+f : Integrand.
+d_bold : Dimensionality of the 'bold' component of the integration domain.
+d_bare : Dimensionality of the 'bare' component of the integration domain.
+c : Time contour to integrate over.
+t_i : Starting time point on the contour.
+t_w : 'Worm' time point on the contour separating 'bold' and 'bare' parts.
+t_f : Final time point on the contour.
+init : Initial value of the integral.
+seq : Quasi-random sequence generator.
+N : The number of samples.
+
+Returns
+-------
+
+Value of the integral.
+"""
+function qmc_inchworm_integral_root(f,
+                                    d_bold::Int,
+                                    d_bare::Int,
+                                    c::kd.AbstractContour,
+                                    t_i::kd.BranchPoint,
+                                    t_w::kd.BranchPoint,
+                                    t_f::kd.BranchPoint;
+                                    init = zero(contour_function_return_type(f)),
+                                    seq = SobolSeq(d_bold + d_bare),
+                                    N::Int)
+    @assert kd.heaviside(c, t_w, t_i)
+    @assert kd.heaviside(c, t_f, t_w)
+    @assert d_bold >= 0
+    @assert d_bare >= 1
+
+    u_i = get_ref(c, t_i)
+    u_w = get_ref(c, t_w)
+    u_f = get_ref(c, t_f)
+
+    ref_diff_wi = u_w - u_i
+    ref_diff_fw = u_f - u_w
+
+    d = d_bold + d_bare
+
+    # QUESTION: Currently we apply the two-piece transformation to the same
+    # quasi-random sequence of points in d dimensions. Would it make more sense
+    # to use two independent sequences with dimensions d_bare and d_bold?
+
+    u = Vector{Float64}(undef, d)
+    # x -> u transformation
+    trans = x -> begin
+        # Points in the bare region
+        u[1] = x[1] ^ (1.0 / d_bare)
+        for s = 2:d_bare
+            u[s] = u[s - 1] * (x[s] ^ (1.0 / (d_bare - s + 1)))
+        end
+        u[1:d_bare] *= ref_diff_fw
+        u[1:d_bare] .+= u_w
+
+        d_bold == 0 && return u
+
+        # Points in the bold region
+        u[d_bare + 1] = x[d_bare + 1] ^ (1.0 / d_bold)
+        for s = (d_bare + 2):d
+            u[s] = u[s - 1] * (x[s] ^ (1.0 / (d - s + 1)))
+        end
+        u[d_bare+1:d] *= ref_diff_wi
+        u[d_bare+1:d] .+= u_i
+
+        return u
+    end
+
+    p_norm = (ref_diff_fw ^ d_bare) / factorial(d_bare) *
+             (ref_diff_wi ^ d_bold) / factorial(d_bold)
+
+    qmc_integral(init,
+                 p = u -> 1.0,
+                 p_norm = p_norm,
                  trans = trans,
                  seq = seq,
                  N = N) do refs
