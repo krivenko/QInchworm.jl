@@ -1,6 +1,7 @@
 module configuration
 
 using DocStringExtensions
+using LinearAlgebra: norm
 
 import Keldysh; kd = Keldysh
 import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
@@ -353,6 +354,21 @@ end
 
 function Base.:*(A::SectorBlockMatrix, B::Number)
     return B * A
+end
+
+function Base.fill!(A::SectorBlockMatrix, x)
+    for m in A
+        fill!(m.second[2], x)
+    end
+end
+
+function Base.isapprox(A::SectorBlockMatrix, B::SectorBlockMatrix; atol::Real=0)
+    @assert keys(A) == keys(B)
+    for k in keys(A)
+        @assert A[k][1] == B[k][1]
+        !isapprox(A[k][2], B[k][2], norm = mat -> norm(mat, Inf), atol=atol) && return false
+    end
+    return true
 end
 
 """

@@ -12,7 +12,7 @@ import QInchworm.configuration: Node, InchNode, NodePair, NodePairs
 
 
 """ Get configuration.Nodes defining the inch-worm interval [τ_f, τ_w, τ_0]
-    
+
 Parameters
 ----------
 grid : Keldysh.FullTimeGrid
@@ -22,24 +22,24 @@ widx : Worm time in the current inching setup (usually widx = fidx - 1)
 Returns
 -------
 worm_nodes : QInchworm.configuration.Nodes with the three times as configuration.Node
-    
+
 """
 function get_imaginary_time_worm_nodes(grid::kd.FullTimeGrid, fidx::Int64, widx::Int64)::cfg.Nodes
 
     @assert fidx >= widx
-    
+
     τ_grid = grid[kd.imaginary_branch]
 
     @assert fidx <= length(τ_grid)
-    
+
     τ_0 = τ_grid[1]
     τ_f = τ_grid[fidx]
     τ_w = τ_grid[widx]
-    
+
     n_f = Node(τ_f.bpoint)
     n_w = InchNode(τ_w.bpoint)
     n_0 = Node(τ_0.bpoint)
-    
+
     @assert n_f.time.ref >= n_w.time.ref >= n_0.time.ref
 
     worm_nodes = [n_f, n_w, n_0]
@@ -53,13 +53,13 @@ end
 Parameters
 ----------
 
-worm_nodes : QInchworm.configuration.Nodes containing [n_f, n_w, n_0] where 
+worm_nodes : QInchworm.configuration.Nodes containing [n_f, n_w, n_0] where
              - n_f is the final time node
              - n_w is the worm time node
              - n_0 is the initial time node (τ=0)
              NB! Can be generated with `get_imaginary_time_worm_nodes`
 x1    : unit interval number x1 ∈ [0, 1] mapped to τ_1 ∈ [τ_f, τ_w]
-xs    : *reverse* sorted list of unit-interval numbers 
+xs    : *reverse* sorted list of unit-interval numbers
          xs[i] ∈ [0, 1] mapped to τ[i] ∈ [τ_w, τ_0]
 
 Returns
@@ -70,21 +70,21 @@ Returns
 function timeordered_unit_interval_points_to_imaginary_branch_inch_worm_times(
     contour::kd.AbstractContour, worm_nodes::cfg.Nodes, x1::Float64, xs::Vector{Float64}
     )::Vector{kd.BranchPoint}
-    
-    x_f, x_w, x_0 = [ node.time.ref for node in worm_nodes ]    
-        
-    # -- Scale first time x1 to the range [x_w, x_f]    
+
+    x_f, x_w, x_0 = [ node.time.ref for node in worm_nodes ]
+
+    # -- Scale first time x1 to the range [x_w, x_f]
     x1 = x_w .+ (x_f - x_w) * x1
-    
-    # -- Scale the other times to the range [x_w, x_0]    
+
+    # -- Scale the other times to the range [x_w, x_0]
     xs = x_0 .+ (x_w - x_0) * xs
-    
+
     xs = vcat([x1], xs) # append x1 first in the list
-    
+
     # -- Transform xs to contour Keldysh.BranchPoint's
     τ_branch = contour[kd.imaginary_branch]
     τs = [ kd.get_point(τ_branch, x) for x in xs ]
-    
+
     return τs
 end
 
@@ -105,10 +105,11 @@ end
 const Diagrams = Vector{Diagram}
 
 
-function get_topologies_at_order(order::Int64, k::Int64 = 1)::Vector{diag.Topology}
+function get_topologies_at_order(order::Int64, k = nothing)::Vector{diag.Topology}
 
     topologies = diag.Topology.(diag.pair_partitions(order))
-    
+    k === nothing && return topologies
+
     filter!(topologies) do top
         diag.is_k_connected(top, k)
     end
@@ -134,11 +135,11 @@ diagrams : Vector with tuples of topologies and pseudo particle interaction indi
 function get_diagrams_at_order(
     expansion::cfg.Expansion, topologies::Vector{diag.Topology}, order::Int64
     )::Diagrams
-    
-    # -- Generate all `order` lenght vector of combinations of pseudo particle interaction pair indices   
+
+    # -- Generate all `order` lenght vector of combinations of pseudo particle interaction pair indices
     pair_idx_range = range(1, length(expansion.pairs)) # range of allowed pp interaction pair indices
     pair_idxs_combinations = collect(Iterators.product(repeat([pair_idx_range], outer=[order])...))
-    
+
     diagrams = vec([ Diagram(topology, pair_idxs) for (topology, pair_idxs) in
             collect(Iterators.product(topologies, pair_idxs_combinations)) ])
 
@@ -168,7 +169,7 @@ function eval(
     )::cfg.SectorBlockMatrix
 
     accumulated_value = 0 * cfg.operator(expansion, first(worm_nodes))
-    
+
     for (didx, diagram) in enumerate(diagrams)
         nodepairs = [ NodePair(τs[a], τs[b], diagram.pair_idxs[idx])
                       for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
@@ -176,7 +177,7 @@ function eval(
         value = cfg.eval(expansion, configuration)
         accumulated_value += value
     end
-    
+
     return accumulated_value
 end
 
