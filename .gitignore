@@ -1,6 +1,7 @@
 /Manifest.toml
 /test/Manifest.toml
 /docs/build/
+*.code-workspace
 *.ipynb_checkpoints
 /experiments/*.pdf
 /experiments/*/*.pdf
