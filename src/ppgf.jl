@@ -2,18 +2,16 @@ module ppgf
 
 import LinearAlgebra: Diagonal, tr, I
 
-import Keldysh: AbstractTimeGrid, GenericTimeGF
 import Keldysh; kd = Keldysh;
+import KeldyshED; ked = KeldyshED;
 
 import KeldyshED: EDCore, energies, partition_function
 import KeldyshED: c_connection, cdag_connection
 import KeldyshED: c_matrix, cdag_matrix
 
-import KeldyshED; ked = KeldyshED;
-
+export FullTimePPGF, ImaginaryTimePPGF
 export atomic_ppgf
 export operator_product
-
 
 """
 Get matrix representation of operator expression in each sector
@@ -40,49 +38,58 @@ function operator_matrix_representation(
     op_sector_matrices
 end
 
-
 function total_density_operator(ed::ked.EDCore)
     sum([ ked.Operators.n(label...) for (label, i) in ed.full_hs.soi ])
 end
 
+# N.B. We cannot use FullTimeGF instead of GenericTimeGF here,
+# because FullTimeGF's data storage scheme relies on the symmetry
+# properties the pseudo-particle GF's do not possess.
+const FullTimePPGF = Vector{kd.GenericTimeGF{ComplexF64, false, kd.FullTimeGrid}}
+const ImaginaryTimePPGF = Vector{kd.ImaginaryTimeGF{ComplexF64, false}}
 
 """
 Compute atomic pseudo-particle Green's function on the time grid
 for a time-independent problem defined by the EDCore instance.
 """
-function atomic_ppgf(grid::AbstractTimeGrid, ed::EDCore)
-    β = grid.contour.β
-    Z = partition_function(ed, β)
-    λ = log(Z) / β # Pseudo-particle chemical potential (enforcing Tr[G0(β)]=Tr[ρ]=1)
-    return atomic_ppgf(grid, ed, λ)
+function atomic_ppgf(grid::kd.FullTimeGrid, ed::EDCore)::FullTimePPGF
+    G = [kd.GenericTimeGF(grid, length(s)) for s in ed.subspaces]
+    atomic_ppgf!(G, ed)
+    G
 end
 
-function atomic_ppgf(grid::AbstractTimeGrid, ed::EDCore, λ::Real)
+function atomic_ppgf(grid::kd.ImaginaryTimeGrid, ed::EDCore)::ImaginaryTimePPGF
+    G = [kd.ImaginaryTimeGF(grid, length(s)) for s in ed.subspaces]
+    atomic_ppgf!(G, ed)
+    G
+end
 
-    G = GenericTimeGF[]
+function atomic_ppgf!(G::Vector, ed::EDCore)
+    @assert length(G) == length(ed.subspaces)
+
+    β = G[1].grid.contour.β
+    Z = partition_function(ed, β)
+    λ = log(Z) / β # Pseudo-particle chemical potential (enforcing Tr[G0(β)]=Tr[ρ]=1)
 
     N_op = total_density_operator(ed)
     N = operator_matrix_representation(N_op, ed)
-    z_β = grid[kd.imaginary_branch][end]
 
-    for (s, E, n) in zip(ed.subspaces, energies(ed), N)
-        G_s = GenericTimeGF(grid, length(s))
+    for (G_s, s, E, n) in zip(G, ed.subspaces, energies(ed), N)
         ξ = (-1)^n[1,1] # Statistics sign
-	#for z1 in grid, z2 in grid[1:z1.cidx]
+        grid = G_s.grid
+        z_β = grid[kd.imaginary_branch][end]
         Threads.@threads for z1 in grid
-	    for z2 in grid[1:z1.cidx]
+	        for z2 in grid[1:z1.cidx]
                 Δz = z1.bpoint.val - z2.bpoint.val
                 if z1.bpoint.domain == kd.forward_branch &&
                     z2.bpoint.domain != kd.forward_branch
-                    Δz += -im*grid.contour.β
+                    Δz += -im*β
                 end
                 sign = ξ^(z1.cidx > z_β.cidx && z_β.cidx >= z2.cidx)
                 G_s[z1, z2] = -im * sign * Diagonal(exp.(-im * Δz * (E .+ λ)))
-	    end
+	        end
         end
-        push!(G, G_s)
     end
-    return G
 end
 
 
@@ -113,7 +120,7 @@ function operator_product(ed::EDCore, G, s_i::Integer, z_i, z_f, vertices)
         matrix = c_a > 0 ? cdag_matrix : c_matrix
 
         s_b = connection(ed, o_a, s_a)
-        s_b == nothing && return 0 * prod0, -1
+        s_b === nothing && return 0 * prod0, -1
 
         m_ba = matrix(ed, o_a, s_a)
 
@@ -131,15 +138,28 @@ function operator_product(ed::EDCore, G, s_i::Integer, z_i, z_f, vertices)
     prod, s_a
 end
 
-
 """
 Compute the first order pseudo-particle diagram contribution to
 the single-particle Green's function g_{o1, o2}(z, z')
 """
-function first_order_spgf(ppgf::Vector{S}, ed::ked.EDCore, o1, o2) where {S <: kd.GenericTimeGF}
+function first_order_spgf(ppgf::FullTimePPGF, ed::ked.EDCore, o1, o2)::kd.FullTimeGF
+    @assert length(ppgf) == length(ed.subspaces)
+    g = kd.FullTimeGF(ppgf[1].grid, 1, kd.fermionic, true)
+    first_order_spgf!(g, ppgf, ed, o1, o2)
+    g
+end
 
-    grid = ppgf[1].grid
-    g = kd.GenericTimeGF(grid, 1, true)
+function first_order_spgf(ppgf::ImaginaryTimePPGF, ed::ked.EDCore, o1, o2)::kd.ImaginaryTimeGF
+    @assert length(ppgf) == length(ed.subspaces)
+    g = kd.ImaginaryTimeGF(ppgf[1].grid, 1, kd.fermionic, true)
+    first_order_spgf!(g, ppgf, ed, o1, o2)
+    g
+end
+
+function first_order_spgf!(g, ppgf, ed::ked.EDCore, o1, o2)
+    @assert length(ppgf) == length(ed.subspaces)
+
+    grid = g.grid
 
     N_op = total_density_operator(ed)
     N = operator_matrix_representation(N_op, ed)
@@ -158,7 +178,7 @@ function first_order_spgf(ppgf::Vector{S}, ed::ked.EDCore, o1, o2) where {S <: k
 
         # -- Determine start and end time on twisted contour
         if z1.bpoint.domain == kd.imaginary_branch && z2.bpoint.domain == kd.imaginary_branch
-            # Equilibrium start at \tau = 0 and end at \tau = \beta
+            # Equilibrium start at τ = 0 and end at τ = β
             real_time = false
             tau_grid = grid[kd.imaginary_branch]
             z_i, z_f = tau_grid[1], tau_grid[end]
@@ -178,6 +198,7 @@ function first_order_spgf(ppgf::Vector{S}, ed::ked.EDCore, o1, o2) where {S <: k
             end
         end
 
+        g[z1, z2] = .0
         for (sidx, s) in enumerate(ed.subspaces)
             ξ = (-1)^N[sidx][1, 1]
             prod, sidx_f = operator_product(ed, ppgf, sidx, z_i, z_f, [v2, v1])
@@ -186,12 +207,10 @@ function first_order_spgf(ppgf::Vector{S}, ed::ked.EDCore, o1, o2) where {S <: k
             end
         end
     end
-    g
 end
 
-
-function check_ppgf_real_time_symmetries(G, ed)
-
+function check_ppgf_real_time_symmetries(G::FullTimePPGF, ed)
+    @assert length(G) == length(ed.subspaces)
     grid = G[1].grid
 
     grid_bwd = grid[kd.backward_branch]
@@ -264,8 +283,7 @@ function check_ppgf_real_time_symmetries(G, ed)
     return true
 end
 
-
-function set_ppgf_initial_conditions(G)
+function set_ppgf_initial_conditions!(G::Union{FullTimePPGF, ImaginaryTimePPGF})
     for g in G
         g = zero(g)
         for z in g.grid
@@ -274,8 +292,8 @@ function set_ppgf_initial_conditions(G)
     end
 end
 
-
-function ppgf_real_time_initial_conditions(G::Vector{S}, ed::ked.EDCore) where {S <: kd.GenericTimeGF}
+function ppgf_real_time_initial_conditions!(G::FullTimePPGF, ed::ked.EDCore)
+    @assert length(G) == length(ed.subspaces)
 
     N_op = total_density_operator(ed)
     N = operator_matrix_representation(N_op, ed)
@@ -286,42 +304,19 @@ function ppgf_real_time_initial_conditions(G::Vector{S}, ed::ked.EDCore) where {
     τ_0 = grid[kd.imaginary_branch][1]
     τ_β = grid[kd.imaginary_branch][end]
 
-    for (g, n) in zip(G, N)
+    for (G_s, n) in zip(G, N)
         for τ in grid[kd.imaginary_branch]
-            set_ppgf_symmetric(g, n, τ, zb0, g[τ, τ_0])
+            set_ppgf_symmetric!(G_s, n, τ, zb0, G_s[τ, τ_0])
         end
-        g[zf0, zb0] = (-1)^n[1,1] * g[τ_β, τ_0]
+        G_s[zf0, zb0] = (-1)^n[1,1] * G_s[τ_β, τ_0]
     end
 end
-
-
-"""Set all time translation invariant values of the Matsubara branch"""
-function set_matsubara(g, τ, value)
-
-    tau_grid = g.grid[kd.imaginary_branch]
-
-    τ_0 = tau_grid[1]
-    τ_beta = tau_grid[end]
-
-    sidx = τ.cidx
-    eidx = τ_beta.cidx
-
-    for τ_1 in g.grid[sidx:eidx]
-        i1 = τ_1.cidx
-        i2 = τ_0.cidx + τ_1.cidx - τ.cidx
-        t1 = g.grid[i1]
-        t2 = g.grid[i2]
-        g[t1, t2] = value
-    end
-end
-
 
 """ Set real-time ppgf symmetry connected time pairs
 
 NB! times has to be in the inching region with z2 ∈ backward_branch. """
-function set_ppgf_symmetric(G_s, n, z1, z2, val)
-
-    grid = G_s.grid
+function set_ppgf_symmetric!(G_s::FullTimePPGF, n, z1, z2, val)
+     grid = G_s.grid
 
     grid_bwd = grid[kd.backward_branch]
     zb_i, zb_f = grid_bwd[1], grid_bwd[end]
@@ -357,27 +352,54 @@ function set_ppgf_symmetric(G_s, n, z1, z2, val)
 end
 
 
-function partition_function(G::Vector{S}) where {S <: kd.GenericTimeGF}
-    sum(G) do G_s
+function partition_function(G::Union{FullTimePPGF, ImaginaryTimePPGF})
+    sum(G, init = 0im) do G_s
         g_s = G_s[kd.imaginary_branch, kd.imaginary_branch]
         g_s = vcat(g_s[:, 1]...)
         im * tr(g_s[end])
     end
 end
 
+"""Set all time translation invariant values of the Matsubara branch"""
+function set_matsubara!(g::kd.GenericTimeGF{T, scalar, kd.FullTimeGrid} where {T, scalar}, τ, value)
+    tau_grid = g.grid[kd.imaginary_branch]
 
-function normalize!(G::Vector{S}, β) where {S <: kd.GenericTimeGF}
-    Z = partition_function(G)
-    λ = log(Z) / β
-    tau_grid = G[1].grid[kd.imaginary_branch]
     τ_0 = tau_grid[1]
-    for (idx, τ) in enumerate(tau_grid)
-        for (s, G_s) in enumerate(G)
-            val = G[s][τ, τ_0] .* exp(-1im * τ.bpoint.val * λ)
-            set_matsubara(G_s, τ, val)
-        end
+    τ_beta = tau_grid[end]
+
+    sidx = τ.cidx
+    eidx = τ_beta.cidx
+
+    for τ_1 in g.grid[sidx:eidx]
+        i1 = τ_1.cidx
+        i2 = τ_0.cidx + τ_1.cidx - τ.cidx
+        t1 = g.grid[i1]
+        t2 = g.grid[i2]
+        g[t1, t2] = value
     end
 end
 
+function set_matsubara!(g::kd.ImaginaryTimeGF{T, scalar} where {T, scalar}, τ, value)
+    tau_grid = g.grid[kd.imaginary_branch]
+    τ_0 = tau_grid[1]
+    g[τ, τ_0] = value
+end
+
+function normalize!(G::Union{FullTimePPGF, ImaginaryTimePPGF}, β)
+    Z = partition_function(G)
+    λ = log(Z) / β
+    for g in G
+        normalize!(g, λ)
+    end
+end
+
+function normalize!(g::Union{eltype(FullTimePPGF), eltype(ImaginaryTimePPGF)}, λ)
+    tau_grid = g.grid[kd.imaginary_branch]
+    τ_0 = tau_grid[1]
+    for τ in tau_grid
+        val = g[τ, τ_0] .* exp(-1im * τ.bpoint.val * λ)
+        set_matsubara!(g, τ, val)
+    end
+end
 
 end # module ppgf

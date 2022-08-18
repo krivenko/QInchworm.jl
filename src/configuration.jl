@@ -7,6 +7,7 @@ import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 import QInchworm.ppgf
 
+
 # -- Exports
 
 #export Expansion
@@ -25,16 +26,12 @@ import QInchworm.ppgf
 const Time = kd.BranchPoint
 const Times = Vector{Time}
 
-const ScalarGF = kd.FullTimeGF{ComplexF64, true}
-const MatrixGF = kd.GenericTimeGF{ComplexF64, false}
-const SectorGF = Vector{MatrixGF}
-
 const Operator = op.RealOperatorExpr
 const Operators = Vector{Operator}
 
 const OperatorBlocks = Dict{Tuple{Int64, Int64}, Matrix{Float64}}
 
-""" Representation of local many-body operator in terms of block matrices. 
+""" Representation of local many-body operator in terms of block matrices.
 
 See also: [`operator_to_sector_block_matrix`](@ref) """
 const SectorBlockMatrix = Dict{Int64, Tuple{Int64, Matrix{ComplexF64}}}
@@ -55,7 +52,7 @@ Data type for pseudo-particle interactions, containing two operators and one sca
 
 $(TYPEDFIELDS)
 """
-struct InteractionPair
+struct InteractionPair{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}}
   "Final time operator"
   operator_f::Operator
   "Initial time operator"
@@ -71,12 +68,13 @@ end
 """
 $(TYPEDEF)
 """
-const InteractionPairs = Vector{InteractionPair}
+const InteractionPairs = Vector{InteractionPair{ScalarGF}} where ScalarGF
 
-struct InteractionDeterminant
+struct InteractionDeterminant{PPGFSector <: Union{eltype(ppgf.FullTimePPGF),
+                                                  eltype(ppgf.ImaginaryTimePPGF)}}
   operators_f::Operators
   operators_i::Operators
-  propagator::MatrixGF
+  propagator::PPGFSector
 end
 
 const InteractionDeterminants = Vector{InteractionDeterminant}
@@ -89,24 +87,27 @@ a pseudo-particle expansion problem.
 
 $(TYPEDFIELDS)
 """
-struct Expansion
+struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true},
+                 PPGF <: Union{ppgf.FullTimePPGF, ppgf.ImaginaryTimePPGF}}
   "Exact diagonalization solver for the local degrees of freedom"
   ed::ked.EDCore
   "Non-interacting pseudo-particle Green's function"
-  P0::SectorGF
-  "Interacting pseudo-particle Green's function"  
-  P::SectorGF
+  P0::PPGF
+  "Interacting pseudo-particle Green's function"
+  P::PPGF
   "List of pseudo-particle interactions"
-  pairs::InteractionPairs
+  pairs::InteractionPairs{ScalarGF}
   "List of hybridization function determinants (not implemented yet)"
-  determinants::InteractionDeterminants
-  """ 
+  determinants::Vector{InteractionDeterminant}
+  """
   $(TYPEDSIGNATURES)
   """
-  function Expansion(ed::ked.EDCore, grid::kd.FullTimeGrid, interaction_pairs::InteractionPairs)
+  function Expansion(ed::ked.EDCore,
+                     grid::kd.AbstractTimeGrid,
+                     interaction_pairs::InteractionPairs{ScalarGF}) where ScalarGF
     P0 = ppgf.atomic_ppgf(grid, ed)
     P = deepcopy(P0)
-    return new(ed, P0, P, interaction_pairs, [])
+    return new{ScalarGF, typeof(P0)}(ed, P0, P, interaction_pairs, [])
   end
 end
 
@@ -219,7 +220,7 @@ const Determinants = Vector{Determinant}
 $(TYPEDEF)
 
 The `Configuration` struct defines a single diagram in a peudo-particle
-expansion with fixed insertions of pseduo-particle interactions and 
+expansion with fixed insertions of pseduo-particle interactions and
 auxilliary operators.
 
 $(TYPEDFIELDS)
@@ -303,7 +304,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Returns the [`SectorBlockMatrix`](@ref) representation of the many-body operator at the given time `node::Node'. 
+Returns the [`SectorBlockMatrix`](@ref) representation of the many-body operator at the given time `node::Node'.
 """
 function operator(exp::Expansion, node::Node)::SectorBlockMatrix
     op::Operator = Operator()
@@ -359,7 +360,8 @@ $(TYPEDSIGNATURES)
 
 Returns the [`SectorBlockMatrix`](@ref) representation of the pseudo particle propagator evaluated at the times `z1` and `z2`.
 """
-function sector_block_matrix_from_ppgf(z2::Time, z1::Time, P::SectorGF)
+function sector_block_matrix_from_ppgf(z2::Time, z1::Time, P::Vector{MatrixGF}) where {
+    MatrixGF <: kd.AbstractTimeGF{ComplexF64, false}}
     M = SectorBlockMatrix()
     for (sidx, p) in enumerate(P)
         M[sidx] = (sidx, p(z2, z1))
