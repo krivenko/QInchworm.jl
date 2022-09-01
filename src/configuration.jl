@@ -321,10 +321,6 @@ function operator(exp::Expansion, node::Node)::SectorBlockMatrix
     return operator_to_sector_block_matrix(exp, op)
 end
 
-function Base.:+(A::SectorBlockMatrix, B::SectorBlockMatrix)
-    return merge((a,b) -> (a[1], a[2] + b[2]), A, B)
-end
-
 function Base.:*(A::SectorBlockMatrix, B::SectorBlockMatrix)
     C = SectorBlockMatrix()
     for (s_i, (s, B_mat)) in B
@@ -344,16 +340,24 @@ function Base.:*(A::Number, B::SectorBlockMatrix)
     return C
 end
 
+function Base.:*(A::SectorBlockMatrix, B::Number)
+    return B * A
+end
+
+function Base.:+(A::SectorBlockMatrix, B::SectorBlockMatrix)
+    return merge((a,b) -> (a[1], a[2] + b[2]), A, B)
+end
+
+function Base.:-(A::SectorBlockMatrix, B::SectorBlockMatrix)
+    return A + (-1) * B
+end
+
 function Base.zero(A::SectorBlockMatrix)
     Z = SectorBlockMatrix()
     for (s_i, (s_f, A_mat)) in A
         Z[s_i] = (s_f, zero(A_mat))
     end
     return Z
-end
-
-function Base.:*(A::SectorBlockMatrix, B::Number)
-    return B * A
 end
 
 function Base.fill!(A::SectorBlockMatrix, x)
