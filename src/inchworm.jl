@@ -1,5 +1,7 @@
 module inchworm
 
+using Printf
+
 import Sobol: SobolSeq
 
 import Keldysh; kd = Keldysh
@@ -8,7 +10,9 @@ import QInchworm; teval = QInchworm.topology_eval
 
 import QInchworm.configuration: Expansion,
                                 operator,
-                                sector_block_matrix_from_ppgf
+                                sector_block_matrix_from_ppgf,
+                                maxabs
+    
 import QInchworm.configuration: Node, InchNode
 
 import QInchworm.qmc_integrate: qmc_time_ordered_integral_root,
@@ -62,6 +66,7 @@ function inchworm_step(expansion::Expansion,
     result = deepcopy(zero_sector_block_matrix)
 
     for od in order_data
+        @printf "order %i " od.order
         if od.order == 0
             result += teval.eval(expansion, [n_f, n_w, n_i], kd.BranchPoint[], od.diagrams)
         else
@@ -88,10 +93,13 @@ function inchworm_step(expansion::Expansion,
                 ) * od.N_chunk
                 N += od.N_chunk
                 order_contrib *= 1 / N
+
+                @printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
             end
 
             result += order_contrib
         end
+        @printf "\n"
     end
     result
 end
@@ -130,6 +138,7 @@ function inchworm_step_bare(expansion::Expansion,
     result = deepcopy(zero_sector_block_matrix)
 
     for od in order_data
+        @printf "order %i " od.order
         if od.order == 0
             result += teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
         else
@@ -155,10 +164,13 @@ function inchworm_step_bare(expansion::Expansion,
                 ) * od.N_chunk
                 N += od.N_chunk
                 order_contrib *= 1 / N
+
+                @printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
             end
 
             result += order_contrib
         end
+        @printf "\n"
     end
     result
 end
@@ -184,6 +196,18 @@ function inchworm_matsubara!(expansion::Expansion,
                              N_chunk::Int64,
                              max_chunks::Int64,
                              qmc_convergence_atol::Float64)
+
+
+    # http://patorjk.com/software/taag/#p=display&f=Graffiti&t=QInchWorm
+    logo = raw"""________  .___              .__    __      __                     
+\_____  \ |   | ____   ____ |  |__/  \    /  \___________  _____  
+ /  / \  \|   |/    \_/ ___\|  |  \   \/\/   /  _ \_  __ \/     \ 
+/   \_/.  \   |   |  \  \___|   Y  \        (  <_> )  | \/  Y Y  \
+\_____\ \_/___|___|  /\___  >___|  /\__/\  / \____/|__|  |__|_|  /
+       \__>        \/     \/     \/      \/                    \/ """
+
+    println(logo)
+    
     function assign_bold_ppgf(τ_i, τ_f, result)
         for (s_i, (s_f, mat)) in result
             # Boldification must preserve the block structure
@@ -192,6 +216,8 @@ function inchworm_matsubara!(expansion::Expansion,
         end
     end
 
+    println("Inch step 1 (bare)")
+    
     # First inchworm step
     order_data = InchwormOrderData[]
     for order in orders_bare
@@ -225,6 +251,7 @@ function inchworm_matsubara!(expansion::Expansion,
 
     τ_i = grid[1]
     for n = 2:length(grid)-1
+        println("Inch step $n of $(length(grid)-1)")
         τ_w = grid[n]
         τ_f = grid[n + 1]
 
