@@ -1,4 +1,5 @@
 using Test
+using Printf
 
 import LinearAlgebra; trace = LinearAlgebra.tr
 
@@ -146,7 +147,6 @@ end
 
 function density_matrix(ρ, ed::ked.EDCore, β::Float64)
 
-    ρ = KeldyshED.density_matrix(ed, β)
     n = length(ed.full_hs)
     ρ_out = zeros(Float64, n, n)
 
@@ -296,49 +296,108 @@ end
     P0 = atomic_ppgf(grid, ed)
     ρ_ppgf = eigenstate_density_matrix(P0)
 
-    @show ρ
-    @show ρ_ppgf
+    #@show ρ
+    #@show ρ_ppgf
     @test ρ ≈ ρ_ppgf
 
     # -- Occupation number density matrices
 
     ρ_occ = density_matrix(ed, β)
     ρ_occ_ppgf = density_matrix(P0, ed, β)
-    @show ρ_occ
-    @show ρ_occ_ppgf
+    #@show ρ_occ
+    #@show ρ_occ_ppgf
     @test ρ_occ ≈ ρ_occ_ppgf
-
-    # -- Reduced density matrices
-
-    ρ_red = reduced_density_matrix()
     
 end
 
 
-exit()
+@testset "ppgf assym" begin
 
-@testset "inchworm_matsubara" begin
+    ntau = 5
+    V = 1.0
+    β = 10.0
 
+    H = 1.0 * op.n(1) + V * ( op.c_dag(1) * op.c(2) + op.c_dag(2) * op.c(1) )
+    soi = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
+    ed = KeldyshED.EDCore(H, soi)
+    ρ = ked.density_matrix(ed, β)
+    
+    contour = kd.ImaginaryContour(β=β);
+    grid = kd.ImaginaryTimeGrid(contour, ntau);
+    P0 = atomic_ppgf(grid, ed)
+    ρ_ppgf = eigenstate_density_matrix(P0)
+
+    #@show ρ
+    #@show ρ_ppgf
+    @test ρ ≈ ρ_ppgf
+
+    # -- Occupation number density matrices
+
+    ρ_occ = density_matrix(ed, β)
+    ρ_occ_ppgf = density_matrix(P0, ed, β)
+    #@show ρ_occ
+    #@show ρ_occ_ppgf
+    @test ρ_occ ≈ ρ_occ_ppgf
+
+    H_small = 1.0 * op.n(1)
+    soi_small = KeldyshED.Hilbert.SetOfIndices([[1]])
+    ed_small = KeldyshED.EDCore(H_small, soi_small)
+    
+    ρ_reduced = reduced_density_matrix(ed, ed_small, β)
+
+    @test trace(ρ_reduced) ≈ 1.0
+    #@show ρ_reduced
+
+    
+end
+
+
+function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol)
+
+    β = 1.0
+    ϵ_1, ϵ_2 = 0.0, 2.0
+    V = 0.5
+
+    # -- ED solution
+
+    H_dimer = ϵ_1 * op.n(1) + ϵ_2 * op.n(2) + V * ( op.c_dag(1) * op.c(2) + op.c_dag(2) * op.c(1) )
+    soi_dimer = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
+    ed_dimer = KeldyshED.EDCore(H_dimer, soi_dimer)
+    
+    # -- Impurity problem
+
+    contour = kd.ImaginaryContour(β=β);
+    grid = kd.ImaginaryTimeGrid(contour, ntau);
+    
+    H = ϵ_1 * op.n(1)
+    soi = KeldyshED.Hilbert.SetOfIndices([[1]])
+    ed = KeldyshED.EDCore(H, soi)
+
+    ρ_ref = Array{ComplexF64}( reduced_density_matrix(ed_dimer, ed, β) )
+    
     # -- Hybridization propagator
-
+    
     Δ = kd.ImaginaryTimeGF(
         (t1, t2) -> -1.0im * V^2 *
-            (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ, contour.β)) *
-            exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ),
+            (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ_2, contour.β)) *
+            exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ_2),
         grid, 1, kd.fermionic, true)
 
     # -- Pseudo Particle Strong Coupling Expansion
 
-    ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
-    ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), Δ)
+    ip_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
+    ip_bwd = InteractionPair(op.c(1), op.c_dag(1), Δ)
     expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
 
-    orders = 0:3
-    orders_bare = 0:2
-    N_chunk = 1000
-    max_chunks = 10
-    qmc_convergence_atol = 1e-3
+    ρ_0 = density_matrix(expansion.P0, ed, β)
 
+    #@show eigenstate_density_matrix(expansion.P0)
+    #@show eigenstate_density_matrix(expansion.P)
+    
+    #@test ρ_ref ≈ ρ_0
+    
+    #exit()
+    
     inchworm_matsubara!(expansion,
                         grid,
                         orders,
@@ -347,5 +406,48 @@ exit()
                         max_chunks,
                         qmc_convergence_atol)
 
-    @show expansion.P
+    #@show eigenstate_density_matrix(expansion.P)
+    ρ_wrm = density_matrix(expansion.P, ed, β)
+
+    # ρ_ref = 0.4928078037213840 0.5071921962786160 
+    #[array([[0.49284566]]), array([[0.50715434]])] cthyb
+    
+    a = 0.4928077555264891
+    b = 0.5071922444735112
+    ρ_nca = [[a, 0.], [0., b]]
+
+    @show ρ_0
+    @show ρ_ref
+    @show ρ_nca
+    @show ρ_wrm
+
+    @printf "ρ_0   = %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2])
+    @printf "ρ_ref = %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2])
+    @printf "ρ_nca = %16.16f %16.16f \n" ρ_nca[1][1] ρ_nca[2][2]
+    @printf "ρ_wrm = %16.16f %16.16f \n" real(ρ_wrm[1, 1]) real(ρ_wrm[2, 2])
+    
+    diff_ref = maximum(abs.(ρ_ref - ρ_0))
+    diff = maximum(abs.(ρ_ref - ρ_wrm))
+    @show diff_ref
+    @show diff
+    return diff
+end
+
+
+@testset "inchworm_matsubara" begin
+
+    orders = 0:1
+    orders_bare = 0:1
+    N_chunk = 1000
+    max_chunks = 10
+    qmc_convergence_atol = 1e-10
+
+    #ntaus = 2 .^ (1:5)
+    ntaus = [16*2*2]
+    
+    @show ntaus
+
+    diffs = [ run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol) for ntau in ntaus ]
+
+    @show diffs
 end
