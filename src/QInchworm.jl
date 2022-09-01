@@ -11,4 +11,6 @@ include("diagrammatics.jl")
 include("topology_eval.jl")
 include("inchworm.jl")
 
+include("KeldyshED_addons.jl")
+
 end # module QInchworm
