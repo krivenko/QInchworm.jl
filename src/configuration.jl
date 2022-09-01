@@ -353,11 +353,7 @@ function Base.:-(A::SectorBlockMatrix, B::SectorBlockMatrix)
 end
 
 function maxabs(A::SectorBlockMatrix)
-    maxval = -Inf
-    for (s_i, (s_f, A_mat)) in A
-        maxval = max(maxval, maximum(abs.(A_mat)) )
-    end
-    return maxval
+    return mapreduce(x -> maximum(abs.(x[2])), max, values(A), init=-Inf)
 end
 
 function Base.zero(A::SectorBlockMatrix)
