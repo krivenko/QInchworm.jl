@@ -101,7 +101,7 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
     #@show ρ_nca
     #@show ρ_wrm
 
-    #@printf "ρ_0   = %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2])
+    @printf "ρ_0   = %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2])
     @printf "ρ_ref = %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2])
     #@printf "ρ_nca = %16.16f %16.16f \n" ρ_nca[1][1] ρ_nca[2][2]    
     @printf "ρ_wrm = %16.16f %16.16f \n" real(ρ_wrm[1, 1]) real(ρ_wrm[2, 2])
@@ -119,17 +119,69 @@ end
 
     orders = 0:1
     orders_bare = 0:1
-    #N_chunk = 10000
-    N_chunk = 10 * 2
-    max_chunks = 5
     qmc_convergence_atol = 1e-15
 
-    ntaus = 2 .^ (2:15)
-    #ntaus = [16 * 2 * 2 * 2 * 2 * 2]
+    ntau = 32
+    N_per_chunk = 64
+    N_chunks = 2
+
+    diff = run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol) 
+    @test diff < 1e-3
+    
+end
+
+
+@testset "inchworm_matsubara_plot" begin
+
+    return
+    
+    orders = 0:1
+    orders_bare = 0:1
+    qmc_convergence_atol = 1e-15
+
+    #ntaus = [16, 32, 64, 128, 256, 512, 1024]
+    #ntaus = [16, 32, 64, 128, 256]
+    ntaus = [4, 8, 16, 32, 64, 128, 256, 512, 1024]
+    #N_chunkss = [0, 1, 2, 4, 8, 16]
+    N_chunkss = [0, 1, 2, 4, 8, 16] 
+    #N_chunkss = [1, 2, 4, 8]
+    #max_chunkss = [1]
+
     @show ntaus
-    #exit()
+    @show N_chunkss
 
-    diffs = [ run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol) for ntau in ntaus ]
+    import PyPlot as plt
 
-    @show diffs
+    #for ntau in ntaus
+    for N_chunks in N_chunkss
+
+        N_per_chunk = 8
+        
+        #diffs = [ run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol) for max_chunks in max_chunkss ]
+        diffs = [ run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol) for ntau in ntaus ]
+
+        #@show ntau
+        #@show max_chunkss
+
+        @show N_chunks
+        @show ntaus
+        @show diffs
+
+        #N = max_chunkss .* ntau .* N_chunk
+        N = N_chunks .* ntaus .* N_per_chunk
+        
+        #plt.loglog(N, diffs, "-o", label="n_tau = $ntau")
+        plt.loglog(ntaus, diffs, "-o", label="N_chunks = $N_chunks")
+        
+    end
+
+    plt.legend()
+    plt.xlabel("N_tau")
+    plt.ylabel("Err")
+    #plt.ylim(bottom=0)
+    #plt.xlim(left=0)
+    plt.axis("image")
+    plt.grid(true)
+    plt.show()
+    
 end

@@ -83,7 +83,8 @@ function inchworm_step(expansion::Expansion,
                 order_contrib_prev = deepcopy(order_contrib)
 
                 order_contrib *= N
-                order_contrib += qmc_inchworm_integral_root(
+                #order_contrib += qmc_inchworm_integral_root(
+                order_contrib -= qmc_inchworm_integral_root(
                     t -> teval.eval(expansion, [n_f, n_w, n_i], t, od.diagrams),
                     d_bold, d_bare,
                     c, t_i, t_w, t_f,
@@ -139,8 +140,11 @@ function inchworm_step_bare(expansion::Expansion,
 
     for od in order_data
         @printf "order %i " od.order
-        if od.order == 0
-            result += teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
+        if od.order == 0            
+            order_contrib = teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
+            @show order_contrib
+            result += order_contrib
+            #result += teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
         else
             d = 2 * od.order
             seq = SobolSeq(d)
@@ -149,12 +153,23 @@ function inchworm_step_bare(expansion::Expansion,
             order_contrib_prev = deepcopy(zero_sector_block_matrix)
             fill!(order_contrib_prev, Inf)
 
+            if false
+                #DEBUG
+                @show od.diagrams
+                g = expansion.P0[1].grid
+                t = [g[end].bpoint, g[1].bpoint]
+                tmp = teval.eval(expansion, [n_f, n_i, n_i], t, od.diagrams)
+                @show tmp
+                exit()
+            end
+            
             while ((N < od.N_chunk * od.max_chunks) &&
                    !isapprox(order_contrib, order_contrib_prev, atol=od.convergence_atol))
                 order_contrib_prev = deepcopy(order_contrib)
 
                 order_contrib *= N
-                order_contrib += qmc_time_ordered_integral_root(
+                #order_contrib += qmc_time_ordered_integral_root(
+                order_contrib -= qmc_time_ordered_integral_root(
                     t -> teval.eval(expansion, [n_f, n_i, n_i], t, od.diagrams),
                     d,
                     c, t_i, t_f,
@@ -167,7 +182,8 @@ function inchworm_step_bare(expansion::Expansion,
 
                 @printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
             end
-
+            
+            @show order_contrib
             result += order_contrib
         end
         @printf "\n"
