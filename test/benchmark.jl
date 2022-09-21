@@ -153,7 +153,6 @@ end
 
 
 @testset "ppgf assym" begin
-
     ntau = 5
     V = 1.0
     β = 10.0
@@ -188,6 +187,58 @@ end
 
     @test trace(ρ_reduced) ≈ 1.0
     #@show ρ_reduced
+end
 
+
+function get_reduced_density_matrix_hubbard_dimer(β, U, ϵ_1, ϵ_2, V_1, V_2)
+    H_imp = U * op.n(1) * op.n(2) + ϵ_1 * (op.n(1) + op.n(2))
     
+    H_dimer = H_imp + ϵ_2 * (op.n(3) + op.n(4)) + 
+        V_1 * ( op.c_dag(1) * op.c(3) + op.c_dag(3) * op.c(1) ) + 
+        V_2 * ( op.c_dag(2) * op.c(4) + op.c_dag(4) * op.c(2) )
+                             
+    soi_dimer = KeldyshED.Hilbert.SetOfIndices([[1], [2], [3], [4]])
+    ed_dimer = KeldyshED.EDCore(H_dimer, soi_dimer)
+    
+    soi_small = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
+    ed_small = KeldyshED.EDCore(H_imp, soi_small)
+
+    ρ_reduced = reduced_density_matrix(ed_dimer, ed_small, β)
+
+    return ρ_reduced
+end
+
+
+@testset "reduced density matrix (hybridized hubbard dimer)" begin
+    import LinearAlgebra; diag = LinearAlgebra.diag
+    import LinearAlgebra; diagm = LinearAlgebra.diagm
+
+    β = 1.0
+    U = 0.0
+    ϵ_1, ϵ_2 = 0.0, 2.0
+
+    #@printf "===============================================================\n"
+    V_1, V_2 = 0.5, 0.0
+    ρ_1 = get_reduced_density_matrix_hubbard_dimer(β, U, ϵ_1, ϵ_2, V_1, V_2)
+
+    #@printf "===============================================================\n"
+    V_1, V_2 = 0.0, 0.5
+    ρ_2 = get_reduced_density_matrix_hubbard_dimer(β, U, ϵ_1, ϵ_2, V_1, V_2)
+
+    # Permutation matrix for switching |1> and |2>
+    P = [1 0 0 0; 0 0 1 0; 0 1 0 0; 0 0 0 1]
+    #@show P
+
+    ρ_1 = P * ρ_1 * P # Permute states in ρ_1 so that it becomes identical to ρ_2
+
+    @test all(ρ_1 - diagm(diag(ρ_1)) .≈ 0.)
+    @test all(ρ_2 - diagm(diag(ρ_2)) .≈ 0.)
+    
+    #@show diag(ρ_1)
+    #@show diag(ρ_2)
+
+    @test trace(ρ_2) ≈ 1.0
+    @test trace(ρ_1) ≈ 1.0
+
+    @test ρ_1 ≈ ρ_2
 end
