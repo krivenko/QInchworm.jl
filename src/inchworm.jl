@@ -141,10 +141,7 @@ function inchworm_step_bare(expansion::Expansion,
     for od in order_data
         @printf "order %i " od.order
         if od.order == 0            
-            order_contrib = teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
-            @show order_contrib
-            result += order_contrib
-            #result += teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
+            result += teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
         else
             d = 2 * od.order
             seq = SobolSeq(d)
@@ -168,7 +165,6 @@ function inchworm_step_bare(expansion::Expansion,
                 order_contrib_prev = deepcopy(order_contrib)
 
                 order_contrib *= N
-                #order_contrib += qmc_time_ordered_integral_root(
                 order_contrib -= qmc_time_ordered_integral_root(
                     t -> teval.eval(expansion, [n_f, n_i, n_i], t, od.diagrams),
                     d,
@@ -183,7 +179,6 @@ function inchworm_step_bare(expansion::Expansion,
                 @printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
             end
             
-            @show order_contrib
             result += order_contrib
         end
         @printf "\n"
