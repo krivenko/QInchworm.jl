@@ -149,16 +149,6 @@ function inchworm_step_bare(expansion::Expansion,
             order_contrib = deepcopy(zero_sector_block_matrix)
             order_contrib_prev = deepcopy(zero_sector_block_matrix)
             fill!(order_contrib_prev, Inf)
-
-            if false
-                #DEBUG
-                @show od.diagrams
-                g = expansion.P0[1].grid
-                t = [g[end].bpoint, g[1].bpoint]
-                tmp = teval.eval(expansion, [n_f, n_i, n_i], t, od.diagrams)
-                @show tmp
-                exit()
-            end
             
             while ((N < od.N_chunk * od.max_chunks) &&
                    !isapprox(order_contrib, order_contrib_prev, atol=od.convergence_atol))
