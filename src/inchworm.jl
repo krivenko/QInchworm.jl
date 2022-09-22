@@ -83,7 +83,6 @@ function inchworm_step(expansion::Expansion,
                 order_contrib_prev = deepcopy(order_contrib)
 
                 order_contrib *= N
-                #order_contrib += qmc_inchworm_integral_root(
                 order_contrib -= qmc_inchworm_integral_root(
                     t -> teval.eval(expansion, [n_f, n_w, n_i], t, od.diagrams),
                     d_bold, d_bare,
@@ -95,9 +94,10 @@ function inchworm_step(expansion::Expansion,
                 N += od.N_chunk
                 order_contrib *= 1 / N
 
-                @printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
+                #@printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
             end
 
+            @printf "%2.2e N_chunks = %i" maxabs(order_contrib - order_contrib_prev) N/od.N_chunk
             result += order_contrib
         end
         @printf "\n"

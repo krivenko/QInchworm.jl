@@ -87,7 +87,9 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
 end
 
 
-@testset "inchworm_matsubara_plot" begin
+@testset "chunks_plot" begin
+
+    return
     
     orders = 0:1
     orders_bare = 0:1
@@ -130,6 +132,173 @@ end
 
     plt.legend()
     plt.xlabel("N_tau")
+    plt.ylabel("Err")
+    #plt.ylim(bottom=0)
+    #plt.xlim(left=0)
+    plt.axis("image")
+    plt.grid(true)
+    plt.show()
+    
+end
+
+
+"""
+    split_count(N::Integer, n::Integer)
+
+Return a vector of `n` integers which are approximately equally sized and sum to `N`.
+"""
+function split_count(N::Integer, n::Integer)
+    q,r = divrem(N, n)
+    return [i <= r ? q+1 : q for i = 1:n]
+end
+
+@testset "ntau_plot" begin
+
+    orders = 0:1
+    orders_bare = 0:1
+    qmc_convergence_atol = 1e-15
+    N_per_chunk = 8
+    #ntau = 32
+    ntau = 64
+    #ntau = 128
+    #ntau = 256
+    #ntau = 512
+    #ntau = 1024
+    #ntau = 2048
+    #ntau = 4096
+    #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 8, 40))))
+    #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 8, 40))))
+    #N_chunkss = unique(trunc.(Int, 2 .^ (range(8, 10, 8*2))))
+    N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 10, 8*2 + 8*5))))
+    #N_chunkss = [1, 2]
+
+    # --    
+    
+    using MPI
+    MPI.Init()
+
+    comm_root = 0
+    comm = MPI.COMM_WORLD
+    comm_size = MPI.Comm_size(comm)
+    comm_rank = MPI.Comm_rank(comm)
+
+    # Poor man's load balancing
+    
+    N_chunkss_new = []
+    for i in 1:comm_size
+        N_chunkss_new = vcat(N_chunkss_new, N_chunkss[i:comm_size:end])
+    end
+    N_chunkss = Array{Int}(N_chunkss_new)
+
+    # end load balancing
+    
+    for i = 1:comm_size
+        if i-1 == comm_rank
+            println("Hello world, I am $(MPI.Comm_rank(comm)) of $(MPI.Comm_size(comm))")
+        end
+        MPI.Barrier(comm)
+    end
+    
+    N = length(N_chunkss)
+    sizes = split_count(N, comm_size)
+
+    if comm_rank == comm_root
+        diffs = zeros(Float64, length(N_chunkss))
+
+        size_ubuf = UBuffer(sizes, 1)
+        N_chunkss_vbuf = VBuffer(N_chunkss, sizes) # VBuffer for scatter
+        diffs_vbuf = VBuffer(diffs, sizes) # VBuffer for gather
+    else
+        size_ubuf = UBuffer(nothing)
+        N_chunkss_vbuf = diffs_vbuf = VBuffer(nothing)        
+    end
+
+    if comm_rank == comm_root
+        @show sizes
+        @show diffs
+        @show N_chunkss
+    end
+    
+    local_size = MPI.Scatter(size_ubuf, Int, comm_root, comm)
+    local_N_chunkss = MPI.Scatterv!(N_chunkss_vbuf, zeros(Int, local_size), comm_root, comm)
+
+    # -- Do calculation here
+    
+    #local_diffs = zeros(Float64, local_size)
+    #local_diffs .= 0.1 * comm_rank
+
+    local_diffs = [ run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol) for N_chunks in local_N_chunkss ]
+
+    if false
+        for i = 1:comm_size
+            if i-1 == comm_rank
+                println("Bye bye world, I am $(MPI.Comm_rank(comm)) of $(MPI.Comm_size(comm))")
+                @show local_size
+                @show local_N_chunkss
+                @show local_diffs
+            end
+            MPI.Barrier(comm)
+        end
+    end
+    
+    MPI.Gatherv!(local_diffs, diffs_vbuf, comm_root, comm)
+    
+    if comm_rank == comm_root
+
+        diff_0 = run_dimer(ntau, orders, orders_bare, N_per_chunk, 0, qmc_convergence_atol)
+
+        @show diffs
+
+        import MD5
+        import HDF5; h5 = HDF5
+
+        id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, diffs)))
+        filename = "data_ntau_$(ntau)_md5_$(id).h5"
+
+        @show filename
+        fid = h5.h5open(filename, "w")
+
+        g = h5.create_group(fid, "data")
+
+        h5.attributes(g)["qmc_convergence_atol"] = qmc_convergence_atol
+        h5.attributes(g)["ntau"] = ntau
+        h5.attributes(g)["N_per_chunk"] = N_per_chunk
+        h5.attributes(g)["diff_0"] = diff_0
+
+        g["orders"] = collect(orders)
+        g["orders_bare"] = collect(orders_bare)
+        g["N_chunkss"] = N_chunkss
+
+        g["diffs"] = diffs
+        
+        h5.close(fid)
+        
+    end
+    
+    MPI.Barrier(comm)
+    
+    return
+
+    for ntau in ntaus
+
+
+        diff_0 = run_dimer(ntau, orders, orders_bare, N_per_chunk, 0, qmc_convergence_atol)
+
+        diffs = [ run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol) for N_chunks in N_chunkss ]
+        @show diffs
+
+        rel_diffs = diffs ./ diff_0
+        @show rel_diffs
+
+        N = N_chunkss .* ntau .* N_per_chunk
+        
+        plt.loglog(N, rel_diffs, "-o", label=raw"$n_{\tau}$" * " = $ntau")
+        
+    end
+
+    plt.legend()
+    #plt.xlabel("N_tau")
+    plt.xlabel("N")
     plt.ylabel("Err")
     #plt.ylim(bottom=0)
     #plt.xlim(left=0)
