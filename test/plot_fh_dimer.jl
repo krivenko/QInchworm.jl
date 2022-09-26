@@ -73,6 +73,9 @@ plt.subplot(gs[1, 1])
 #plt.plot([1e2, 1e4], [1e-1, 1e-3], "-k", lw=3, alpha=0.25)
 #plt.plot([1e1, 1e4], [1e-1, 1e-4], "-k", lw=3, alpha=0.25)
 
+colors = Dict()
+styles = Dict(2=>"x", 3=>"+")
+
 for key in sort(collect(keys(merged_data)))
     d = merged_data[key]
     ntau = d["ntau"]
@@ -81,11 +84,33 @@ for key in sort(collect(keys(merged_data)))
     #N = d["N_chunkss"] .* d["ntau"] .* d["N_per_chunk"]
     N = d["N_chunkss"] .* d["N_per_chunk"]
     rel_diffs = d["diffs"] ./ d["diff_0"]
-    l = plt.loglog(N, rel_diffs, ".-",
-                   label=raw"$N_{\tau}$" * " = $ntau, max(order) = $order_max", alpha=0.75)
-    color = l[1].get_color()
-    @show color
+
+    style = styles[order_max]
+    color = haskey(colors, ntau) ? colors[ntau] : nothing
+
+    if color == nothing
+        if order_max == 2
+            #label= raw"$N_{\tau}$" * " = $ntau, max(order) = $order_max"
+            label= raw"$N_{\tau}$" * " = $ntau"
+        else
+            label = nothing
+        end
+        
+        l = plt.plot([], [], label=label)
+        color = l[1].get_color()
+        @show color
+    end
+    
+    plt.loglog(N, rel_diffs, style * "-", color=color,
+                   #label=raw"$N_{\tau}$" * " = $ntau, max(order) = $order_max",
+                   alpha=0.75, markersize=3, lw=0.5)
     plt.plot(N[end], rel_diffs[end], "s", color=color, alpha=0.75)
+
+    colors[ntau] = color
+end
+
+for (order_max, style) in styles
+    plt.plot([], [], style, color="gray", label="Order = $order_max")
 end
 
 plt.legend(fontsize=7, loc="best")
@@ -98,13 +123,20 @@ plt.grid(true)
 plt.subplot(gs[2, 1])
 plt.loglog(ntaus, rel_diffs, "-", color="gray")
 for i in 1:length(data_keys)
-    ntau = data_keys[i][1]
-    plt.loglog(ntau, rel_diffs[i], "s", alpha=0.75)
+    ntau, order_max = data_keys[i]
+    color = colors[ntau]
+    style = Dict(2=>"x-", 3=>"+-")[order_max]
+    plt.loglog(ntau, rel_diffs[i], style, alpha=0.75, color=color)
 end
+
+#plt.plot([1e1, 1e2], [1e-1, 1e-3], "-k", lw=3, alpha=0.25)
+plt.plot([1e1, 1e2], [1e-1, 1e-4], "-k", lw=3, alpha=0.25)
+
 plt.xlabel(raw"$N_{\tau}$")
 plt.ylabel("Relative Error in ρ")
-plt.axis("image")
 plt.grid(true)
+plt.axis("image")
+plt.xlim([1, 1000])
 
 plt.savefig("figure_fh_dimer_convergence.pdf")
 plt.show()

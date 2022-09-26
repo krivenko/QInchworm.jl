@@ -166,9 +166,10 @@ function inchworm_step_bare(expansion::Expansion,
                 N += od.N_chunk
                 order_contrib *= 1 / N
 
-                @printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
+                #@printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
             end
             
+            @printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
             result += order_contrib
         end
         @printf "\n"

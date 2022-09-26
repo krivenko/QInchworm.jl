@@ -119,11 +119,13 @@ end
     orders_bare = 0:3
     qmc_convergence_atol = 1e-15
     N_per_chunk = 8
+    #ntau = 4
+    #ntau = 6
     #ntau = 8
-    ntau = 12
+    #ntau = 12
     #ntau = 16
     #ntau = 32
-    #ntau = 64
+    ntau = 64
     #ntau = 128
     #ntau = 256
     #ntau = 512
