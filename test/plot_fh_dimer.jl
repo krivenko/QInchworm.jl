@@ -10,7 +10,7 @@ function read_group(group)
 end
 
 
-filenames = filter( f -> occursin(".h5", f), readdir(".", join=true) )
+filenames = filter( f -> occursin("data_FH_dimer", f), readdir(".", join=true) )
 @show filenames
 
 # load all data files
@@ -29,7 +29,8 @@ end
 
 merged_data = Dict()
 for d in data
-    key = d["ntau"]
+    key = (d["ntau"], maximum(d["orders"]))
+    @show key
     if haskey(merged_data, key)
         for dkey in ["diffs", "N_chunkss"]
             merged_data[key][dkey] = vcat(merged_data[key][dkey], d[dkey])
@@ -50,8 +51,12 @@ end
 
 # Get scaling wrt N_tau
 
-ntaus = sort(collect(keys(merged_data)))
-rel_diffs = [ d["diffs"][end] ./ d["diff_0"] for d in [ merged_data[ntau] for ntau in ntaus ] ]
+data_keys = sort(collect(keys(merged_data)))
+@show data_keys
+ntaus = [ key[1] for key in data_keys ]
+@show ntaus
+rel_diffs = [ d["diffs"][end] ./ d["diff_0"] for d in [ merged_data[key] for key in data_keys ] ]
+@show rel_diffs
 
 # Plot for all ntau
 
@@ -65,17 +70,19 @@ gs = fig.add_gridspec(
 
 plt.subplot(gs[1, 1])
 
-plt.plot([1e2, 1e4], [1e-1, 1e-3], "-k", lw=3, alpha=0.25)
-plt.plot([1e1, 1e4], [1e-1, 1e-4], "-k", lw=3, alpha=0.25)
+#plt.plot([1e2, 1e4], [1e-1, 1e-3], "-k", lw=3, alpha=0.25)
+#plt.plot([1e1, 1e4], [1e-1, 1e-4], "-k", lw=3, alpha=0.25)
 
 for key in sort(collect(keys(merged_data)))
     d = merged_data[key]
     ntau = d["ntau"]
+    order_max = maximum(d["orders"])
+    
     #N = d["N_chunkss"] .* d["ntau"] .* d["N_per_chunk"]
     N = d["N_chunkss"] .* d["N_per_chunk"]
     rel_diffs = d["diffs"] ./ d["diff_0"]
     l = plt.loglog(N, rel_diffs, ".-",
-                   label=raw"$N_{\tau}$" * " = $ntau", alpha=0.75)
+                   label=raw"$N_{\tau}$" * " = $ntau, max(order) = $order_max", alpha=0.75)
     color = l[1].get_color()
     @show color
     plt.plot(N[end], rel_diffs[end], "s", color=color, alpha=0.75)
@@ -86,17 +93,18 @@ plt.xlabel(raw"$N_{QQMC, tot} / N_{\tau}$")
 plt.ylabel("Relative Error in ρ")
 plt.axis("image")
 plt.grid(true)
-plt.ylim(bottom=5e-5)
+#plt.ylim(bottom=5e-5)
 
 plt.subplot(gs[2, 1])
 plt.loglog(ntaus, rel_diffs, "-", color="gray")
-for i in 1:length(ntaus)
-    plt.loglog(ntaus[i], rel_diffs[i], "s", alpha=0.75)
+for i in 1:length(data_keys)
+    ntau = data_keys[i][1]
+    plt.loglog(ntau, rel_diffs[i], "s", alpha=0.75)
 end
 plt.xlabel(raw"$N_{\tau}$")
 plt.ylabel("Relative Error in ρ")
 plt.axis("image")
 plt.grid(true)
 
-plt.savefig("figure_dimer_convergence.pdf")
-#plt.show()
+plt.savefig("figure_fh_dimer_convergence.pdf")
+plt.show()
