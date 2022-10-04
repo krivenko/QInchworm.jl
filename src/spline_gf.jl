@@ -5,7 +5,7 @@ import Interpolations: BSplineInterpolation,
                        scale,
                        BSpline,
                        Cubic,
-                       Free,
+                       Line,
                        OnGrid
 
 import Keldysh; kd = Keldysh;
@@ -85,7 +85,7 @@ end
 function make_interpolant(G::kd.ImaginaryTimeGF{T, scalar}, k, l) where {T <: Number, scalar}
     grid = G.grid
     knots = 0.:-imag(step(grid, kd.imaginary_branch)):grid.contour.β
-    scale(interpolate(G.mat.data[k,l,:], BSpline(Cubic(Free(OnGrid())))), knots)
+    scale(interpolate(G.mat.data[k,l,:], BSpline(Cubic(Line(OnGrid())))), knots)
 end
 
 function interpolate(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, true}, T, true},
