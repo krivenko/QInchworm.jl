@@ -4,8 +4,8 @@ using Quasi Monte Carlo and the inch-worm algorithm.
 """
 module QInchworm
 
+include("utility.jl")
 include("diagrammatics.jl")
-
 include("ppgf.jl")
 include("configuration.jl")
 include("qmc_integrate.jl")

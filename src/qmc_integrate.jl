@@ -3,27 +3,11 @@ module qmc_integrate
 import Sobol: SobolSeq, next!
 import Keldysh; kd = Keldysh
 
+import QInchworm.utility: get_ref
+
 #
 # I use the notations introduced in https://arxiv.org/pdf/2002.12372.pdf.
 #
-
-"""
-    Inverse of get_point(c::AbstractContour, ref)
-
-    TODO: Ask Joseph to promote it to Keldysh.jl?
-"""
-function get_ref(c::kd.AbstractContour, t::kd.BranchPoint)
-    ref = 0
-    for b in c.branches
-        lb = length(b)
-        if t.domain == b.domain
-            return ref + (t.ref * lb)
-        else
-            ref += lb
-        end
-    end
-    @assert false
-end
 
 """
     Make the model function p_d(u) out of h_i(v).

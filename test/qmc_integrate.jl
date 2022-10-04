@@ -2,8 +2,7 @@ using Test
 
 import Keldysh; kd = Keldysh
 
-import QInchworm.qmc_integrate: get_ref,
-                                qmc_time_ordered_integral,
+import QInchworm.qmc_integrate: qmc_time_ordered_integral,
                                 qmc_time_ordered_integral_n_samples,
                                 qmc_time_ordered_integral_sort,
                                 qmc_time_ordered_integral_root,
@@ -16,12 +15,6 @@ import QInchworm.qmc_integrate: get_ref,
 
     # -- Real-time Kadanoff-Baym contour
     contour = kd.twist(kd.FullContour(tmax=tmax, β=β));
-
-    @testset "get_ref()" begin
-        for ref in [0.0, 0.5, 2.0, 5.0, 5.5, 6.5]
-            @test get_ref(contour, contour(ref)) == ref
-        end
-    end
 
     @testset "qmc_time_ordered_integral()" begin
 
