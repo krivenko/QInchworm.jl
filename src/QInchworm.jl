@@ -6,6 +6,7 @@ module QInchworm
 
 include("utility.jl")
 include("diagrammatics.jl")
+include("spline_gf.jl")
 include("ppgf.jl")
 include("configuration.jl")
 include("qmc_integrate.jl")
