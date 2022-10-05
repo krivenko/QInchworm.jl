@@ -28,7 +28,7 @@ function SplineInterpolatedGF(G::GFType) where {
     }
     norb = kd.norbitals(G)
     interpolants = [make_interpolant(G, k, l) for k=1:norb, l=1:norb]
-    SplineInterpolatedGF{GFType, T, scalar}(deepcopy(G), interpolants)
+    SplineInterpolatedGF{GFType, T, scalar}(G, interpolants)
 end
 
 Base.eltype(::Type{<:SplineInterpolatedGF{GFType, T}}) where {GFType, T} = T
@@ -45,37 +45,45 @@ kd.TimeDomain(G_int::SplineInterpolatedGF) = kd.TimeDomain(G_int.G)
                                k, l,
                                t1::kd.TimeGridPoint, t2::kd.TimeGridPoint,
                                greater=true)
-    Base.getindex(G_int.G, k, l, t1, t2, greater)
+    G_int.G[k, l, t1, t2, greater]
 end
 
 @inline function Base.getindex(G_int::SplineInterpolatedGF,
                                t1::kd.TimeGridPoint, t2::kd.TimeGridPoint,
                                greater=true)
-    Base.getindex(G_int.G, t1, t2, greater)
+    G_int.G[t1, t2, greater]
 end
 
 @inline function Base.setindex!(G_int::SplineInterpolatedGF,
                                 v,
                                 k, l,
                                 t1::kd.TimeGridPoint, t2::kd.TimeGridPoint)
-    Base.setindex!(G_int.G, v, k, l, t1, t2)
-    G_int.interpolants[k, l] = make_interpolant(G_int.G, k, l)
+    G_int.G[k, l, t1, t2] = v
+    update_interpolant!(G_int, k, l)
     v
 end
 
 @inline function Base.setindex!(G_int::SplineInterpolatedGF,
                                 v,
                                 t1::kd.TimeGridPoint, t2::kd.TimeGridPoint)
-    Base.setindex!(G_int.G, v, t1, t2)
-    norb = kd.norbitals(G_int.G)
-    for k=1:norb, l=1:norb
-        G_int.interpolants[k, l] = make_interpolant(G_int.G, k, l)
-    end
+    G_int.G[t1, t2] = v
+    update_interpolants!(G_int)
     v
 end
 
 function (G_int::SplineInterpolatedGF)(t1::kd.BranchPoint, t2::kd.BranchPoint)
     return interpolate(G_int, t1, t2)
+end
+
+function update_interpolant!(G_int::SplineInterpolatedGF, k, l)
+    G_int.interpolants[k, l] = make_interpolant(G_int.G, k, l)
+end
+
+function update_interpolants!(G_int::SplineInterpolatedGF)
+    norb = kd.norbitals(G_int)
+    for k=1:norb, l=1:norb
+        update_interpolant!(G_int, k, l)
+    end
 end
 
 #

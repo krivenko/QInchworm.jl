@@ -2,7 +2,9 @@ using Test
 
 import Keldysh; kd = Keldysh
 
-import QInchworm.spline_gf: SplineInterpolatedGF
+import QInchworm.spline_gf: SplineInterpolatedGF,
+                            update_interpolant!,
+                            update_interpolants!
 
 β = 10.
 ntau = 6
@@ -20,7 +22,7 @@ ntau = 6
 
         @testset "scalar = true" begin
             G = kd.ImaginaryTimeGF(G_func, grid, 1, kd.fermionic, true)
-            G_int = SplineInterpolatedGF(G)
+            G_int = SplineInterpolatedGF(deepcopy(G))
 
             @test eltype(G_int) == ComplexF64
             @test kd.norbitals(G_int) == 1
@@ -50,12 +52,24 @@ ntau = 6
             # Check that G and G_int still match after the setindex!() call
             @test [G(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
                   [G_int(t1.bpoint, t2.bpoint) for t1=grid, t2=grid]
+
+            # update_interpolant!()
+            G_int.G[1, 1, grid[3], grid[4]] = 0.6im
+            update_interpolant!(G_int, 1, 1)
+            @test [G_int.G(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
+                  [G_int(t1.bpoint, t2.bpoint) for t1=grid, t2=grid]
+
+            # update_interpolants!()
+            G_int.G[grid[2], grid[1]] = 0.7im
+            update_interpolants!(G_int)
+            @test [G_int.G(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
+                  [G_int(t1.bpoint, t2.bpoint) for t1=grid, t2=grid]
         end
 
         @testset "scalar = false" begin
             G = kd.ImaginaryTimeGF((t1, t2) -> ones(2, 2) * G_func(t1, t2),
                                    grid, 2, kd.fermionic, false)
-            G_int = SplineInterpolatedGF(G)
+            G_int = SplineInterpolatedGF(deepcopy(G))
 
             @test eltype(G_int) == ComplexF64
             @test kd.norbitals(G_int) == 2
@@ -84,6 +98,18 @@ ntau = 6
 
             # Check that G and G_int still match after the setindex!() call
             @test [G(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
+                  [G_int(t1.bpoint, t2.bpoint) for t1=grid, t2=grid]
+
+            # update_interpolant!()
+            G_int.G[2, 2, grid[3], grid[4]] = 0.6im
+            update_interpolant!(G_int, 2, 2)
+            @test [G_int.G(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
+                  [G_int(t1.bpoint, t2.bpoint) for t1=grid, t2=grid]
+
+            # update_interpolants!()
+            G_int.G[grid[2], grid[1]] = [2.0im 1.0im; 4.0im 3.0im]
+            update_interpolants!(G_int)
+            @test [G_int.G(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
                   [G_int(t1.bpoint, t2.bpoint) for t1=grid, t2=grid]
         end
     end
