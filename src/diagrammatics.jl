@@ -156,4 +156,18 @@ function double_factorial(n)
   return n * double_factorial(n - 2)
 end
 
+"""
+Diagram with a topology and tuple of pseudo particle interaction pair indices
+"""
+struct Diagram
+  "Topology"
+  topology::Topology
+  "Pair indices"
+  pair_idxs::Tuple{Vararg{Int64}}
+end
+
+"""
+"""
+const Diagrams = Vector{Diagram}
+
 end # module diagrammatics

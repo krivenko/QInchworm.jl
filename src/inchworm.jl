@@ -9,6 +9,7 @@ import Keldysh; kd = Keldysh
 import QInchworm; teval = QInchworm.topology_eval
 
 import QInchworm.configuration: Expansion,
+                                Configurations,
                                 operator,
                                 sector_block_matrix_from_ppgf,
                                 maxabs
@@ -24,6 +25,8 @@ struct InchwormOrderData
     order::Int64
     "List of diagrams contributing at this expansion order"
     diagrams::teval.Diagrams
+    "Precomputed hilbert space paths"
+    configurations::Configurations
     "Numbers of qMC samples taken between consecutive convergence checks"
     N_chunk::Int64
     "Stop accumulation after this number of unsuccessful convergence checks"
@@ -70,6 +73,8 @@ function inchworm_step(expansion::Expansion,
         if od.order == 0
             result += teval.eval(expansion, [n_f, n_w, n_i], kd.BranchPoint[], od.diagrams)
         else
+            teval.update_inch_times!(od.configurations, t_i, t_w, t_f)
+                    
             d_bare = 1
             d_bold = 2 * od.order - 1
             seq = SobolSeq(2 * od.order)
@@ -81,10 +86,11 @@ function inchworm_step(expansion::Expansion,
             while ((N < od.N_chunk * od.max_chunks) &&
                 !isapprox(order_contrib, order_contrib_prev, atol=od.convergence_atol))
                 order_contrib_prev = deepcopy(order_contrib)
-
+                
                 order_contrib *= N
                 order_contrib -= qmc_inchworm_integral_root(
-                    t -> teval.eval(expansion, [n_f, n_w, n_i], t, od.diagrams),
+                    #t -> teval.eval(expansion, [n_f, n_w, n_i], t, od.diagrams),
+                    t -> teval.eval(expansion, od.diagrams, od.configurations, t),
                     d_bold, d_bare,
                     c, t_i, t_w, t_f,
                     init = deepcopy(zero_sector_block_matrix),
@@ -143,6 +149,8 @@ function inchworm_step_bare(expansion::Expansion,
         if od.order == 0            
             result += teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
         else
+            teval.update_inch_times!(od.configurations, t_i, t_i, t_f)
+
             d = 2 * od.order
             seq = SobolSeq(d)
             N = 0
@@ -156,7 +164,8 @@ function inchworm_step_bare(expansion::Expansion,
 
                 order_contrib *= N
                 order_contrib -= qmc_time_ordered_integral_root(
-                    t -> teval.eval(expansion, [n_f, n_i, n_i], t, od.diagrams),
+                    #t -> teval.eval(expansion, [n_f, n_i, n_i], t, od.diagrams),
+                    t -> teval.eval(expansion, od.diagrams, od.configurations, t),
                     d,
                     c, t_i, t_f,
                     init = deepcopy(zero_sector_block_matrix),
@@ -225,11 +234,15 @@ function inchworm_matsubara!(expansion::Expansion,
     for order in orders_bare
         topologies = teval.get_topologies_at_order(order)
         diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
-        push!(order_data, InchwormOrderData(order,
-                                            diagrams,
-                                            N_chunk,
-                                            max_chunks,
-                                            qmc_convergence_atol))
+        configurations = teval.get_configurations(expansion, diagrams; bare_expansion=true)
+        if length(configurations) > 0
+            push!(order_data, InchwormOrderData(order,
+                                                diagrams,
+                                                configurations,
+                                                N_chunk,
+                                                max_chunks,
+                                                qmc_convergence_atol))
+        end
     end
 
     result = inchworm_step_bare(expansion,
@@ -244,11 +257,15 @@ function inchworm_matsubara!(expansion::Expansion,
     for order in orders
         topologies = teval.get_topologies_at_order(order, 1)
         diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
-        push!(order_data, InchwormOrderData(order,
-                                            diagrams,
-                                            N_chunk,
-                                            max_chunks,
-                                            qmc_convergence_atol))
+        configurations = teval.get_configurations(expansion, diagrams)
+        if length(configurations) > 0
+            push!(order_data, InchwormOrderData(order,
+                                                diagrams,
+                                                configurations,
+                                                N_chunk,
+                                                max_chunks,
+                                                qmc_convergence_atol))
+        end
     end
 
     τ_i = grid[1]
@@ -257,7 +274,7 @@ function inchworm_matsubara!(expansion::Expansion,
         τ_w = grid[n]
         τ_f = grid[n + 1]
 
-        result = inchworm_step(expansion,
+        @time result = inchworm_step(expansion,
                                grid.contour,
                                τ_i.bpoint,
                                τ_w.bpoint,

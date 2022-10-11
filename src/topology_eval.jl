@@ -10,6 +10,7 @@ import QInchworm; diag = QInchworm.diagrammatics
 import QInchworm.configuration: Expansion, Configuration
 import QInchworm.configuration: Node, InchNode, NodePair, NodePairs
 
+import QInchworm.diagrammatics: Diagram, Diagrams
 
 """ Get configuration.Nodes defining the inch-worm interval [τ_f, τ_w, τ_0]
 
@@ -88,23 +89,6 @@ function timeordered_unit_interval_points_to_imaginary_branch_inch_worm_times(
     return τs
 end
 
-
-"""
-Diagram with a topology and tuple of pseudo particle interaction pair indices
-"""
-struct Diagram
-  "Topology"
-  topology::diag.Topology
-  "Pair indices"
-  pair_idxs::Tuple{Vararg{Int64}}
-end
-
-
-"""
-"""
-const Diagrams = Vector{Diagram}
-
-
 function get_topologies_at_order(order::Int64, k = nothing)::Vector{diag.Topology}
 
     topologies = diag.Topology.(diag.pair_partitions(order))
@@ -173,12 +157,67 @@ function eval(
     for (didx, diagram) in enumerate(diagrams)
         nodepairs = [ NodePair(τs[a], τs[b], diagram.pair_idxs[idx])
                       for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
-        configuration = Configuration(worm_nodes, nodepairs)
+        configuration = Configuration(worm_nodes, nodepairs, expansion)
         value = cfg.eval(expansion, configuration)
         accumulated_value += value
     end
 
     return accumulated_value
+end
+
+function get_configurations(expansion::cfg.Expansion, diagrams::Diagrams; bare_expansion=false)::cfg.Configurations
+    configurations = cfg.Configurations()
+    for (didx, diagram) in enumerate(diagrams)
+        configuration = Configuration(diagram, expansion; bare_expansion=bare_expansion)
+        if length(configuration.paths) > 0
+            push!(configurations, configuration)
+        end
+    end    
+    return configurations
+end
+
+function update_inch_times!(configuration::cfg.Configuration, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint)
+    if configuration.has_inch_node
+        configuration.nodes[1] = Node(τ_i)
+        configuration.nodes[end-2] = InchNode(τ_w)
+        configuration.nodes[end] = Node(τ_f)
+    else
+        configuration.nodes[1] = Node(τ_i)
+        configuration.nodes[end] = Node(τ_f)
+    end
+end
+
+function update_inch_times!(configurations::cfg.Configurations, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint)
+    for configuration in configurations
+        update_inch_times!(configuration, τ_i, τ_w, τ_f)
+    end
+end
+
+function update_times!(configuration::cfg.Configuration, diagram::Diagram, times::cfg.Times)
+    
+    for (t_idx, n_idx) in enumerate(configuration.node_idxs)
+        op_ref = configuration.nodes[n_idx].operator_ref
+        configuration.nodes[n_idx] = cfg.Node(times[t_idx], op_ref)
+    end
+    
+    for (p_idx, (idx_ti, idx_tf)) in enumerate(diagram.topology.pairs)
+        int_idx = configuration.pairs[p_idx].index
+        configuration.pairs[p_idx] = cfg.NodePair(times[idx_tf], times[idx_ti], int_idx)
+    end
+end
+
+function eval(
+    expansion::cfg.Expansion, diagrams::Diagrams, configurations::cfg.Configurations, times::Vector{kd.BranchPoint},
+    )::cfg.SectorBlockMatrix
+
+    value = 0 * cfg.operator(expansion, first(first(configurations).nodes))
+
+    for (diagram, configuration) in zip(diagrams, configurations)
+        update_times!(configuration, diagram, times)
+        cfg.eval_acc!(value, expansion, configuration)
+    end
+
+    return value
 end
 
 end # module topology_eval

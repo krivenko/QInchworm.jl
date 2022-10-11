@@ -5,7 +5,9 @@ import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 import QInchworm.configuration: Expansion, InteractionPair
 import QInchworm.topology_eval: get_topologies_at_order,
-                                get_diagrams_at_order
+                                get_diagrams_at_order,
+                                get_configurations
+    
 import QInchworm.inchworm: InchwormOrderData,
                            inchworm_step,
                            inchworm_step_bare,
@@ -63,11 +65,15 @@ ed = KeldyshED.EDCore(H, soi)
     for order in 0:3
         topologies = get_topologies_at_order(order, 1)
         diagrams = get_diagrams_at_order(expansion, topologies, order)
-        push!(order_data, InchwormOrderData(order,
-                                            diagrams,
-                                            N_chunk,
-                                            max_chunks,
-                                            qmc_convergence_atol))
+        configurations = get_configurations(expansion, diagrams)
+        if length(configurations) > 0
+            push!(order_data, InchwormOrderData(order,
+                                                diagrams,
+                                                configurations,
+                                                N_chunk,
+                                                max_chunks,
+                                                qmc_convergence_atol))
+        end
     end
 
     value = inchworm_step(expansion, contour, τ_i, τ_w, τ_f, order_data)
@@ -109,11 +115,15 @@ end
     for order in 0:3
         topologies = get_topologies_at_order(order)
         diagrams = get_diagrams_at_order(expansion, topologies, order)
-        push!(order_data, InchwormOrderData(order,
-                                            diagrams,
-                                            N_chunk,
-                                            max_chunks,
-                                            qmc_convergence_atol))
+        configurations = get_configurations(expansion, diagrams; bare_expansion=true)
+        if length(configurations) > 0
+            push!(order_data, InchwormOrderData(order,
+                                                diagrams,
+                                                configurations,
+                                                N_chunk,
+                                                max_chunks,
+                                                qmc_convergence_atol))
+        end
     end
 
     value = inchworm_step_bare(expansion, contour, τ_i, τ_f, order_data)

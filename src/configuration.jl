@@ -8,6 +8,7 @@ import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 import QInchworm.ppgf
 
+import QInchworm.diagrammatics: Diagram, Diagrams
 
 # -- Exports
 
@@ -217,6 +218,15 @@ end
 
 const Determinants = Vector{Determinant}
 
+function get_node_idxs(n::Int, has_inch_node::Bool)::Vector{Int}
+    if has_inch_node
+        n_idxs = vcat([n - 1], collect(n-3:-1:2))
+    else
+        n_idxs = collect((n - 1):-1:2)
+    end
+    return n_idxs
+end
+
 """
 $(TYPEDEF)
 
@@ -233,7 +243,16 @@ struct Configuration
     pairs::NodePairs
     "List of groups of time nodes associated with expansion determinants"
     determinants::Determinants
-    function Configuration(single_nodes::Nodes, pairs::NodePairs)
+
+    #"List of node operators"
+    #operators::Vector{SectorBlockMatrix}
+
+    "List of precomputed trace paths with operator sub matrices"
+    paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}}
+    has_inch_node::Bool
+    node_idxs::Vector{Int}
+    
+    function Configuration(single_nodes::Nodes, pairs::NodePairs, exp::Expansion)
         nodes::Nodes = deepcopy(single_nodes)
 
         for pair in pairs
@@ -253,9 +272,54 @@ struct Configuration
         end
 
         sort!(nodes, by = n -> twisted_contour_relative_order(n.time))
-        return new(nodes, pairs, [])
+
+        has_inch_node = any([ is_inch_node(node) for node in nodes ])
+        paths = get_paths(exp, nodes)
+        n_idxs = get_node_idxs(length(nodes), has_inch_node)
+        
+        return new(nodes, pairs, [], paths, has_inch_node, n_idxs)
     end
+    function Configuration(diagram::Diagram, exp::Expansion; bare_expansion=false)
+
+        contour = first(exp.P).grid.contour
+        time = contour(0.0)
+        n_f, n_w, n_i = Node(time), InchNode(time), Node(time)
+
+        has_inch_node = !bare_expansion
+        single_nodes = has_inch_node ? [n_f, n_w, n_i] : [n_f, n_i]
+        
+        pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
+                  for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
+        
+        n = diagram.topology.order*2
+        pairnodes = [ Node(time) for i in 1:n ]
+
+        for (idx, (i_idx, f_idx)) in enumerate(diagram.topology.pairs)
+            p_idx = diagram.pair_idxs[idx]
+            pairnodes[i_idx] = Node(time, OperatorReference(pair_flag, p_idx, 1))
+            pairnodes[f_idx] = Node(time, OperatorReference(pair_flag, p_idx, 2))
+        end
+
+        reverse!(pairnodes)
+        
+        if length(pairnodes) > 0
+            if has_inch_node
+                nodes = vcat([n_i], pairnodes[1:end-1], [n_w], [pairnodes[end]], [n_f])
+            else
+                nodes = vcat([n_i], pairnodes, [n_f])
+            end
+        else
+            nodes = single_nodes
+        end
+
+        paths = get_paths(exp, nodes)
+        n_idxs = get_node_idxs(length(nodes), has_inch_node)
+
+        return new(nodes, pairs, [], paths, has_inch_node, n_idxs)
+    end    
 end
+
+const Configurations = Vector{Configuration}
 
 # TODO: Can we use kd.heaviside() instead?
 function Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint)
@@ -275,11 +339,12 @@ function Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint)
 end
 
 function eval(exp::Expansion, pairs::NodePairs)
-    val::ComplexF64 = 1.
+    val::ComplexF64 = 1.0
     for pair in pairs
-        #val *= exp.pairs[pair.index].propagator(pair.time_f, pair.time_i)
-        sign = (-1.)^(pair.time_f < pair.time_i)
-        val *= im * sign * exp.pairs[pair.index].propagator(pair.time_f, pair.time_i)
+        if pair.time_f < pair.time_i
+            val *= -1.0
+        end
+        val *= im * exp.pairs[pair.index].propagator(pair.time_f, pair.time_i)
     end
     return val
 end
@@ -419,13 +484,110 @@ function eval(exp::Expansion, nodes::Nodes)
     return -im * val
 end
 
+const Path = Vector{Tuple{Int, Int, Matrix{ComplexF64}}}
+const Paths = Vector{Path}
+
+function get_paths(exp::Expansion, nodes::Nodes)::Paths
+
+    operators = [ operator(exp, node) for node in nodes ]
+    N_sectors = length(exp.P)
+    
+    paths = Paths()
+    for s_i in 1:N_sectors
+        path = Path()
+        for operator in operators
+            if haskey(operator, s_i)
+                s_f, op_mat = operator[s_i]
+                push!(path, (s_i, s_f, op_mat))
+                s_i = s_f
+            end
+        end
+        if length(path) == length(operators)
+            push!(paths, path)
+        end
+    end
+    return paths
+end
+
+function eval(exp::Expansion, nodes::Nodes, paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}})
+
+    start = operator(exp, first(nodes))
+    val = SectorBlockMatrix()
+    
+    for path in paths
+
+        bold_P = true
+        prev_node = first(nodes)
+        S_i, S_f, mat = first(path)
+        
+        for (nidx, node) in enumerate(nodes[2:end])
+
+            if is_inch_node(prev_node)
+                bold_P = false
+            end
+
+            s_i, s_f, op_mat = path[nidx + 1]
+
+            P_interp = bold_P ? exp.P[s_i](node.time, prev_node.time) : exp.P0[s_i](node.time, prev_node.time)
+            
+            mat = im * op_mat * P_interp * mat
+            
+            prev_node = node
+        end
+        val[S_i] = (S_f, -im * mat)
+    end
+
+    return val
+end
+
+function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
+                   exp::Expansion, nodes::Nodes, paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}})
+
+    start = operator(exp, first(nodes))
+    #val = SectorBlockMatrix()
+    
+    for path in paths
+
+        bold_P = true
+        prev_node = first(nodes)
+        S_i, S_f, mat = first(path)
+        
+        for (nidx, node) in enumerate(nodes[2:end])
+
+            if is_inch_node(prev_node)
+                bold_P = false
+            end
+
+            s_i, s_f, op_mat = path[nidx + 1]
+
+            P_interp = bold_P ? exp.P[s_i](node.time, prev_node.time) : exp.P0[s_i](node.time, prev_node.time)
+            
+            mat = im * op_mat * P_interp * mat
+            
+            prev_node = node
+        end
+        val[S_i][2] .+= -im * scalar * mat
+    end
+
+    return val
+end
+
+
 """
 $(TYPEDSIGNATURES)
 
 Evaluate the configuration `conf` in the pseud-particle expansion `exp`.
 """
 function eval(exp::Expansion, conf::Configuration)::SectorBlockMatrix
-    return eval(exp, conf.pairs) * eval(exp, conf.nodes)
+    return eval(exp, conf.pairs) * eval(exp, conf.nodes, conf.paths)
+    #return eval(exp, conf.pairs) * eval(exp, conf.nodes)
+end
+
+
+function eval_acc!(value::SectorBlockMatrix, exp::Expansion, conf::Configuration)
+    scalar::ComplexF64 = eval(exp, conf.pairs)
+    eval_acc!(value, scalar, exp, conf.nodes, conf.paths)
+    return
 end
 
 end # module configuration

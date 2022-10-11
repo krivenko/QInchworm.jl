@@ -4,10 +4,11 @@ using Quasi Monte Carlo and the inch-worm algorithm.
 """
 module QInchworm
 
+include("diagrammatics.jl")
+
 include("ppgf.jl")
 include("configuration.jl")
 include("qmc_integrate.jl")
-include("diagrammatics.jl")
 include("topology_eval.jl")
 include("inchworm.jl")
 
