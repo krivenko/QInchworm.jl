@@ -45,8 +45,10 @@ end
 # N.B. We cannot use FullTimeGF instead of GenericTimeGF here,
 # because FullTimeGF's data storage scheme relies on the symmetry
 # properties the pseudo-particle GF's do not possess.
-const FullTimePPGF = Vector{kd.GenericTimeGF{ComplexF64, false, kd.FullTimeGrid}}
-const ImaginaryTimePPGF = Vector{kd.ImaginaryTimeGF{ComplexF64, false}}
+const FullTimePPGFSector = kd.GenericTimeGF{ComplexF64, false, kd.FullTimeGrid}
+const FullTimePPGF = Vector{FullTimePPGFSector}
+const ImaginaryTimePPGFSector = kd.ImaginaryTimeGF{ComplexF64, false}
+const ImaginaryTimePPGF = Vector{ImaginaryTimePPGFSector}
 
 """
 Compute atomic pseudo-particle Green's function on the time grid
@@ -351,8 +353,7 @@ function set_ppgf_symmetric!(G_s::FullTimePPGF, n, z1, z2, val)
     G_s[z1, z2] = val
 end
 
-
-function partition_function(G::Union{FullTimePPGF, ImaginaryTimePPGF})
+function partition_function(G::Vector{<:kd.AbstractTimeGF})
     sum(G, init = 0im) do G_s
         g_s = G_s[kd.imaginary_branch, kd.imaginary_branch]
         g_s = vcat(g_s[:, 1]...)
@@ -385,7 +386,7 @@ function set_matsubara!(g::kd.ImaginaryTimeGF{T, scalar} where {T, scalar}, τ, 
     g[τ, τ_0] = value
 end
 
-function normalize!(G::Union{FullTimePPGF, ImaginaryTimePPGF}, β)
+function normalize!(G::Vector{<:kd.AbstractTimeGF}, β)
     Z = partition_function(G)
     λ = log(Z) / β
     for g in G
@@ -393,7 +394,7 @@ function normalize!(G::Union{FullTimePPGF, ImaginaryTimePPGF}, β)
     end
 end
 
-function normalize!(g::Union{eltype(FullTimePPGF), eltype(ImaginaryTimePPGF)}, λ)
+function normalize!(g::kd.AbstractTimeGF, λ)
     tau_grid = g.grid[kd.imaginary_branch]
     τ_0 = tau_grid[1]
     for τ in tau_grid

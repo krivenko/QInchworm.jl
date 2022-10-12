@@ -7,6 +7,7 @@ import Keldysh; kd = Keldysh
 import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 import QInchworm.ppgf
+import QInchworm.spline_gf: SplineInterpolatedGF
 
 import QInchworm.diagrammatics: Diagram, Diagrams
 
@@ -37,6 +38,20 @@ const OperatorBlocks = Dict{Tuple{Int64, Int64}, Matrix{Float64}}
 
 See also: [`operator_to_sector_block_matrix`](@ref) """
 const SectorBlockMatrix = Dict{Int64, Tuple{Int64, Matrix{ComplexF64}}}
+
+const AllPPGFSectorTypes = Union{
+    ppgf.FullTimePPGFSector,
+    ppgf.ImaginaryTimePPGFSector,
+    SplineInterpolatedGF{ppgf.FullTimePPGFSector, ComplexF64, false},
+    SplineInterpolatedGF{ppgf.ImaginaryTimePPGFSector, ComplexF64, false}
+}
+
+const AllPPGFTypes = Union{
+    Vector{ppgf.FullTimePPGFSector},
+    Vector{ppgf.ImaginaryTimePPGFSector},
+    Vector{SplineInterpolatedGF{ppgf.FullTimePPGFSector, ComplexF64, false}},
+    Vector{SplineInterpolatedGF{ppgf.ImaginaryTimePPGFSector, ComplexF64, false}}
+}
 
 """
 Interaction type classification using `@enum`
@@ -72,8 +87,7 @@ $(TYPEDEF)
 """
 const InteractionPairs = Vector{InteractionPair{ScalarGF}} where ScalarGF
 
-struct InteractionDeterminant{PPGFSector <: Union{eltype(ppgf.FullTimePPGF),
-                                                  eltype(ppgf.ImaginaryTimePPGF)}}
+struct InteractionDeterminant{PPGFSector <: AllPPGFSectorTypes}
   operators_f::Operators
   operators_i::Operators
   propagator::PPGFSector
@@ -89,8 +103,7 @@ a pseudo-particle expansion problem.
 
 $(TYPEDFIELDS)
 """
-struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true},
-                 PPGF <: Union{ppgf.FullTimePPGF, ppgf.ImaginaryTimePPGF}}
+struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPGFTypes}
   "Exact diagonalization solver for the local degrees of freedom"
   ed::ked.EDCore
   "Non-interacting pseudo-particle Green's function"
@@ -106,9 +119,14 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true},
   """
   function Expansion(ed::ked.EDCore,
                      grid::kd.AbstractTimeGrid,
-                     interaction_pairs::InteractionPairs{ScalarGF}) where ScalarGF
+                     interaction_pairs::InteractionPairs{ScalarGF};
+                     interpolate_ppgf = false) where ScalarGF
     P0 = ppgf.atomic_ppgf(grid, ed)
     P = deepcopy(P0)
+    if interpolate_ppgf
+        P0 = map(SplineInterpolatedGF, P0)
+        P = map(SplineInterpolatedGF, P)
+    end
     return new{ScalarGF, typeof(P0)}(ed, P0, P, interaction_pairs, [])
   end
 end

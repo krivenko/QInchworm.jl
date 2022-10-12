@@ -4,6 +4,7 @@ using Test
 import Keldysh; kd = Keldysh
 import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
+import QInchworm.spline_gf: SplineInterpolatedGF
 import QInchworm.ppgf
 
 import QInchworm; cfg = QInchworm.configuration
@@ -12,6 +13,14 @@ import QInchworm.configuration: Expansion, InteractionPair
 import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePairs
 
 import QInchworm.qmc_integrate: qmc_time_ordered_integral_root
+
+function ppgf.set_matsubara!(
+    g::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, scalar}, T, scalar} where {T, scalar},
+    τ, value)
+    tau_grid = g.grid[kd.imaginary_branch]
+    τ_0 = tau_grid[1]
+    g[τ, τ_0] = value
+end
 
 @testset "nca_equil" begin
 
@@ -46,10 +55,10 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral_root
     # -- Riemann sum integration --
     # -----------------------------
 
-    function run_nca_equil_tests_riemann(contour, grid, Δ)
+    function run_nca_equil_tests_riemann(contour, grid, Δ, interpolate_ppgf=false)
 
         ip = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
-        ppsc_exp = Expansion(ed, grid, [ip])
+        ppsc_exp = Expansion(ed, grid, [ip], interpolate_ppgf=interpolate_ppgf)
 
         tau_grid = grid[kd.imaginary_branch]
         τ_0, τ_beta = tau_grid[1], tau_grid[end]
@@ -101,6 +110,8 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral_root
         @test ppsc_exp.P[1][τ_beta, τ_0][1, 1] ≈ 0.0 - 0.7105404445143371im
         @test ppsc_exp.P[2][τ_beta, τ_0][1, 1] ≈ 0.0 - 0.289459555485663im
 
+        interpolate_ppgf && return
+
         # -- Single particle Green's function
 
         g = ppgf.first_order_spgf(ppsc_exp.P, ed, 1, 1)
@@ -130,10 +141,10 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral_root
     # -- Quasi Monte Carlo integration --
     # -----------------------------------
 
-    function run_nca_equil_tests_qmc(contour, grid, Δ)
+    function run_nca_equil_tests_qmc(contour, grid, Δ, interpolate_ppgf=false)
 
         ip = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
-        ppsc_exp = Expansion(ed, grid, [ip])
+        ppsc_exp = Expansion(ed, grid, [ip], interpolate_ppgf=interpolate_ppgf)
 
         tau_grid = grid[kd.imaginary_branch]
         τ_0, τ_beta = tau_grid[1], tau_grid[end]
@@ -199,8 +210,8 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral_root
                 exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ),
             ComplexF64, grid, 1, kd.fermionic, true)
 
-        run_nca_equil_tests_riemann(contour, grid, Δ)
-        run_nca_equil_tests_qmc(contour, grid, Δ)
+        run_nca_equil_tests_riemann(contour, grid, SplineInterpolatedGF(Δ), true)
+        run_nca_equil_tests_qmc(contour, grid, SplineInterpolatedGF(Δ), true)
     end
 
     @testset "Twisted Kadanoff-Baym-Keldysh contour" begin
