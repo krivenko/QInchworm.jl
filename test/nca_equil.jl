@@ -11,7 +11,7 @@ import QInchworm; cfg = QInchworm.configuration
 import QInchworm.configuration: Expansion, InteractionPair
 import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePairs
 
-import QInchworm.qmc_integrate: qmc_time_ordered_integral
+import QInchworm.qmc_integrate: qmc_time_ordered_integral_root
 
 @testset "nca_equil" begin
 
@@ -30,31 +30,29 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral
 
     # -- Quasi Monte Carlo
     N = 10000
-    τ_qmc = 10
 
     # -- Exact Diagonalization
 
     H = - μ * op.n("0")
-    soi = KeldyshED.Hilbert.SetOfIndices([["0"]]);
-    ed = KeldyshED.EDCore(H, soi)
-    ρ = KeldyshED.density_matrix(ed, β)
+    soi = ked.Hilbert.SetOfIndices([["0"]]);
+    ed = ked.EDCore(H, soi)
+    ρ = ked.density_matrix(ed, β)
 
-    function run_nca_equil_tests(contour, grid, Δ)
+    # -----------------------------------------------
+    # -- 1st order inching on the imaginary branch --
+    # -----------------------------------------------
 
-        # -- Pseudo Particle Strong Coupling Expansion
+    # -----------------------------
+    # -- Riemann sum integration --
+    # -----------------------------
+
+    function run_nca_equil_tests_riemann(contour, grid, Δ)
 
         ip = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
         ppsc_exp = Expansion(ed, grid, [ip])
-        ppsc_exp_qmc = Expansion(ed, grid, [ip])
-
-        # -----------------------
-        # -- 1st order inching --
-        # -----------------------
 
         tau_grid = grid[kd.imaginary_branch]
-        τ_0 = tau_grid[1]
-        τ_beta = tau_grid[end]
-
+        τ_0, τ_beta = tau_grid[1], tau_grid[end]
         Δτ = -imag(step(grid, kd.imaginary_branch))
 
         n_0 = Node(τ_0.bpoint)
@@ -68,11 +66,8 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral
             nodes = [n_f, n_w, n_0]
 
             conf_0 = Configuration(nodes, NodePairs())
-            val = cfg.eval(ppsc_exp, conf_0)
 
-            # -----------------------------
-            # -- Riemann sum integration --
-            # -----------------------------
+            val = cfg.eval(ppsc_exp, conf_0)
 
             for τ_1 in tau_grid[1:fidx]
 
@@ -91,33 +86,9 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral
                 ppgf.set_matsubara!(P_s, τ_f, mat)
             end
 
-            # -----------------------------------
-            # -- Quasi Monte Carlo integration --
-            # -----------------------------------
-
-            val, N_samples = qmc_time_ordered_integral(
-                1,
-                contour,
-                tau_grid[1].bpoint,
-                tau_grid[fidx].bpoint,
-                init = cfg.eval(ppsc_exp, conf_0),
-                τ = τ_qmc,
-                N = N) do τ_1
-                conf_1_fwd = Configuration(nodes, [NodePair(n_f.time, τ_1[1], 1)])
-                conf_1_bwd = Configuration(nodes, [NodePair(τ_1[1], n_f.time, 1)])
-                cfg.eval(ppsc_exp_qmc, conf_1_fwd) + cfg.eval(ppsc_exp_qmc, conf_1_bwd)
-            end
-            @show N_samples / N
-
-            for (s, P_s) in enumerate(ppsc_exp_qmc.P)
-                sf, mat = val[s]
-                ppgf.set_matsubara!(P_s, τ_f, mat)
-            end
-
         end
 
         ppgf.normalize!(ppsc_exp.P, β)
-        ppgf.normalize!(ppsc_exp_qmc.P, β)
 
         Z = ppgf.partition_function(ppsc_exp.P)
         λ = log(Z) / β
@@ -126,20 +97,9 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral
         # -- Regression test --
         # ---------------------
 
-        τ_i = grid[kd.imaginary_branch][1]
-        τ_f = grid[kd.imaginary_branch][end]
-
-        @test ppsc_exp.P[1][τ_f, τ_i] + ppsc_exp.P[2][τ_f, τ_i] ≈ [-im]
-        @test ppsc_exp.P[1][τ_f, τ_i][1, 1] ≈ 0.0 - 0.7105404445143371im
-        @test ppsc_exp.P[2][τ_f, τ_i][1, 1] ≈ 0.0 - 0.289459555485663im
-
-        @test ppsc_exp_qmc.P[1][τ_f, τ_i] + ppsc_exp_qmc.P[2][τ_f, τ_i] ≈ [-im]
-        @test isapprox(ppsc_exp_qmc.P[1][τ_f, τ_i][1, 1],
-                    0.0 - 0.7148059067403563im,
-                    atol=1e-3)
-        @test isapprox(ppsc_exp_qmc.P[2][τ_f, τ_i][1, 1],
-                    0.0 - 0.2851940932596436im,
-                    atol=1e-3)
+        @test ppsc_exp.P[1][τ_beta, τ_0] + ppsc_exp.P[2][τ_beta, τ_0] ≈ [-im]
+        @test ppsc_exp.P[1][τ_beta, τ_0][1, 1] ≈ 0.0 - 0.7105404445143371im
+        @test ppsc_exp.P[2][τ_beta, τ_0][1, 1] ≈ 0.0 - 0.289459555485663im
 
         # -- Single particle Green's function
 
@@ -157,31 +117,74 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral
 
         H_ref = - μ * op.n("0") + ϵ * op.n("1") +
                 V * op.c_dag("1") * op.c("0") + V * op.c_dag("0") * op.c("1")
-        soi_ref = KeldyshED.Hilbert.SetOfIndices([["0"], ["1"]]);
-        ed_ref = KeldyshED.EDCore(H_ref, soi_ref)
+        soi_ref = ked.Hilbert.SetOfIndices([["0"], ["1"]]);
+        ed_ref = ked.EDCore(H_ref, soi_ref)
 
-        idx = KeldyshED.Hilbert.IndicesType(["0"])
-        g_ref = KeldyshED.computegf(ed_ref, grid, idx, idx);
-
-        diff = maximum(abs.((g[:matsubara] - g_ref[:matsubara])/g_ref[:matsubara]))
-        @show diff
+        idx = ked.Hilbert.IndicesType(["0"])
+        g_ref = ked.computegf(ed_ref, grid, idx, idx);
 
         @test isapprox(g[:matsubara], g_ref[:matsubara], atol=0.05)
     end
 
-    @testset "Twisted Kadanoff-Baym-Keldysh contour" begin
-        contour = kd.twist(kd.FullContour(tmax=tmax, β=β))
-        grid = kd.FullTimeGrid(contour, nt, ntau)
+    # -----------------------------------
+    # -- Quasi Monte Carlo integration --
+    # -----------------------------------
 
-        # -- Hybridization propagator
+    function run_nca_equil_tests_qmc(contour, grid, Δ)
 
-        Δ = kd.FullTimeGF(
-            (t1, t2) -> -1.0im * V^2 *
-                (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ, contour.β)) *
-                exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ),
-            grid, 1, kd.fermionic, true)
+        ip = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
+        ppsc_exp = Expansion(ed, grid, [ip])
 
-        run_nca_equil_tests(contour, grid, Δ)
+        tau_grid = grid[kd.imaginary_branch]
+        τ_0, τ_beta = tau_grid[1], tau_grid[end]
+
+        n_0 = Node(τ_0.bpoint)
+
+        for (fidx, τ_f) in enumerate(tau_grid[2:end])
+
+            τ_w = tau_grid[fidx]
+
+            n_f = Node(τ_f.bpoint)
+            n_w = InchNode(τ_w.bpoint)
+            nodes = [n_f, n_w, n_0]
+
+            conf_0 = Configuration(nodes, NodePairs())
+
+            val = cfg.eval(ppsc_exp, conf_0)
+
+            # The 'im' prefactor accounts for the direction of the imaginary branch
+            val += im * qmc_time_ordered_integral_root(
+                1,
+                contour,
+                τ_0.bpoint,
+                τ_f.bpoint,
+                init = zero(val),
+                N = N) do τ_1
+                conf_1_fwd = Configuration(nodes, [NodePair(n_f.time, τ_1[1], 1)])
+                conf_1_bwd = Configuration(nodes, [NodePair(τ_1[1], n_f.time, 1)])
+                cfg.eval(ppsc_exp, conf_1_fwd) + cfg.eval(ppsc_exp, conf_1_bwd)
+            end
+
+            for (s, P_s) in enumerate(ppsc_exp.P)
+                sf, mat = val[s]
+                ppgf.set_matsubara!(P_s, τ_f, mat)
+            end
+
+        end
+
+        ppgf.normalize!(ppsc_exp.P, β)
+
+        # ---------------------
+        # -- Regression test --
+        # ---------------------
+
+        @test ppsc_exp.P[1][τ_beta, τ_0] + ppsc_exp.P[2][τ_beta, τ_0] ≈ [-im]
+        @test isapprox(ppsc_exp.P[1][τ_beta, τ_0][1, 1],
+                    0.0 - 0.688140794630963im,
+                    atol=1e-3)
+        @test isapprox(ppsc_exp.P[2][τ_beta, τ_0][1, 1],
+                    0.0 - 0.3118592053690371im,
+                    atol=1e-3)
     end
 
     @testset "Imaginary time" begin
@@ -196,7 +199,24 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral
                 exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ),
             ComplexF64, grid, 1, kd.fermionic, true)
 
-        run_nca_equil_tests(contour, grid, Δ)
+        run_nca_equil_tests_riemann(contour, grid, Δ)
+        run_nca_equil_tests_qmc(contour, grid, Δ)
+    end
+
+    @testset "Twisted Kadanoff-Baym-Keldysh contour" begin
+        contour = kd.twist(kd.FullContour(tmax=tmax, β=β))
+        grid = kd.FullTimeGrid(contour, nt, ntau)
+
+        # -- Hybridization propagator
+
+        Δ = kd.FullTimeGF(
+            (t1, t2) -> -1.0im * V^2 *
+                (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ, contour.β)) *
+                exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ),
+            grid, 1, kd.fermionic, true)
+
+        run_nca_equil_tests_riemann(contour, grid, Δ)
+        run_nca_equil_tests_qmc(contour, grid, Δ)
     end
 
 end
