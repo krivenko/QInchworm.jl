@@ -18,47 +18,47 @@ fast cubic spline interpolation on the time grid.
 """
 struct SplineInterpolatedGF{GFType, T, scalar} <: kd.AbstractTimeGF{T, scalar}
     "Wrapped Green's function"
-    G::GFType
+    GF::GFType
     "B-spline interpolants, one object per matrix element of G"
     interpolants
 end
 
-function SplineInterpolatedGF(G::GFType) where {
+function SplineInterpolatedGF(GF::GFType) where {
         T <: Number, scalar, GFType <: kd.AbstractTimeGF{T, scalar}
     }
-    norb = kd.norbitals(G)
-    interpolants = [make_interpolant(G, k, l) for k=1:norb, l=1:norb]
-    SplineInterpolatedGF{GFType, T, scalar}(G, interpolants)
+    norb = kd.norbitals(GF)
+    interpolants = [make_interpolant(GF, k, l) for k=1:norb, l=1:norb]
+    SplineInterpolatedGF{GFType, T, scalar}(GF, interpolants)
 end
 
-Base.eltype(::Type{<:SplineInterpolatedGF{GFType, T}}) where {GFType, T} = T
+Base.eltype(::Type{<:SplineInterpolatedGF{GFType}}) where GFType = eltype(GFType)
 Base.eltype(X::SplineInterpolatedGF) = eltype(typeof(X))
 
 function Base.getproperty(G_int::SplineInterpolatedGF, p::Symbol)
-    (p == :grid) ? G_int.G.grid : getfield(G_int, p)
+    (p == :grid) ? G_int.GF.grid : getfield(G_int, p)
 end
 
-kd.norbitals(G_int::SplineInterpolatedGF) = kd.norbitals(G_int.G)
-kd.TimeDomain(G_int::SplineInterpolatedGF) = kd.TimeDomain(G_int.G)
+kd.norbitals(G_int::SplineInterpolatedGF) = kd.norbitals(G_int.GF)
+kd.TimeDomain(G_int::SplineInterpolatedGF) = kd.TimeDomain(G_int.GF)
 
 @inline function Base.getindex(G_int::SplineInterpolatedGF,
                                k, l,
                                t1::kd.TimeGridPoint, t2::kd.TimeGridPoint,
                                greater=true)
-    G_int.G[k, l, t1, t2, greater]
+    G_int.GF[k, l, t1, t2, greater]
 end
 
 @inline function Base.getindex(G_int::SplineInterpolatedGF,
                                t1::kd.TimeGridPoint, t2::kd.TimeGridPoint,
                                greater=true)
-    G_int.G[t1, t2, greater]
+    G_int.GF[t1, t2, greater]
 end
 
 @inline function Base.setindex!(G_int::SplineInterpolatedGF,
                                 v,
                                 k, l,
                                 t1::kd.TimeGridPoint, t2::kd.TimeGridPoint)
-    G_int.G[k, l, t1, t2] = v
+    G_int.GF[k, l, t1, t2] = v
     update_interpolant!(G_int, k, l)
     v
 end
@@ -66,7 +66,7 @@ end
 @inline function Base.setindex!(G_int::SplineInterpolatedGF,
                                 v,
                                 t1::kd.TimeGridPoint, t2::kd.TimeGridPoint)
-    G_int.G[t1, t2] = v
+    G_int.GF[t1, t2] = v
     update_interpolants!(G_int)
     v
 end
@@ -76,7 +76,7 @@ function (G_int::SplineInterpolatedGF)(t1::kd.BranchPoint, t2::kd.BranchPoint)
 end
 
 function update_interpolant!(G_int::SplineInterpolatedGF, k, l)
-    G_int.interpolants[k, l] = make_interpolant(G_int.G, k, l)
+    G_int.interpolants[k, l] = make_interpolant(G_int.GF, k, l)
 end
 
 function update_interpolants!(G_int::SplineInterpolatedGF)
@@ -90,35 +90,35 @@ end
 # Imaginary time GF
 #
 
-function make_interpolant(G::kd.ImaginaryTimeGF{T, scalar}, k, l) where {T <: Number, scalar}
-    grid = G.grid
+function make_interpolant(GF::kd.ImaginaryTimeGF{T, scalar}, k, l) where {T <: Number, scalar}
+    grid = GF.grid
     knots = 0.:-imag(step(grid, kd.imaginary_branch)):grid.contour.β
-    scale(interpolate(G.mat.data[k,l,:], BSpline(Cubic(Line(OnGrid())))), knots)
+    scale(interpolate(GF.mat.data[k,l,:], BSpline(Cubic(Line(OnGrid())))), knots)
 end
 
 function interpolate(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, true}, T, true},
                      t1::kd.BranchPoint, t2::kd.BranchPoint) where T
-    grid = G_int.G.grid
+    grid = G_int.GF.grid
     β = grid.contour.β
     ref1 = get_ref(grid.contour, t1)
     ref2 = get_ref(grid.contour, t2)
 
     ref1 >= ref2 ? G_int.interpolants[1, 1](ref1 - ref2) :
-                   Int(G_int.G.ξ) * G_int.interpolants[1, 1](β + ref1 - ref2)
+                   Int(G_int.GF.ξ) * G_int.interpolants[1, 1](β + ref1 - ref2)
 end
 
 function interpolate(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, false}, T, false},
     t1::kd.BranchPoint, t2::kd.BranchPoint) where T
-    grid = G_int.G.grid
+    grid = G_int.GF.grid
     β = grid.contour.β
     ref1 = get_ref(grid.contour, t1)
     ref2 = get_ref(grid.contour, t2)
 
-    norb = kd.norbitals(G_int.G)
+    norb = kd.norbitals(G_int.GF)
     if ref1 >= ref2
         [G_int.interpolants[k, l](ref1 - ref2) for k=1:norb, l=1:norb]
     else
-        Int(G_int.G.ξ) * [G_int.interpolants[k, l](β + ref1 - ref2) for k=1:norb, l=1:norb]
+        Int(G_int.GF.ξ) * [G_int.interpolants[k, l](β + ref1 - ref2) for k=1:norb, l=1:norb]
     end
 end
 

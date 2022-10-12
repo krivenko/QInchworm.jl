@@ -54,15 +54,15 @@ ntau = 6
                   [G_int(t1.bpoint, t2.bpoint) for t1=grid, t2=grid]
 
             # update_interpolant!()
-            G_int.G[1, 1, grid[3], grid[4]] = 0.6im
+            G_int.GF[1, 1, grid[3], grid[4]] = 0.6im
             update_interpolant!(G_int, 1, 1)
-            @test [G_int.G(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
+            @test [G_int.GF(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
                   [G_int(t1.bpoint, t2.bpoint) for t1=grid, t2=grid]
 
             # update_interpolants!()
-            G_int.G[grid[2], grid[1]] = 0.7im
+            G_int.GF[grid[2], grid[1]] = 0.7im
             update_interpolants!(G_int)
-            @test [G_int.G(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
+            @test [G_int.GF(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
                   [G_int(t1.bpoint, t2.bpoint) for t1=grid, t2=grid]
         end
 
@@ -101,15 +101,15 @@ ntau = 6
                   [G_int(t1.bpoint, t2.bpoint) for t1=grid, t2=grid]
 
             # update_interpolant!()
-            G_int.G[2, 2, grid[3], grid[4]] = 0.6im
+            G_int.GF[2, 2, grid[3], grid[4]] = 0.6im
             update_interpolant!(G_int, 2, 2)
-            @test [G_int.G(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
+            @test [G_int.GF(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
                   [G_int(t1.bpoint, t2.bpoint) for t1=grid, t2=grid]
 
             # update_interpolants!()
-            G_int.G[grid[2], grid[1]] = [2.0im 1.0im; 4.0im 3.0im]
+            G_int.GF[grid[2], grid[1]] = [2.0im 1.0im; 4.0im 3.0im]
             update_interpolants!(G_int)
-            @test [G_int.G(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
+            @test [G_int.GF(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
                   [G_int(t1.bpoint, t2.bpoint) for t1=grid, t2=grid]
         end
     end
