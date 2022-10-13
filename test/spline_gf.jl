@@ -64,6 +64,39 @@ ntau = 6
             update_interpolants!(G_int)
             @test [G_int.GF(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
                   [G_int(t1.bpoint, t2.bpoint) for t1=grid, t2=grid]
+
+            @testset "Interpolation on a reduced τ-segment" begin
+                  G_int_red = SplineInterpolatedGF(deepcopy(G), τ_max=grid[3])
+                  t_pts = [(t1, t2) for t1=grid, t2=grid if 0 <= (t1.cidx - t2.cidx) <= 2]
+
+                  @test [G_int_red.GF(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts] ≈
+                        [G_int_red(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts]
+                  @test_throws BoundsError G_int_red(grid[4].bpoint, grid[1].bpoint)
+
+                  # setindex!()
+                  G_int_red[1, 1, grid[4], grid[2], τ_max=grid[3]] = 0.5im
+                  @test [G_int_red.GF(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts] ≈
+                        [G_int_red(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts]
+                  @test_throws BoundsError G_int_red(grid[4].bpoint, grid[1].bpoint)
+
+                  # update_interpolant!()
+                  G_int_red.GF[1, 1, grid[4], grid[3]] = 0.6im
+                  update_interpolant!(G_int_red, 1, 1, τ_max=grid[3])
+                  @test [G_int_red.GF(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts] ≈
+                        [G_int_red(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts]
+                  @test_throws BoundsError G_int_red(grid[4].bpoint, grid[1].bpoint)
+
+                  # update_interpolants!()
+                  G_int_red.GF[grid[2], grid[1]] = 0.7im
+                  update_interpolants!(G_int_red, τ_max=grid[3])
+                  @test [G_int_red.GF(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts] ≈
+                        [G_int_red(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts]
+                  @test_throws BoundsError G_int_red(grid[4].bpoint, grid[1].bpoint)
+
+                  update_interpolants!(G_int_red, τ_max=grid[2])
+                  @test_throws BoundsError G_int_red(grid[4].bpoint, grid[2].bpoint)
+            end
+
         end
 
         @testset "scalar = false" begin
@@ -111,6 +144,38 @@ ntau = 6
             update_interpolants!(G_int)
             @test [G_int.GF(t1.bpoint, t2.bpoint) for t1=grid, t2=grid] ≈
                   [G_int(t1.bpoint, t2.bpoint) for t1=grid, t2=grid]
+
+            @testset "Interpolation on a reduced τ-segment" begin
+                  G_int_red = SplineInterpolatedGF(deepcopy(G), τ_max=grid[3])
+                  t_pts = [(t1, t2) for t1=grid, t2=grid if 0 <= (t1.cidx - t2.cidx) <= 2]
+
+                  @test [G_int_red.GF(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts] ≈
+                        [G_int_red(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts]
+                  @test_throws BoundsError G_int_red(grid[4].bpoint, grid[1].bpoint)
+
+                  # setindex!()
+                  G_int_red[2, 2, grid[4], grid[2], τ_max=grid[3]] = 0.5im
+                  @test [G_int_red.GF(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts] ≈
+                        [G_int_red(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts]
+                  @test_throws BoundsError G_int_red(grid[4].bpoint, grid[1].bpoint)
+
+                  # update_interpolant!()
+                  G_int_red.GF[2, 2, grid[4], grid[3]] = 0.6im
+                  update_interpolant!(G_int_red, 2, 2, τ_max=grid[3])
+                  @test [G_int_red.GF(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts] ≈
+                        [G_int_red(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts]
+                  @test_throws BoundsError G_int_red(grid[4].bpoint, grid[1].bpoint)
+
+                  # update_interpolants!()
+                  G_int_red.GF[grid[2], grid[1]] = [2.0im 1.0im; 4.0im 3.0im]
+                  update_interpolants!(G_int_red, τ_max=grid[3])
+                  @test [G_int_red.GF(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts] ≈
+                        [G_int_red(t1.bpoint, t2.bpoint) for (t1, t2) in t_pts]
+                  @test_throws BoundsError G_int_red(grid[4].bpoint, grid[1].bpoint)
+
+                  update_interpolants!(G_int_red, τ_max=grid[2])
+                  @test_throws BoundsError G_int_red(grid[4].bpoint, grid[2].bpoint)
+            end
         end
     end
 end

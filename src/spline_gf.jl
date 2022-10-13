@@ -23,11 +23,13 @@ struct SplineInterpolatedGF{GFType, T, scalar} <: kd.AbstractTimeGF{T, scalar}
     interpolants
 end
 
-function SplineInterpolatedGF(GF::GFType) where {
+function SplineInterpolatedGF(
+    GF::GFType;
+    τ_max::kd.TimeGridPoint = GF.grid[end]) where {
         T <: Number, scalar, GFType <: kd.AbstractTimeGF{T, scalar}
     }
     norb = kd.norbitals(GF)
-    interpolants = [make_interpolant(GF, k, l) for k=1:norb, l=1:norb]
+    interpolants = [make_interpolant(GF, k, l, τ_max) for k=1:norb, l=1:norb]
     SplineInterpolatedGF{GFType, T, scalar}(GF, interpolants)
 end
 
@@ -75,25 +77,50 @@ function (G_int::SplineInterpolatedGF)(t1::kd.BranchPoint, t2::kd.BranchPoint)
     return interpolate(G_int, t1, t2)
 end
 
-function update_interpolant!(G_int::SplineInterpolatedGF, k, l)
-    G_int.interpolants[k, l] = make_interpolant(G_int.GF, k, l)
-end
-
-function update_interpolants!(G_int::SplineInterpolatedGF)
-    norb = kd.norbitals(G_int)
-    for k=1:norb, l=1:norb
-        update_interpolant!(G_int, k, l)
-    end
-end
-
 #
 # Imaginary time GF
 #
 
-function make_interpolant(GF::kd.ImaginaryTimeGF{T, scalar}, k, l) where {T <: Number, scalar}
+function update_interpolant!(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, scalar}, T, scalar},
+                             k, l;
+                             τ_max::kd.TimeGridPoint = G_int.GF.grid[end]) where {T <: Number, scalar}
+    G_int.interpolants[k, l] = make_interpolant(G_int.GF, k, l, τ_max)
+end
+
+function update_interpolants!(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, scalar}, T, scalar};
+                              τ_max::kd.TimeGridPoint = G_int.GF.grid[end]) where {T <: Number, scalar}
+    norb = kd.norbitals(G_int)
+    for k=1:norb, l=1:norb
+        update_interpolant!(G_int, k, l, τ_max=τ_max)
+    end
+end
+
+@inline function Base.setindex!(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, scalar}, T, scalar},
+                                v,
+                                k, l,
+                                t1::kd.TimeGridPoint, t2::kd.TimeGridPoint;
+                                τ_max::kd.TimeGridPoint = G_int.GF.grid[end]) where {T <: Number, scalar}
+    G_int.GF[k, l, t1, t2] = v
+    update_interpolant!(G_int, k, l, τ_max=τ_max)
+    v
+end
+
+@inline function Base.setindex!(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, scalar}, T, scalar},
+                                v,
+                                t1::kd.TimeGridPoint, t2::kd.TimeGridPoint;
+                                τ_max::kd.TimeGridPoint = G_int.GF.grid[end]) where {T <: Number, scalar}
+    G_int.GF[t1, t2] = v
+    update_interpolants!(G_int, τ_max=τ_max)
+    v
+end
+
+function make_interpolant(GF::kd.ImaginaryTimeGF{T, scalar},
+                          k, l,
+                          τ_max::kd.TimeGridPoint) where {T <: Number, scalar}
     grid = GF.grid
-    knots = 0.:-imag(step(grid, kd.imaginary_branch)):grid.contour.β
-    scale(interpolate(GF.mat.data[k,l,:], BSpline(Cubic(Line(OnGrid())))), knots)
+    Δτ = -imag(step(grid, kd.imaginary_branch))
+    knots = LinRange(0, get_ref(grid.contour, τ_max.bpoint), τ_max.cidx)
+    scale(interpolate(GF.mat.data[k,l,1:length(knots)], BSpline(Cubic(Line(OnGrid())))), knots)
 end
 
 function interpolate(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, true}, T, true},
