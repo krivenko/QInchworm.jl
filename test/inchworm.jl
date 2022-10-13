@@ -3,6 +3,8 @@ using Test
 import Keldysh; kd = Keldysh
 import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
+import QInchworm.spline_gf: SplineInterpolatedGF
+
 import QInchworm.configuration: Expansion, InteractionPair
 import QInchworm.topology_eval: get_topologies_at_order,
                                 get_diagrams_at_order,
@@ -144,9 +146,9 @@ end
 
     # -- Pseudo Particle Strong Coupling Expansion
 
-    ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
-    ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), Δ)
-    expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
+    ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), SplineInterpolatedGF(Δ))
+    ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), SplineInterpolatedGF(Δ))
+    expansion = Expansion(ed, grid, [ip_fwd, ip_bwd], interpolate_ppgf = true)
 
     orders = 0:3
     orders_bare = 0:2

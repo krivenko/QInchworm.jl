@@ -13,7 +13,8 @@ import QInchworm.configuration: Expansion,
                                 operator,
                                 sector_block_matrix_from_ppgf,
                                 maxabs
-    
+                                set_bold_ppgf!
+
 import QInchworm.configuration: Node, InchNode
 
 import QInchworm.qmc_integrate: qmc_time_ordered_integral_root,
@@ -208,7 +209,6 @@ function inchworm_matsubara!(expansion::Expansion,
                              max_chunks::Int64,
                              qmc_convergence_atol::Float64)
 
-
     # http://patorjk.com/software/taag/#p=display&f=Graffiti&t=QInchWorm
     logo = raw"""________  .___              .__    __      __                     
 \_____  \ |   | ____   ____ |  |__/  \    /  \___________  _____  
@@ -250,7 +250,7 @@ function inchworm_matsubara!(expansion::Expansion,
                                 grid[1].bpoint,
                                 grid[2].bpoint,
                                 order_data)
-    assign_bold_ppgf(grid[1], grid[2], result)
+    set_bold_ppgf!(expansion, grid[1], grid[2], result)
 
     # The rest of inching
     empty!(order_data)
@@ -280,7 +280,7 @@ function inchworm_matsubara!(expansion::Expansion,
                                τ_w.bpoint,
                                τ_f.bpoint,
                                order_data)
-        assign_bold_ppgf(τ_i, τ_f, result)
+        set_bold_ppgf!(expansion, τ_i, τ_f, result)
     end
 end
 
