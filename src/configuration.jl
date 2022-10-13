@@ -124,8 +124,8 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
     P0 = ppgf.atomic_ppgf(grid, ed)
     P = deepcopy(P0)
     if interpolate_ppgf
-        P0 = map(SplineInterpolatedGF, P0)
-        P = map(SplineInterpolatedGF, P)
+        P0 = [SplineInterpolatedGF(P0_s) for P0_s in P0]
+        P = [SplineInterpolatedGF(P_s, τ_max=grid[2]) for P_s in P]
     end
     return new{ScalarGF, typeof(P0)}(ed, P0, P, interaction_pairs, [])
   end

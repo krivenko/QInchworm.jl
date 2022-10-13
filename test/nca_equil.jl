@@ -4,7 +4,7 @@ using Test
 import Keldysh; kd = Keldysh
 import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-import QInchworm.spline_gf: SplineInterpolatedGF
+import QInchworm.spline_gf: SplineInterpolatedGF, update_interpolants!
 import QInchworm.ppgf
 
 import QInchworm; cfg = QInchworm.configuration
@@ -17,9 +17,17 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral_root
 function ppgf.set_matsubara!(
     g::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, scalar}, T, scalar} where {T, scalar},
     τ, value)
-    tau_grid = g.grid[kd.imaginary_branch]
-    τ_0 = tau_grid[1]
-    g[τ, τ_0] = value
+    g[τ, g.grid[1], τ_max=τ] = value
+end
+
+function ppgf.normalize!(
+    g::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, scalar}, T, scalar} where {T, scalar},
+    λ)
+    τ_0 = g.grid[1]
+    for τ in g.grid
+        g.GF[τ, τ_0] = g[τ, τ_0] .* exp(-1im * τ.bpoint.val * λ)
+    end
+    update_interpolants!(g)
 end
 
 @testset "nca_equil" begin
