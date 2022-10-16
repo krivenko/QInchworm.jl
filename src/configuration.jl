@@ -544,9 +544,8 @@ function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
                    exp::Expansion, nodes::Nodes, paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}})
 
     start = operator(exp, first(nodes))
-    #val = SectorBlockMatrix()
     
-    for path in paths
+    @inbounds for path in paths
 
         bold_P = true
         prev_node = first(nodes)

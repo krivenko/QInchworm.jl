@@ -178,12 +178,16 @@ end
 
 function update_inch_times!(configuration::cfg.Configuration, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint)
     if configuration.has_inch_node
-        configuration.nodes[1] = Node(τ_i)
-        configuration.nodes[end-2] = InchNode(τ_w)
-        configuration.nodes[end] = Node(τ_f)
+        @inbounds begin
+            configuration.nodes[1] = Node(τ_i)
+            configuration.nodes[end-2] = InchNode(τ_w)
+            configuration.nodes[end] = Node(τ_f)
+        end
     else
-        configuration.nodes[1] = Node(τ_i)
-        configuration.nodes[end] = Node(τ_f)
+        @inbounds begin
+            configuration.nodes[1] = Node(τ_i)
+            configuration.nodes[end] = Node(τ_f)
+        end
     end
 end
 
