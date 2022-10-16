@@ -22,7 +22,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
 
     β = 1.0
     U = 4.0
-    ϵ_1, ϵ_2 = 0.0 - 0.5*U, 0.0
+    ϵ_1, ϵ_2 = 0.0 - 0.5*U, 2.0
     V_1 = 0.5
     V_2 = 0.5
 
@@ -115,8 +115,8 @@ end
 
 @testset "ntau_plot" begin
 
-    orders = 0:3
-    orders_bare = 0:3
+    orders = 0:2
+    orders_bare = 0:2
     qmc_convergence_atol = 1e-15
     N_per_chunk = 8
     #ntau = 4
@@ -125,19 +125,20 @@ end
     #ntau = 12
     #ntau = 16
     #ntau = 32
-    ntau = 64
+    #ntau = 64
     #ntau = 128
     #ntau = 256
     #ntau = 512
     #ntau = 1024
     #ntau = 2048
     #ntau = 4096
+    ntau = 4096 * 2
     #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 6, 2*8))))
     #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 8, 8*5))))
     #N_chunkss = unique(trunc.(Int, 2 .^ (range(8, 10, 8*2))))
     #N_chunkss = unique(trunc.(Int, 2 .^ (range(10, 11, 8))))
-    #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 10, 8*2 + 8*5))))
-    N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 11, 8*3 + 8*5))))
+    N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 10, 8*2 + 8*5))))
+    #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 11, 8*3 + 8*5))))
     #N_chunkss = [1, 2]
 
     # --    

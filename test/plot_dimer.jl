@@ -10,7 +10,7 @@ function read_group(group)
 end
 
 
-filenames = filter( f -> occursin(".h5", f), readdir(".", join=true) )
+filenames = filter( f -> occursin("data_ntau", f), readdir(".", join=true) )
 @show filenames
 
 # load all data files
@@ -99,4 +99,4 @@ plt.axis("image")
 plt.grid(true)
 
 plt.savefig("figure_dimer_convergence.pdf")
-#plt.show()
+plt.show()

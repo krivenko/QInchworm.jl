@@ -159,18 +159,22 @@ end
     qmc_convergence_atol = 1e-15
     N_per_chunk = 8
     #ntau = 32
-    ntau = 64
+    #ntau = 64
     #ntau = 128
     #ntau = 256
     #ntau = 512
     #ntau = 1024
     #ntau = 2048
     #ntau = 4096
+    #ntau = 4096*2
+    #ntau = 4096*4
+    ntau = 4096*8
     #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 8, 40))))
     #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 8, 40))))
     #N_chunkss = unique(trunc.(Int, 2 .^ (range(8, 10, 8*2))))
     N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 10, 8*2 + 8*5))))
-    #N_chunkss = [1, 2]
+
+    #N_chunkss = [1024 / 8 / 8]
 
     # --    
     
