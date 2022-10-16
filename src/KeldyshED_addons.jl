@@ -3,7 +3,7 @@ module KeldyshED_addons
 import Keldysh; kd = Keldysh
 import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-import QInchworm.ppgf: ImaginaryTimePPGF
+import QInchworm.configuration: AllPPGFTypes
 
 """ Projects a FockState form one FullHilbertSpace to another FullHilbertSpace.
 
@@ -132,9 +132,8 @@ end
 
 
 function density_matrix(ρ, ed::ked.EDCore, β::Float64)
-
     n = length(ed.full_hs)
-    ρ_out = zeros(Float64, n, n)
+    ρ_out = zeros(ComplexF64, n, n)
 
     for (ρss, hss, eig) in zip(ρ, ed.subspaces, ed.eigensystems)
 
@@ -157,14 +156,15 @@ function density_matrix(ed::ked.EDCore, β::Float64)
 end
 
 
-function eigenstate_density_matrix(P::ImaginaryTimePPGF)
+function eigenstate_density_matrix(P::AllPPGFTypes)
     grid = P[1].grid
     τ_0, τ_β = grid[1], grid[end]
-    [ 1im * P_s[τ_β, τ_0] for P_s in P ]
+    ρ = [ 1im * P_s[τ_β, τ_0] for P_s in P ]
+    return ρ
 end
 
 
-function density_matrix(P::ImaginaryTimePPGF, ed::ked.EDCore, β::Float64)
+function density_matrix(P::AllPPGFTypes, ed::ked.EDCore, β::Float64)
     ρ = eigenstate_density_matrix(P)
     return density_matrix(ρ, ed, β)
 end
