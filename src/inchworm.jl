@@ -12,7 +12,7 @@ import QInchworm.configuration: Expansion,
                                 Configurations,
                                 operator,
                                 sector_block_matrix_from_ppgf,
-                                maxabs
+                                maxabs,
                                 set_bold_ppgf!
 
 import QInchworm.configuration: Node, InchNode

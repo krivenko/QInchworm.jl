@@ -20,8 +20,10 @@ import QInchworm.ppgf
 
 import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
 
+import QInchworm.spline_gf: SplineInterpolatedGF
 
-function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol)
+
+function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol; interpolate_gfs=false)
 
     β = 1.0
     ϵ_1, ϵ_2 = 0.0, 2.0
@@ -63,10 +65,16 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
     
     # -- Pseudo Particle Strong Coupling Expansion
 
-    ip_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
-    ip_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
-    expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
-
+    if interpolate_gfs
+        ip_fwd = InteractionPair(op.c_dag(1), op.c(1), SplineInterpolatedGF(Δ))
+        ip_bwd = InteractionPair(op.c(1), op.c_dag(1), SplineInterpolatedGF(reverse(Δ)))
+        expansion = Expansion(ed, grid, [ip_fwd, ip_bwd], interpolate_ppgf=true)
+    else
+        ip_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
+        ip_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
+        expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
+    end
+    
     ρ_0 = density_matrix(expansion.P0, ed, β)
     
     inchworm_matsubara!(expansion,
@@ -79,7 +87,7 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
 
     ppgf.normalize!(expansion.P, β)
     ρ_wrm = density_matrix(expansion.P, ed, β)
-
+    
     @printf "ρ_0   = %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2])
     @printf "ρ_ref = %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2])
     @printf "ρ_wrm = %16.16f %16.16f \n" real(ρ_wrm[1, 1]) real(ρ_wrm[2, 2])
@@ -96,11 +104,19 @@ end
     qmc_convergence_atol = 1e-15
 
     ntau = 32
+    #ntau = 128
     N_per_chunk = 64
-    N_chunks = 2
+    #N_chunks = 2
+    N_chunks = 128
 
-    diff = run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol) 
-    @test diff < 1e-3
+    diff_interp = run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol, interpolate_gfs=true) 
+    @test diff_interp < 1e-3
+    
+    diff_linear = run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol) 
+    @test diff_linear < 1e-3
+
+    @show diff_linear
+    @show diff_interp
 end
 
 
@@ -189,6 +205,8 @@ end
 
 @testset "inchworm_matsubara_hubbard_dimer" begin
 
+    return
+    
     qmc_convergence_atol = 1e-15
 
     ntau = 16

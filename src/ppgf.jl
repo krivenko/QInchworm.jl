@@ -9,6 +9,8 @@ import KeldyshED: EDCore, energies, partition_function
 import KeldyshED: c_connection, cdag_connection
 import KeldyshED: c_matrix, cdag_matrix
 
+import QInchworm.spline_gf: SplineInterpolatedGF
+
 export FullTimePPGF, ImaginaryTimePPGF
 export atomic_ppgf
 export operator_product
@@ -49,6 +51,11 @@ const FullTimePPGFSector = kd.GenericTimeGF{ComplexF64, false, kd.FullTimeGrid}
 const FullTimePPGF = Vector{FullTimePPGFSector}
 const ImaginaryTimePPGFSector = kd.ImaginaryTimeGF{ComplexF64, false}
 const ImaginaryTimePPGF = Vector{ImaginaryTimePPGFSector}
+
+const AllImaginaryTimeGF = Union{
+    kd.ImaginaryTimeGF{ComplexF64, false},
+    SplineInterpolatedGF{kd.ImaginaryTimeGF{ComplexF64, false}, ComplexF64, false}
+}
 
 """
 Compute atomic pseudo-particle Green's function on the time grid
@@ -380,7 +387,7 @@ function set_matsubara!(g::kd.GenericTimeGF{T, scalar, kd.FullTimeGrid} where {T
     end
 end
 
-function set_matsubara!(g::kd.ImaginaryTimeGF{T, scalar} where {T, scalar}, τ, value)
+function set_matsubara!(g::AllImaginaryTimeGF, τ, value)
     tau_grid = g.grid[kd.imaginary_branch]
     τ_0 = tau_grid[1]
     g[τ, τ_0] = value
