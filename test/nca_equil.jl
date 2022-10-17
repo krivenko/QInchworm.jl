@@ -82,18 +82,18 @@ end
             n_w = InchNode(τ_w.bpoint)
             nodes = [n_f, n_w, n_0]
 
-            conf_0 = Configuration(nodes, NodePairs())
+            conf_0 = Configuration(nodes, NodePairs(), ppsc_exp)
 
             val = cfg.eval(ppsc_exp, conf_0)
 
             for τ_1 in tau_grid[1:fidx]
 
                 p_fwd = NodePair(n_f.time, τ_1.bpoint, 1)
-                conf_1_fwd = Configuration(nodes, [p_fwd])
+                conf_1_fwd = Configuration(nodes, [p_fwd], ppsc_exp)
                 val += Δτ^2 * cfg.eval(ppsc_exp, conf_1_fwd)
 
                 p_bwd = NodePair(τ_1.bpoint, n_f.time, 1)
-                conf_1_bwd = Configuration(nodes, [p_bwd])
+                conf_1_bwd = Configuration(nodes, [p_bwd], ppsc_exp)
                 val += Δτ^2 * cfg.eval(ppsc_exp, conf_1_bwd)
 
             end
@@ -167,7 +167,7 @@ end
             n_w = InchNode(τ_w.bpoint)
             nodes = [n_f, n_w, n_0]
 
-            conf_0 = Configuration(nodes, NodePairs())
+            conf_0 = Configuration(nodes, NodePairs(), ppsc_exp)
 
             val = cfg.eval(ppsc_exp, conf_0)
 
@@ -179,8 +179,8 @@ end
                 τ_f.bpoint,
                 init = zero(val),
                 N = N) do τ_1
-                conf_1_fwd = Configuration(nodes, [NodePair(n_f.time, τ_1[1], 1)])
-                conf_1_bwd = Configuration(nodes, [NodePair(τ_1[1], n_f.time, 1)])
+                conf_1_fwd = Configuration(nodes, [NodePair(n_f.time, τ_1[1], 1)], ppsc_exp)
+                conf_1_bwd = Configuration(nodes, [NodePair(τ_1[1], n_f.time, 1)], ppsc_exp)
                 cfg.eval(ppsc_exp, conf_1_fwd) + cfg.eval(ppsc_exp, conf_1_bwd)
             end
 
