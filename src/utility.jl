@@ -20,4 +20,37 @@ function get_ref(c::Keldysh.AbstractContour, t::Keldysh.BranchPoint)
     @assert false
 end
 
+"""
+    Quadratic spline on an equidistant grid that allows for
+    incremental construction.
+"""
+struct IncrementalSpline{T<:Number}
+    knots::AbstractRange{T}
+    data::Vector{T}
+    der_data::Vector{T}
+end
+
+function IncrementalSpline(knots::AbstractRange{T}, val1::T, der1::T) where {T<:Number}
+    data = T[val1]
+    sizehint!(data, length(knots))
+    der_data = T[der1 * step(knots)]
+    sizehint!(der_data, length(knots)-1)
+    return IncrementalSpline{T}(knots, data, der_data)
+end
+
+function extend!(spline::IncrementalSpline{T}, val) where {T<:Number}
+   push!(spline.data, val)
+   push!(spline.der_data, 2*(spline.data[end] - spline.data[end-1]) - spline.der_data[end])
+end
+
+function (spline::IncrementalSpline{T})(z) where {T<:Number}
+    @assert first(spline.knots) <= z <= last(spline.knots)
+    x = 1 + (z - first(spline.knots)) / step(spline.knots)
+    i = floor(Int, x)
+    i = min(i, length(spline.data) - 1)
+    δx = x - i
+    @inbounds c3 = spline.der_data[i] - 2 * spline.data[i + 1]
+    @inbounds spline.data[i] * (1-δx^2) + spline.data[i + 1] * (1-(1-δx)^2) + c3 * (0.25-(δx-0.5)^2)
+end
+
 end
