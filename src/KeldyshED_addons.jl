@@ -1,9 +1,13 @@
 module KeldyshED_addons
 
+import LinearAlgebra
+
 import Keldysh; kd = Keldysh
 import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 import QInchworm.configuration: AllPPGFTypes
+
+import QInchworm.ppgf
 
 """ Projects a FockState form one FullHilbertSpace to another FullHilbertSpace.
 
@@ -93,9 +97,8 @@ function project_trace(
     proj_sv
 end
 
-
 function reduced_density_matrix(
-    ρ, ed::ked.EDCore, target_ed::ked.EDCore, β::Float64)
+    ρ, ed::ked.EDCore, target_ed::ked.EDCore)
 
     n = length(target_ed.full_hs)
     ρ_out = zeros(Float64, n, n)
@@ -127,11 +130,65 @@ end
 function reduced_density_matrix(
     ed::ked.EDCore, target_ed::ked.EDCore, β::Float64)
     ρ = ked.density_matrix(ed, β)
-    return reduced_density_matrix(ρ, ed, target_ed, β)
+    return reduced_density_matrix(ρ, ed, target_ed)
 end
 
+function reduced_ppgf(P::T, ed::ked.EDCore, target_ed::ked.EDCore) where {T <: AllPPGFTypes}
+    grid = P[1].grid
+    n = length(target_ed.full_hs)
+    m = length(ed.full_hs)
+    P_red = kd.ImaginaryTimeGF(grid, n)
 
-function density_matrix(ρ, ed::ked.EDCore, β::Float64)
+    τ_0 = grid[1]
+    for τ_i in grid
+        ρ = [ P_s[τ_i, τ_0] for P_s in P ]
+        ρ_red = reduced_density_matrix(ρ, ed, target_ed)
+        #P_red[τ_i, τ_0] = ρ_red / (m - n)
+        P_red[τ_i, τ_0] = ρ_red 
+    end
+
+    if true
+        τ_β = grid[end]
+        @show P_red[τ_β, τ_0]
+        Z = im * LinearAlgebra.tr(P_red[τ_β, τ_0])
+        Z = Z / (m - n)
+        @show Z
+        λ = log(Z) / grid.contour.β
+        @show λ
+        ppgf.normalize!(P_red, λ)
+        @show P_red[τ_β, τ_0]
+        Z = im * LinearAlgebra.tr(P_red[τ_β, τ_0])
+        @show Z
+    else
+        #ppgf.normalize!([P_red], P[1].grid.contour.β)
+    end
+    #exit()
+
+    for τ_i in grid
+        P_red[τ_i, τ_0] = P_red[τ_i, τ_0] / (m - n)
+    end
+    
+    #P_red[τ_β, τ_0]
+    #ρ_red = reduced_density_matrix(ed, target_ed, grid.contour.β)
+    
+    return P_red
+end
+
+function occupation_number_basis_ppgf(P::AllPPGFTypes, ed::ked.EDCore)
+    grid = P[1].grid
+    n = length(ed.full_hs)
+    P_out = kd.ImaginaryTimeGF(grid, n)
+
+    τ_0 = grid[1]
+    for τ_i in grid
+        ρ = [ P_s[τ_i, τ_0] for P_s in P ]
+        P_out[τ_i, τ_0] = density_matrix(ρ, ed)
+    end
+
+    return P_out
+end
+
+function density_matrix(ρ, ed::ked.EDCore)
     n = length(ed.full_hs)
     ρ_out = zeros(ComplexF64, n, n)
 
@@ -152,9 +209,8 @@ end
 
 function density_matrix(ed::ked.EDCore, β::Float64)
     ρ = KeldyshED.density_matrix(ed, β)
-    return density_matrix(ρ, ed, β)
+    return density_matrix(ρ, ed)
 end
-
 
 function eigenstate_density_matrix(P::AllPPGFTypes)
     grid = P[1].grid
@@ -163,10 +219,9 @@ function eigenstate_density_matrix(P::AllPPGFTypes)
     return ρ
 end
 
-
-function density_matrix(P::AllPPGFTypes, ed::ked.EDCore, β::Float64)
+function density_matrix(P::AllPPGFTypes, ed::ked.EDCore)
     ρ = eigenstate_density_matrix(P)
-    return density_matrix(ρ, ed, β)
+    return density_matrix(ρ, ed)
 end
 
 end # module KeldyshED_addons
