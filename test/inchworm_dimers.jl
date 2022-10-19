@@ -18,15 +18,21 @@ import QInchworm.inchworm: InchwormOrderData,
 
 import QInchworm.ppgf
 
-import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
+import QInchworm.KeldyshED_addons: reduced_density_matrix,
+    density_matrix, reduced_ppgf, occupation_number_basis_ppgf
 
 import QInchworm.spline_gf: SplineInterpolatedGF
+
+
+import PyPlot as plt # DEBUG
+
+
 
 
 function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol; interpolate_gfs=false)
 
     β = 1.0
-    ϵ_1, ϵ_2 = 0.0, 2.0
+    ϵ_1, ϵ_2 = 0.5, 2.0
     V = 0.5
 
     # -- ED solution
@@ -45,6 +51,9 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
     ed = KeldyshED.EDCore(H, soi)
 
     ρ_ref = Array{ComplexF64}( reduced_density_matrix(ed_dimer, ed, β) )
+
+    P0_dimer = ppgf.atomic_ppgf(grid, ed_dimer)
+    P_red = reduced_ppgf(P0_dimer, ed_dimer, ed)
     
     # -- Hybridization propagator
     
@@ -74,8 +83,51 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
         ip_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
         expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
     end
+
+    if false
+    # -- DEBUG
+
+    τ = [ -imag(t.bpoint.val) for t in grid ]
+    τ_0 = grid[1]
+
+    for p0 in expansion.P0
+        p_vec = cat([ p0[t, τ_0] for t in grid ]..., dims=3)
+        i = 1
+        plt.plot(τ, -imag(p_vec[i, i, 1:end]), "+", label="P_$i (0)")
+    end
+
+    grid_f = kd.ImaginaryTimeGrid(contour, ntau*100)
+
+    τ_f = [ -imag(t.bpoint.val) for t in grid_f ]
+    τ_f0 = grid_f[1]
+
+    println("starting interpolation")
+    if true
+        for (s, p0) in enumerate(expansion.P0)
+            p_vec = []
+            for t in grid_f
+                push!(p_vec, p0(t.bpoint, τ_f0.bpoint))
+            end
+            p_vec = [ val[1, 1] for val in p_vec ]
+            plt.plot(τ_f, -imag(p_vec), "-", label="P_$s (spline)")
+
+            p_vec = []
+            for t in grid_f
+                push!(p_vec, p0.GF(t.bpoint, τ_f0.bpoint))
+            end
+            p_vec = [ val[1, 1] for val in p_vec ]
+            plt.plot(τ_f, -imag(p_vec), "-", label="P_$s (linear)")
+        end
+    end
     
-    ρ_0 = density_matrix(expansion.P0, ed, β)
+    plt.legend(loc="best")
+    plt.grid(true)
+    plt.show()
+
+    exit()
+    end
+    
+    ρ_0 = density_matrix(expansion.P0, ed)
     
     inchworm_matsubara!(expansion,
                         grid,
@@ -85,15 +137,66 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
                         max_chunks,
                         qmc_convergence_atol)
 
-    ppgf.normalize!(expansion.P, β)
-    ρ_wrm = density_matrix(expansion.P, ed, β)
-    
+    ppgf.normalize!(expansion.P, β) # DEBUG fixme!
+    ρ_wrm = density_matrix(expansion.P, ed)
+
+    #P = [ p.GF for p in expansion.P ]
+    #ppgf.normalize!(P, β) # DEBUG fixme!
+    #ρ_wrm = density_matrix(P, ed)
+
     @printf "ρ_0   = %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2])
     @printf "ρ_ref = %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2])
     @printf "ρ_wrm = %16.16f %16.16f \n" real(ρ_wrm[1, 1]) real(ρ_wrm[2, 2])
     
     diff = maximum(abs.(ρ_ref - ρ_wrm))
     @show diff
+    
+    P0 = occupation_number_basis_ppgf(expansion.P0, ed)
+    P = occupation_number_basis_ppgf(expansion.P, ed)
+    #P = occupation_number_basis_ppgf(P, ed)
+
+    # -- Rip out initial derivative for P0 and P
+
+    dP = ppgf.initial_ppgf_derivative(ed, β)    
+    @show dP
+    
+    #exit()
+    
+    # -- DEBUG
+
+    τ = [ -imag(t.bpoint.val) for t in grid ]
+    τ_0 = grid[1]
+    
+    for dp in dP
+        plt.plot(τ, -imag(-im .+ dp .* τ), "-", label="dP")
+    end
+
+    for i in 1:2
+        p_vec = cat([ P0[t, τ_0] for t in grid ]..., dims=3)
+        plt.plot(τ, -imag(p_vec[i, i, 1:end]), "+-", label="P_$i (0)")
+    end
+
+    for i in 1:2
+        p_vec = cat([ P[t, τ_0] for t in grid ]..., dims=3)
+        plt.plot(τ, -imag(p_vec[i, i, 1:end]), "x-", label="P_$i (inch)")
+    end
+    
+    #for i in 1:2
+    #    p_vec = cat([ P_red[t, τ_0] for t in grid ]..., dims=3)
+    #    plt.plot(τ, -imag(p_vec[i, i, 1:end]), ".-", label="P_$i (red)")
+    #end
+
+    @show ρ_ref
+    for i in 1:2
+        plt.plot(τ[end], real(ρ_ref[i, i]), "o")
+    end
+
+    plt.legend(loc="best")
+    plt.grid(true)
+    plt.show()
+
+    exit()
+    
     return diff
 end
 
@@ -105,18 +208,18 @@ end
 
     ntau = 32
     #ntau = 128
+    #ntau = 512
     N_per_chunk = 64
-    #N_chunks = 2
-    N_chunks = 128
+    N_chunks = 2
+    #N_chunks = 128
 
-    diff_interp = run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol, interpolate_gfs=true) 
+    diff_interp = run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol, interpolate_gfs=false) 
     @test diff_interp < 1e-3
-    
-    diff_linear = run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol) 
-    @test diff_linear < 1e-3
-
-    @show diff_linear
     @show diff_interp
+    
+    #diff_linear = run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol) 
+    #@test diff_linear < 1e-3
+    #@show diff_linear
 end
 
 
