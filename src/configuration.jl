@@ -8,6 +8,7 @@ import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 import QInchworm.ppgf
 import QInchworm.spline_gf: SplineInterpolatedGF
+import QInchworm.spline_gf: IncSplineImaginaryTimeGF, extend!
 
 import QInchworm.diagrammatics: Diagram, Diagrams
 
@@ -43,14 +44,16 @@ const AllPPGFSectorTypes = Union{
     ppgf.FullTimePPGFSector,
     ppgf.ImaginaryTimePPGFSector,
     SplineInterpolatedGF{ppgf.FullTimePPGFSector, ComplexF64, false},
-    SplineInterpolatedGF{ppgf.ImaginaryTimePPGFSector, ComplexF64, false}
+    SplineInterpolatedGF{ppgf.ImaginaryTimePPGFSector, ComplexF64, false},
+    IncSplineImaginaryTimeGF{ComplexF64, false}
 }
 
 const AllPPGFTypes = Union{
     Vector{ppgf.FullTimePPGFSector},
     Vector{ppgf.ImaginaryTimePPGFSector},
     Vector{SplineInterpolatedGF{ppgf.FullTimePPGFSector, ComplexF64, false}},
-    Vector{SplineInterpolatedGF{ppgf.ImaginaryTimePPGFSector, ComplexF64, false}}
+    Vector{SplineInterpolatedGF{ppgf.ImaginaryTimePPGFSector, ComplexF64, false}},
+    Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}
 }
 
 """
@@ -122,11 +125,29 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
                      interaction_pairs::InteractionPairs{ScalarGF};
                      interpolate_ppgf = false) where ScalarGF
     P0 = ppgf.atomic_ppgf(grid, ed)
+    dP0 = ppgf.initial_ppgf_derivative(ed, grid.contour.β)
     P = deepcopy(P0)
     if interpolate_ppgf
-        P0 = [SplineInterpolatedGF(P0_s) for P0_s in P0]
-        P = [SplineInterpolatedGF(P_s, τ_max=grid[2]) for P_s in P]
+
+        #P0 = [SplineInterpolatedGF(P0_s) for P0_s in P0]
+        #P = [SplineInterpolatedGF(P_s, τ_max=grid[2]) for P_s in P]
+
+        P0_interp = [IncSplineImaginaryTimeGF(P0_s, dP0_s) for (P0_s, dP0_s) in zip(P0, dP0)]
+        P_interp = [IncSplineImaginaryTimeGF(P_s, dP0_s) for (P_s, dP0_s) in zip(P, dP0)]
+
+        # -- Fill up P0 with all values
+        for (s, p0_interp) in enumerate(P0_interp)
+            τ_0 = grid[1]
+            for τ in grid[2:end]
+                extend!(p0_interp, P0[s][τ, τ_0])
+            end
+        end
+
+        P0 = P0_interp
+        P = P_interp
+        
     end
+      
     return new{ScalarGF, typeof(P0)}(ed, P0, P, interaction_pairs, [])
   end
 end
@@ -367,6 +388,17 @@ function eval(exp::Expansion, pairs::NodePairs)
     return val
 end
 
+function set_bold_ppgf!(exp::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},
+                        t_i::kd.TimeGridPoint,
+                        t_f::kd.TimeGridPoint,
+                        result::SectorBlockMatrix) where ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}
+    for (s_i, (s_f, mat)) in result
+        # Boldification must preserve the block structure
+        @assert s_i == s_f
+        extend!(exp.P[s_i], mat)
+    end
+end
+
 function set_bold_ppgf!(exp::Expansion,
                         t_i::kd.TimeGridPoint,
                         t_f::kd.TimeGridPoint,
@@ -551,14 +583,14 @@ function get_paths(exp::Expansion, nodes::Nodes)::Paths
     return paths
 end
 
-function eval(exp::Expansion, nodes::Nodes, paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}})
+function eval(exp::Expansion, nodes::Nodes, paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}}, has_inch_node::Bool)
 
     start = operator(exp, first(nodes))
     val = SectorBlockMatrix()
     
     for path in paths
 
-        bold_P = true
+        bold_P = has_inch_node
         prev_node = first(nodes)
         S_i, S_f, mat = first(path)
         
@@ -583,13 +615,15 @@ function eval(exp::Expansion, nodes::Nodes, paths::Vector{Vector{Tuple{Int, Int,
 end
 
 function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
-                   exp::Expansion, nodes::Nodes, paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}})
+                   exp::Expansion, nodes::Nodes,
+                   paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}},
+                   has_inch_node::Bool)
 
     start = operator(exp, first(nodes))
     
     @inbounds for path in paths
 
-        bold_P = true
+        bold_P = has_inch_node
         prev_node = first(nodes)
         S_i, S_f, mat = first(path)
         
@@ -620,14 +654,14 @@ $(TYPEDSIGNATURES)
 Evaluate the configuration `conf` in the pseud-particle expansion `exp`.
 """
 function eval(exp::Expansion, conf::Configuration)::SectorBlockMatrix
-    return eval(exp, conf.pairs) * eval(exp, conf.nodes, conf.paths)
+    return eval(exp, conf.pairs) * eval(exp, conf.nodes, conf.paths, conf.has_inch_node)
     #return eval(exp, conf.pairs) * eval(exp, conf.nodes)
 end
 
 
 function eval_acc!(value::SectorBlockMatrix, exp::Expansion, conf::Configuration)
     scalar::ComplexF64 = eval(exp, conf.pairs)
-    eval_acc!(value, scalar, exp, conf.nodes, conf.paths)
+    eval_acc!(value, scalar, exp, conf.nodes, conf.paths, conf.has_inch_node)
     return
 end
 
