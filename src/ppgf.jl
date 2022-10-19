@@ -1,6 +1,6 @@
 module ppgf
 
-import LinearAlgebra: Diagonal, tr, I
+import LinearAlgebra: Diagonal, tr, I, diagm
 
 import Keldysh; kd = Keldysh;
 import KeldyshED; ked = KeldyshED;
@@ -419,7 +419,7 @@ function initial_ppgf_derivative(ed::ked.EDCore, β::Float64)
     dP = []
     for eig in ed.eigensystems
         @show eig.eigenvalues
-        dP_s = -im * (-eig.eigenvalues .- λ)
+        dP_s = -im * diagm(-eig.eigenvalues .- λ)
         push!(dP, dP_s)
     end
     return dP
