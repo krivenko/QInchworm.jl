@@ -13,6 +13,8 @@ import Keldysh; kd = Keldysh;
 using QInchworm.utility: get_ref
 using QInchworm.utility: IncrementalSpline, extend!
 
+import QInchworm.utility: extend!
+
 ########################
 # SplineInterpolatedGF #
 ########################
@@ -164,25 +166,25 @@ supports interpolation based on the IncrementalSpline.
 """
 struct IncSplineImaginaryTimeGF{T, scalar} <: kd.AbstractTimeGF{T, scalar}
     "Wrapped Green's function"
-    GF::ImaginaryTimeGF{T, scalar}
+    GF::kd.ImaginaryTimeGF{T, scalar}
     "Incremental spline interpolants, one object per matrix element of G"
     interpolants
-end
 
-function IncSplineImaginaryTimeGF(GF::ImaginaryTimeGF{T, true},
+    function IncSplineImaginaryTimeGF(GF::kd.ImaginaryTimeGF{T, true},
                                   derivative_at_0::T) where {T <: Number}
-    interpolants = [make_inc_interpolant(GF, k, l, derivative_at_0)]
-    IncSplineImaginaryTimeGF{T, true}(GF, interpolants)
+        interpolants = [make_inc_interpolant(GF, k, l, derivative_at_0)]
+        new{T, true}(GF, interpolants)
+    end
+
+    function IncSplineImaginaryTimeGF(GF::kd.ImaginaryTimeGF{T, false},
+                                      derivative_at_0::Matrix{T}) where {T <: Number}
+        norb = kd.norbitals(GF)
+        interpolants = [make_inc_interpolant(GF, k, l, derivative_at_0[k, l]) for k=1:norb, l=1:norb]
+        new{T, false}(GF, interpolants)
+    end
 end
 
-function IncSplineImaginaryTimeGF(GF::ImaginaryTimeGF{T, false},
-                                  derivative_at_0::Matrix{T}) where {T <: Number}
-    norb = kd.norbitals(GF)
-    interpolants = [make_inc_interpolant(GF, k, l, derivative_at_0[k, l]) for k=1:norb, l=1:norb]
-    IncSplineImaginaryTimeGF{T, false}(GF, interpolants)
-end
-
-function make_inc_interpolant(GF::kd.ImaginaryTimeGF{T, scalar}, derivative_at_0::T, k, l) where {
+function make_inc_interpolant(GF::kd.ImaginaryTimeGF{T, scalar}, k, l, derivative_at_0::T) where {
     T <: Number, scalar}
     grid = GF.grid
     Δτ = -imag(step(grid, kd.imaginary_branch))
