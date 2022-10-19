@@ -26,16 +26,16 @@ end
 """
 struct IncrementalSpline{T<:Number}
     knots::AbstractRange{T}
-    data::Vector{T}
-    der_data::Vector{T}
-end
+    data::Vector{Complex{T}}
+    der_data::Vector{Complex{T}}
 
-function IncrementalSpline(knots::AbstractRange{T}, val1::T, der1::T) where {T<:Number}
-    data = T[val1]
-    sizehint!(data, length(knots))
-    der_data = T[der1 * step(knots)]
-    sizehint!(der_data, length(knots)-1)
-    return IncrementalSpline{T}(knots, data, der_data)
+    function IncrementalSpline(knots::AbstractRange{T}, val1::Complex{T}, der1::Complex{T}) where {T<:Number}
+        data = Complex{T}[val1]
+        sizehint!(data, length(knots))
+        der_data = Complex{T}[der1 * step(knots)]
+        sizehint!(der_data, length(knots)-1)
+        return new{T}(knots, data, der_data)
+    end
 end
 
 function extend!(spline::IncrementalSpline{T}, val) where {T<:Number}
@@ -45,8 +45,8 @@ end
 
 function (spline::IncrementalSpline{T})(z) where {T<:Number}
     @assert first(spline.knots) <= z <= last(spline.knots)
-    x = 1 + (z - first(spline.knots)) / step(spline.knots)
-    i = floor(Int, x)
+    x = (z - first(spline.knots)) / step(spline.knots)
+    i = 1 + floor(Int, x)
     i = min(i, length(spline.data) - 1)
     δx = x - i
     @inbounds c3 = spline.der_data[i] - 2 * spline.data[i + 1]
