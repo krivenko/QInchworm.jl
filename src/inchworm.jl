@@ -218,14 +218,6 @@ function inchworm_matsubara!(expansion::Expansion,
        \__>        \/     \/     \/      \/                    \/ """
 
     println(logo)
-    
-    function assign_bold_ppgf(τ_i, τ_f, result)
-        for (s_i, (s_f, mat)) in result
-            # Boldification must preserve the block structure
-            @assert s_i == s_f
-            expansion.P[s_i][τ_f, τ_i] = mat
-        end
-    end
 
     println("Inch step 1 (bare)")
     
