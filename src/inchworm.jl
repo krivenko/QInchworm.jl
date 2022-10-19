@@ -15,7 +15,7 @@ import QInchworm.configuration: Expansion,
                                 maxabs,
                                 set_bold_ppgf!
 
-import QInchworm.configuration: Node, InchNode
+import QInchworm.configuration: Node, InchNode, SectorBlockMatrix
 
 import QInchworm.qmc_integrate: qmc_time_ordered_integral_root,
                                 qmc_inchworm_integral_root
@@ -75,7 +75,7 @@ function inchworm_step(expansion::Expansion,
             result += teval.eval(expansion, [n_f, n_w, n_i], kd.BranchPoint[], od.diagrams)
         else
             teval.update_inch_times!(od.configurations, t_i, t_w, t_f)
-                    
+
             d_bare = 1
             d_bold = 2 * od.order - 1
             seq = SobolSeq(2 * od.order)
@@ -87,7 +87,7 @@ function inchworm_step(expansion::Expansion,
             while ((N < od.N_chunk * od.max_chunks) &&
                 !isapprox(order_contrib, order_contrib_prev, atol=od.convergence_atol))
                 order_contrib_prev = deepcopy(order_contrib)
-                
+
                 order_contrib *= N
                 order_contrib -= qmc_inchworm_integral_root(
                     #t -> teval.eval(expansion, [n_f, n_w, n_i], t, od.diagrams),
@@ -147,7 +147,7 @@ function inchworm_step_bare(expansion::Expansion,
 
     for od in order_data
         @printf "order %i " od.order
-        if od.order == 0            
+        if od.order == 0
             result += teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
         else
             teval.update_inch_times!(od.configurations, t_i, t_i, t_f)
@@ -158,7 +158,7 @@ function inchworm_step_bare(expansion::Expansion,
             order_contrib = deepcopy(zero_sector_block_matrix)
             order_contrib_prev = deepcopy(zero_sector_block_matrix)
             fill!(order_contrib_prev, Inf)
-            
+
             while ((N < od.N_chunk * od.max_chunks) &&
                    !isapprox(order_contrib, order_contrib_prev, atol=od.convergence_atol))
                 order_contrib_prev = deepcopy(order_contrib)
@@ -178,7 +178,7 @@ function inchworm_step_bare(expansion::Expansion,
 
                 #@printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
             end
-            
+
             @printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
             result += order_contrib
         end
@@ -210,9 +210,9 @@ function inchworm_matsubara!(expansion::Expansion,
                              qmc_convergence_atol::Float64)
 
     # http://patorjk.com/software/taag/#p=display&f=Graffiti&t=QInchWorm
-    logo = raw"""________  .___              .__    __      __                     
-\_____  \ |   | ____   ____ |  |__/  \    /  \___________  _____  
- /  / \  \|   |/    \_/ ___\|  |  \   \/\/   /  _ \_  __ \/     \ 
+    logo = raw"""________  .___              .__    __      __
+\_____  \ |   | ____   ____ |  |__/  \    /  \___________  _____
+ /  / \  \|   |/    \_/ ___\|  |  \   \/\/   /  _ \_  __ \/     \
 /   \_/.  \   |   |  \  \___|   Y  \        (  <_> )  | \/  Y Y  \
 \_____\ \_/___|___|  /\___  >___|  /\__/\  / \____/|__|  |__|_|  /
        \__>        \/     \/     \/      \/                    \/ """
@@ -220,7 +220,7 @@ function inchworm_matsubara!(expansion::Expansion,
     println(logo)
 
     println("Inch step 1 (bare)")
-    
+
     # First inchworm step
     order_data = InchwormOrderData[]
     for order in orders_bare
@@ -266,7 +266,12 @@ function inchworm_matsubara!(expansion::Expansion,
         τ_w = grid[n]
         τ_f = grid[n + 1]
 
-        @time result = inchworm_step(expansion,
+        result = SectorBlockMatrix()
+        for (s, (P_s, P0_s)) in enumerate(zip(expansion.P, expansion.P0))
+            result[s] = (s, (P_s(τ_f.bpoint, τ_w.bpoint) - P0_s(τ_f.bpoint, τ_w.bpoint))* P_s(τ_w.bpoint, τ_i.bpoint))
+        end
+
+        @time result += inchworm_step(expansion,
                                grid.contour,
                                τ_i.bpoint,
                                τ_w.bpoint,
