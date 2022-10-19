@@ -1,6 +1,13 @@
 module utility
 
 import Keldysh
+import Interpolations
+using Interpolations: BoundaryCondition,
+                      GridType,
+                      inner_system_diags,
+                      Woodbury,
+                      WoodburyMatrices,
+                      lut!
 
 """
     Inverse of get_point(c::AbstractContour, ref)
@@ -18,6 +25,38 @@ function get_ref(c::Keldysh.AbstractContour, t::Keldysh.BranchPoint)
         end
     end
     @assert false
+end
+
+#
+# Interpolations.jl addon: Implementation of the Neumann boundary
+# conditions for the cubic spline.
+#
+
+struct NeumannBC{GT<:Union{Interpolations.GridType, Nothing}, T<:Number} <: Interpolations.BoundaryCondition
+    gt::GT
+    left_derivative::T
+    right_derivative::T
+end
+
+function Interpolations.prefiltering_system(::Type{T},
+                                            ::Type{TC},
+                                            n::Int,
+                                            degree::Interpolations.Cubic{BC}) where {
+    T, TC, BC<:NeumannBC{Interpolations.OnGrid}}
+    dl,d,du = inner_system_diags(T,n,degree)
+    d[1] = d[end] = -oneunit(T)
+    du[1] = dl[end] = zero(T)
+
+    specs = WoodburyMatrices.sparse_factors(T, n,
+                                  (1, 3, oneunit(T)),
+                                  (n, n-2, oneunit(T))
+                                 )
+
+    b = zeros(TC, n)
+    b[1] = 2/(n-3) * degree.bc.left_derivative
+    b[end] = -2/(n-3) * degree.bc.right_derivative
+
+    Woodbury(lut!(dl, d, du), specs...), b
 end
 
 """
