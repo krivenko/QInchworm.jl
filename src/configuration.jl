@@ -145,9 +145,9 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
 
         P0 = P0_interp
         P = P_interp
-        
+
     end
-      
+
     return new{ScalarGF, typeof(P0)}(ed, P0, P, interaction_pairs, [])
   end
 end
@@ -290,7 +290,7 @@ struct Configuration
     paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}}
     has_inch_node::Bool
     node_idxs::Vector{Int}
-    
+
     function Configuration(single_nodes::Nodes, pairs::NodePairs, exp::Expansion)
         nodes::Nodes = deepcopy(single_nodes)
 
@@ -315,7 +315,7 @@ struct Configuration
         has_inch_node = any([ is_inch_node(node) for node in nodes ])
         paths = get_paths(exp, nodes)
         n_idxs = get_node_idxs(length(nodes), has_inch_node)
-        
+
         return new(nodes, pairs, [], paths, has_inch_node, n_idxs)
     end
     function Configuration(diagram::Diagram, exp::Expansion; bare_expansion=false)
@@ -326,10 +326,10 @@ struct Configuration
 
         has_inch_node = !bare_expansion
         single_nodes = has_inch_node ? [n_f, n_w, n_i] : [n_f, n_i]
-        
+
         pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
                   for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
-        
+
         n = diagram.topology.order*2
         pairnodes = [ Node(time) for i in 1:n ]
 
@@ -340,7 +340,7 @@ struct Configuration
         end
 
         reverse!(pairnodes)
-        
+
         if length(pairnodes) > 0
             if has_inch_node
                 nodes = vcat([n_i], pairnodes[1:end-1], [n_w], [pairnodes[end]], [n_f])
@@ -355,7 +355,7 @@ struct Configuration
         n_idxs = get_node_idxs(length(nodes), has_inch_node)
 
         return new(nodes, pairs, [], paths, has_inch_node, n_idxs)
-    end    
+    end
 end
 
 const Configurations = Vector{Configuration}
@@ -565,7 +565,7 @@ function get_paths(exp::Expansion, nodes::Nodes)::Paths
 
     operators = [ operator(exp, node) for node in nodes ]
     N_sectors = length(exp.P)
-    
+
     paths = Paths()
     for s_i in 1:N_sectors
         path = Path()
@@ -587,13 +587,13 @@ function eval(exp::Expansion, nodes::Nodes, paths::Vector{Vector{Tuple{Int, Int,
 
     start = operator(exp, first(nodes))
     val = SectorBlockMatrix()
-    
+
     for path in paths
 
         bold_P = has_inch_node
         prev_node = first(nodes)
         S_i, S_f, mat = first(path)
-        
+
         for (nidx, node) in enumerate(nodes[2:end])
 
             if is_inch_node(prev_node)
@@ -603,9 +603,9 @@ function eval(exp::Expansion, nodes::Nodes, paths::Vector{Vector{Tuple{Int, Int,
             s_i, s_f, op_mat = path[nidx + 1]
 
             P_interp = bold_P ? exp.P[s_i](node.time, prev_node.time) : exp.P0[s_i](node.time, prev_node.time)
-            
+
             mat = im * op_mat * P_interp * mat
-            
+
             prev_node = node
         end
         val[S_i] = (S_f, -im * mat)
@@ -620,13 +620,13 @@ function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
                    has_inch_node::Bool)
 
     start = operator(exp, first(nodes))
-    
+
     @inbounds for path in paths
 
         bold_P = has_inch_node
         prev_node = first(nodes)
         S_i, S_f, mat = first(path)
-        
+
         for (nidx, node) in enumerate(nodes[2:end])
 
             if is_inch_node(prev_node)
@@ -636,9 +636,9 @@ function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
             s_i, s_f, op_mat = path[nidx + 1]
 
             P_interp = bold_P ? exp.P[s_i](node.time, prev_node.time) : exp.P0[s_i](node.time, prev_node.time)
-            
+
             mat = im * op_mat * P_interp * mat
-            
+
             prev_node = node
         end
         val[S_i][2] .+= -im * scalar * mat

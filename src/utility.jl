@@ -45,8 +45,8 @@ end
 
 function (spline::IncrementalSpline{T})(z) where {T<:Number}
     @assert first(spline.knots) <= z <= last(spline.knots)
-    x = (z - first(spline.knots)) / step(spline.knots)
-    i = 1 + floor(Int, x)
+    x = 1 + (z - first(spline.knots)) / step(spline.knots)
+    i = floor(Int, x)
     i = min(i, length(spline.data) - 1)
     δx = x - i
     @inbounds c3 = spline.der_data[i] - 2 * spline.data[i + 1]
