@@ -410,4 +410,19 @@ function normalize!(g::kd.AbstractTimeGF, λ)
     end
 end
 
+function initial_ppgf_derivative(ed::ked.EDCore, β::Float64)
+    Z = sum([ sum(exp.(-β * eig.eigenvalues)) for eig in ed.eigensystems ])
+    @show Z
+    λ = log(Z) / β
+    @show λ
+
+    dP = []
+    for eig in ed.eigensystems
+        @show eig.eigenvalues
+        dP_s = -im * (-eig.eigenvalues .- λ)
+        push!(dP, dP_s)
+    end
+    return dP
+end
+
 end # module ppgf
