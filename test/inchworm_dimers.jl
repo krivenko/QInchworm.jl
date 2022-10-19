@@ -137,12 +137,14 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
                         max_chunks,
                         qmc_convergence_atol)
 
-    ppgf.normalize!(expansion.P, β) # DEBUG fixme!
-    ρ_wrm = density_matrix(expansion.P, ed)
-
-    #P = [ p.GF for p in expansion.P ]
-    #ppgf.normalize!(P, β) # DEBUG fixme!
-    #ρ_wrm = density_matrix(P, ed)
+    if interpolate_gfs
+        P = [ p.GF for p in expansion.P ]
+        ppgf.normalize!(P, β) # DEBUG fixme!
+        ρ_wrm = density_matrix(P, ed)
+    else
+        ppgf.normalize!(expansion.P, β) # DEBUG fixme!
+        ρ_wrm = density_matrix(expansion.P, ed)
+    end
 
     @printf "ρ_0   = %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2])
     @printf "ρ_ref = %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2])
@@ -152,8 +154,11 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
     @show diff
     
     P0 = occupation_number_basis_ppgf(expansion.P0, ed)
-    P = occupation_number_basis_ppgf(expansion.P, ed)
-    #P = occupation_number_basis_ppgf(P, ed)
+    if interpolate_gfs
+        P = occupation_number_basis_ppgf(P, ed)
+    else
+        P = occupation_number_basis_ppgf(expansion.P, ed)
+    end
 
     # -- Rip out initial derivative for P0 and P
 
@@ -213,7 +218,7 @@ end
     N_chunks = 2
     #N_chunks = 128
 
-    diff_interp = run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol, interpolate_gfs=false) 
+    diff_interp = run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol, interpolate_gfs=true) 
     @test diff_interp < 1e-3
     @show diff_interp
     
