@@ -425,6 +425,10 @@ function set_bold_ppgf!(
     end
 end
 
+function Base.zeros(::Type{SectorBlockMatrix}, ed::ked.EDCore)
+    Dict(s => (s, zeros(ComplexF64, length(sp), length(sp))) for (s, sp) in enumerate(ed.subspaces))
+end
+
 """
 $(TYPEDSIGNATURES)
 
