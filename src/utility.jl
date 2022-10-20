@@ -65,26 +65,26 @@ end
     Quadratic spline on an equidistant grid that allows for
     incremental construction.
 """
-struct IncrementalSpline{T<:Number}
-    knots::AbstractRange{T}
-    data::Vector{Complex{T}}
-    der_data::Vector{Complex{T}}
+struct IncrementalSpline{KnotT<:Number, T<:Number}
+    knots::AbstractRange{KnotT}
+    data::Vector{T}
+    der_data::Vector{T}
 
-    function IncrementalSpline(knots::AbstractRange{T}, val1::Complex{T}, der1::Complex{T}) where {T<:Number}
-        data = Complex{T}[val1]
+    function IncrementalSpline(knots::AbstractRange{KnotT}, val1::T, der1::T) where {KnotT<:Number, T<:Number}
+        data = T[val1]
         sizehint!(data, length(knots))
-        der_data = Complex{T}[der1 * step(knots)]
+        der_data = T[der1 * step(knots)]
         sizehint!(der_data, length(knots)-1)
-        return new{T}(knots, data, der_data)
+        return new{KnotT,T}(knots, data, der_data)
     end
 end
 
-function extend!(spline::IncrementalSpline{T}, val) where {T<:Number}
+function extend!(spline::IncrementalSpline, val)
    push!(spline.data, val)
    push!(spline.der_data, 2*(spline.data[end] - spline.data[end-1]) - spline.der_data[end])
 end
 
-function (spline::IncrementalSpline{T})(z) where {T<:Number}
+function (spline::IncrementalSpline)(z)
     @assert first(spline.knots) <= z <= last(spline.knots)
     x = 1 + (z - first(spline.knots)) / step(spline.knots)
     i = floor(Int, x)
