@@ -268,7 +268,7 @@ function inchworm_matsubara!(expansion::Expansion,
 
         result = SectorBlockMatrix()
         for (s, (P_s, P0_s)) in enumerate(zip(expansion.P, expansion.P0))
-            result[s] = (s, (P_s(τ_f.bpoint, τ_w.bpoint) - P0_s(τ_f.bpoint, τ_w.bpoint))* P_s(τ_w.bpoint, τ_i.bpoint))
+            result[s] = (s, im * (P_s(τ_f.bpoint, τ_w.bpoint) - P0_s(τ_f.bpoint, τ_w.bpoint)) * P_s(τ_w.bpoint, τ_i.bpoint))
         end
 
         @time result += inchworm_step(expansion,
