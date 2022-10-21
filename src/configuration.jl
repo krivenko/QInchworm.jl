@@ -543,9 +543,9 @@ function eval(exp::Expansion, nodes::Nodes)
 
     for (nidx, node) in enumerate(nodes[2:end])
 
-        if is_inch_node(prev_node)
-            P = exp.P0 # Inch with bare ppsc propagator after inch time node
-        end
+        #if is_inch_node(prev_node)
+        #    P = exp.P0 # Inch with bare ppsc propagator after inch time node
+        #end
 
         op = operator(exp, node)
         P_interp = sector_block_matrix_from_ppgf(node.time, prev_node.time, P)
@@ -596,9 +596,9 @@ function eval(exp::Expansion, nodes::Nodes, paths::Vector{Vector{Tuple{Int, Int,
 
         for (nidx, node) in enumerate(nodes[2:end])
 
-            if is_inch_node(prev_node)
-                bold_P = false
-            end
+            #if is_inch_node(prev_node)
+            #    bold_P = false
+            #end
 
             s_i, s_f, op_mat = path[nidx + 1]
 
@@ -629,9 +629,9 @@ function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
 
         for (nidx, node) in enumerate(nodes[2:end])
 
-            if is_inch_node(prev_node)
-                bold_P = false
-            end
+            #if is_inch_node(prev_node)
+            #    bold_P = false
+            #end
 
             s_i, s_f, op_mat = path[nidx + 1]
 
