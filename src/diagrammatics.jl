@@ -91,11 +91,45 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Given a vector of pairs, split it into a 'connected' set containing pairs with
+one index <= `k` and the other index > `k` and a disconnected set containing the rest
+"""
+function split_doubly_k_connected(pairs::PairVector, k::Int)
+  connected = PairVector()
+  disconnected = PairVector()
+
+  for p in pairs
+    if (p.first <= k && p.second > k) || (p.first > k && p.second <= k)
+      push!(connected, p)
+    else
+      push!(disconnected, p)
+    end
+  end
+
+  return connected, disconnected
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Given a topology, check if every connected component of the graph induced by
 crossings between the arcs contains a pair with index <= `k`
 """
 function is_k_connected(t::Topology, k::Int)
   connected, disconnected = split_k_connected(t.pairs, k)
+  traverse_crossing_graph_dfs!(connected, disconnected)
+  return isempty(disconnected)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Given a topology, check if every connected component of the graph induced by
+crossings between the arcs contains a pair with one index <= `k` and the other
+index > `k`
+"""
+function is_doubly_k_connected(t::Topology, k::Int)
+  connected, disconnected = split_doubly_k_connected(t.pairs, k)
   traverse_crossing_graph_dfs!(connected, disconnected)
   return isempty(disconnected)
 end
