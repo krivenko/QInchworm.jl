@@ -9,7 +9,7 @@ import QInchworm.configuration: Expansion, InteractionPair
 import QInchworm.topology_eval: get_topologies_at_order,
                                 get_diagrams_at_order,
                                 get_configurations
-    
+
 import QInchworm.inchworm: InchwormOrderData,
                            inchworm_step,
                            inchworm_step_bare,
@@ -70,6 +70,7 @@ ed = KeldyshED.EDCore(H, soi)
         configurations = get_configurations(expansion, diagrams)
         if length(configurations) > 0
             push!(order_data, InchwormOrderData(order,
+                                                1,
                                                 diagrams,
                                                 configurations,
                                                 N_chunk,
@@ -120,6 +121,7 @@ end
         configurations = get_configurations(expansion, diagrams; bare_expansion=true)
         if length(configurations) > 0
             push!(order_data, InchwormOrderData(order,
+                                                1,
                                                 diagrams,
                                                 configurations,
                                                 N_chunk,

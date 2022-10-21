@@ -24,6 +24,8 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral_root,
 struct InchwormOrderData
     "Expansion order"
     order::Int64
+    "Number of points in the attached region"
+    k_attached::Int64
     "List of diagrams contributing at this expansion order"
     diagrams::teval.Diagrams
     "Precomputed hilbert space paths"
@@ -70,14 +72,16 @@ function inchworm_step(expansion::Expansion,
     result = deepcopy(zero_sector_block_matrix)
 
     for od in order_data
-        @printf "order %i " od.order
+        @printf "order %i, k_attached %i" od.order od.k_attached
         if od.order == 0
             result += teval.eval(expansion, [n_f, n_w, n_i], kd.BranchPoint[], od.diagrams)
         else
-            teval.update_inch_times!(od.configurations, t_i, t_w, t_f)
+            d_bare = od.k_attached
+            d_bold = 2 * od.order - od.k_attached
+            inch_node_pos = d_bold + 2
 
-            d_bare = 1
-            d_bold = 2 * od.order - 1
+            teval.update_inch_times!(od.configurations, t_i, t_w, t_f, inch_node_pos)
+
             seq = SobolSeq(2 * od.order)
             N = 0
             order_contrib = deepcopy(zero_sector_block_matrix)
@@ -150,7 +154,7 @@ function inchworm_step_bare(expansion::Expansion,
         if od.order == 0
             result += teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
         else
-            teval.update_inch_times!(od.configurations, t_i, t_i, t_f)
+            teval.update_inch_times!(od.configurations, t_i, t_i, t_f, 2)
 
             d = 2 * od.order
             seq = SobolSeq(d)
@@ -229,6 +233,7 @@ function inchworm_matsubara!(expansion::Expansion,
         configurations = teval.get_configurations(expansion, diagrams; bare_expansion=true)
         if length(configurations) > 0
             push!(order_data, InchwormOrderData(order,
+                                                2*order,
                                                 diagrams,
                                                 configurations,
                                                 N_chunk,
@@ -247,16 +252,20 @@ function inchworm_matsubara!(expansion::Expansion,
     # The rest of inching
     empty!(order_data)
     for order in orders
-        topologies = teval.get_topologies_at_order(order, 1)
-        diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
-        configurations = teval.get_configurations(expansion, diagrams)
-        if length(configurations) > 0
-            push!(order_data, InchwormOrderData(order,
-                                                diagrams,
-                                                configurations,
-                                                N_chunk,
-                                                max_chunks,
-                                                qmc_convergence_atol))
+        for k_attached = 1:max(1, 2*order-1)
+            topologies = teval.get_topologies_at_order(order, k_attached)
+            diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
+            configurations = teval.get_configurations(expansion, diagrams)
+
+            if length(configurations) > 0
+                push!(order_data, InchwormOrderData(order,
+                                                    k_attached,
+                                                    diagrams,
+                                                    configurations,
+                                                    N_chunk,
+                                                    max_chunks,
+                                                    qmc_convergence_atol))
+            end
         end
     end
 
@@ -266,12 +275,7 @@ function inchworm_matsubara!(expansion::Expansion,
         τ_w = grid[n]
         τ_f = grid[n + 1]
 
-        result = SectorBlockMatrix()
-        #for (s, (P_s, P0_s)) in enumerate(zip(expansion.P, expansion.P0))
-        #    result[s] = (s, im * (P_s(τ_f.bpoint, τ_w.bpoint) - P0_s(τ_f.bpoint, τ_w.bpoint)) * P_s(τ_w.bpoint, τ_i.bpoint))
-        #end
-
-        @time result += inchworm_step(expansion,
+        @time result = inchworm_step(expansion,
                                grid.contour,
                                τ_i.bpoint,
                                τ_w.bpoint,

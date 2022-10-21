@@ -95,7 +95,7 @@ function get_topologies_at_order(order::Int64, k = nothing)::Vector{diag.Topolog
     k === nothing && return topologies
 
     filter!(topologies) do top
-        diag.is_k_connected(top, k)
+        diag.is_doubly_k_connected(top, k)
     end
 
     return topologies
@@ -172,15 +172,15 @@ function get_configurations(expansion::cfg.Expansion, diagrams::Diagrams; bare_e
         if length(configuration.paths) > 0
             push!(configurations, configuration)
         end
-    end    
+    end
     return configurations
 end
 
-function update_inch_times!(configuration::cfg.Configuration, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint)
+function update_inch_times!(configuration::cfg.Configuration, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint, inch_node_pos::Int)
     if configuration.has_inch_node
         @inbounds begin
             configuration.nodes[1] = Node(τ_i)
-            configuration.nodes[end-2] = InchNode(τ_w)
+            configuration.nodes[inch_node_pos] = InchNode(τ_w)
             configuration.nodes[end] = Node(τ_f)
         end
     else
@@ -191,19 +191,19 @@ function update_inch_times!(configuration::cfg.Configuration, τ_i::kd.BranchPoi
     end
 end
 
-function update_inch_times!(configurations::cfg.Configurations, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint)
+function update_inch_times!(configurations::cfg.Configurations, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint, inch_node_pos::Int)
     for configuration in configurations
-        update_inch_times!(configuration, τ_i, τ_w, τ_f)
+        update_inch_times!(configuration, τ_i, τ_w, τ_f, inch_node_pos)
     end
 end
 
 function update_times!(configuration::cfg.Configuration, diagram::Diagram, times::cfg.Times)
-    
+
     for (t_idx, n_idx) in enumerate(configuration.node_idxs)
         op_ref = configuration.nodes[n_idx].operator_ref
         configuration.nodes[n_idx] = cfg.Node(times[t_idx], op_ref)
     end
-    
+
     for (p_idx, (idx_ti, idx_tf)) in enumerate(diagram.topology.pairs)
         int_idx = configuration.pairs[p_idx].index
         configuration.pairs[p_idx] = cfg.NodePair(times[idx_tf], times[idx_ti], int_idx)
