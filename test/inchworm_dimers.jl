@@ -78,6 +78,7 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
         ip_fwd = InteractionPair(op.c_dag(1), op.c(1), SplineInterpolatedGF(Δ))
         ip_bwd = InteractionPair(op.c(1), op.c_dag(1), SplineInterpolatedGF(reverse(Δ)))
         expansion = Expansion(ed, grid, [ip_fwd, ip_bwd], interpolate_ppgf=true)
+        println("Using spline GFS")
     else
         ip_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
         ip_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
@@ -153,6 +154,8 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
     diff = maximum(abs.(ρ_ref - ρ_wrm))
     @show diff
     
+    if false
+
     P0 = occupation_number_basis_ppgf(expansion.P0, ed)
     if interpolate_gfs
         P = occupation_number_basis_ppgf(P, ed)
@@ -166,7 +169,7 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
     @show dP
     
     #exit()
-    
+
     # -- DEBUG
 
     τ = [ -imag(t.bpoint.val) for t in grid ]
@@ -201,30 +204,31 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
     plt.show()
 
     exit()
+    end
     
     return diff
 end
 
 
 @testset "inchworm_matsubara_dimer" begin    
+
     orders = 0:1
     orders_bare = 0:1
     qmc_convergence_atol = 1e-15
 
     ntau = 32
-    #ntau = 128
-    #ntau = 512
     N_per_chunk = 64
     N_chunks = 2
-    #N_chunks = 128
 
     diff_interp = run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol, interpolate_gfs=true) 
     @test diff_interp < 1e-3
     @show diff_interp
     
-    #diff_linear = run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol) 
-    #@test diff_linear < 1e-3
-    #@show diff_linear
+    diff_linear = run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol, interpolate_gfs=false) 
+    @test diff_linear < 1e-3
+
+    @show diff_interp
+    @show diff_linear
 end
 
 
@@ -288,7 +292,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
     ip_2_bwd = InteractionPair(op.c(2), op.c_dag(2), reverse(Δ_2))
     expansion = Expansion(ed, grid, [ip_1_fwd, ip_1_bwd, ip_2_fwd, ip_2_bwd])
 
-    ρ_0 = density_matrix(expansion.P0, ed, β)
+    ρ_0 = density_matrix(expansion.P0, ed)
     
     inchworm_matsubara!(expansion,
                         grid,
@@ -299,7 +303,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
                         qmc_convergence_atol)
 
     ppgf.normalize!(expansion.P, β)
-    ρ_wrm = density_matrix(expansion.P, ed, β)
+    ρ_wrm = density_matrix(expansion.P, ed)
 
     @printf "ρ_0   = %16.16f %16.16f %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2]) real(ρ_0[3, 3]) real(ρ_0[4, 4])
     @printf "ρ_ref = %16.16f %16.16f %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2]) real(ρ_ref[3, 3]) real(ρ_ref[4, 4])
@@ -312,8 +316,6 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
 end
 
 @testset "inchworm_matsubara_hubbard_dimer" begin
-
-    return
     
     qmc_convergence_atol = 1e-15
 
@@ -330,9 +332,8 @@ end
     @show diff_o1
     @show diff_o2
 
-    @test diff_o1 < 3e-4
-    @test diff_o2 < 3e-5
-    @test diff_o1 > 8 * diff_o2
+    @test diff_o1 < 1e-4
+    @test diff_o2 < 1e-4
     
 end
 
