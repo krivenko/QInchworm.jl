@@ -65,17 +65,20 @@ ed = KeldyshED.EDCore(H, soi)
 
     order_data = InchwormOrderData[]
     for order in 0:3
-        topologies = get_topologies_at_order(order, 1)
-        diagrams = get_diagrams_at_order(expansion, topologies, order)
-        configurations = get_configurations(expansion, diagrams)
-        if length(configurations) > 0
-            push!(order_data, InchwormOrderData(order,
-                                                1,
-                                                diagrams,
-                                                configurations,
-                                                N_chunk,
-                                                max_chunks,
-                                                qmc_convergence_atol))
+        for k_attached = 1:max(1, 2*order-1)
+            d_bold = 2 * order - k_attached
+            topologies = get_topologies_at_order(order, 1)
+            diagrams = get_diagrams_at_order(expansion, topologies, order)
+            configurations = get_configurations(expansion, diagrams, d_bold)
+            if length(configurations) > 0
+                push!(order_data, InchwormOrderData(order,
+                                                    k_attached,
+                                                    diagrams,
+                                                    configurations,
+                                                    N_chunk,
+                                                    max_chunks,
+                                                    qmc_convergence_atol))
+            end
         end
     end
 
@@ -118,7 +121,7 @@ end
     for order in 0:3
         topologies = get_topologies_at_order(order)
         diagrams = get_diagrams_at_order(expansion, topologies, order)
-        configurations = get_configurations(expansion, diagrams; bare_expansion=true)
+        configurations = get_configurations(expansion, diagrams, 0)
         if length(configurations) > 0
             push!(order_data, InchwormOrderData(order,
                                                 1,

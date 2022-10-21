@@ -72,15 +72,14 @@ function inchworm_step(expansion::Expansion,
     result = deepcopy(zero_sector_block_matrix)
 
     for od in order_data
-        @printf "order %i, k_attached %i" od.order od.k_attached
+        @printf "order %i, k_attached %i, " od.order od.k_attached
         if od.order == 0
             result += teval.eval(expansion, [n_f, n_w, n_i], kd.BranchPoint[], od.diagrams)
         else
             d_bare = od.k_attached
             d_bold = 2 * od.order - od.k_attached
-            inch_node_pos = d_bold + 2
 
-            teval.update_inch_times!(od.configurations, t_i, t_w, t_f, inch_node_pos)
+            teval.update_inch_times!(od.configurations, t_i, t_w, t_f)
 
             seq = SobolSeq(2 * od.order)
             N = 0
@@ -154,7 +153,7 @@ function inchworm_step_bare(expansion::Expansion,
         if od.order == 0
             result += teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
         else
-            teval.update_inch_times!(od.configurations, t_i, t_i, t_f, 2)
+            teval.update_inch_times!(od.configurations, t_i, t_i, t_f)
 
             d = 2 * od.order
             seq = SobolSeq(d)
@@ -230,7 +229,7 @@ function inchworm_matsubara!(expansion::Expansion,
     for order in orders_bare
         topologies = teval.get_topologies_at_order(order)
         diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
-        configurations = teval.get_configurations(expansion, diagrams; bare_expansion=true)
+        configurations = teval.get_configurations(expansion, diagrams, 0)
         if length(configurations) > 0
             push!(order_data, InchwormOrderData(order,
                                                 2*order,
@@ -253,9 +252,10 @@ function inchworm_matsubara!(expansion::Expansion,
     empty!(order_data)
     for order in orders
         for k_attached = 1:max(1, 2*order-1)
+            d_bold = 2 * order - k_attached
             topologies = teval.get_topologies_at_order(order, k_attached)
             diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
-            configurations = teval.get_configurations(expansion, diagrams)
+            configurations = teval.get_configurations(expansion, diagrams, d_bold)
 
             if length(configurations) > 0
                 push!(order_data, InchwormOrderData(order,

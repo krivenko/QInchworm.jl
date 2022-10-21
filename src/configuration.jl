@@ -257,9 +257,9 @@ end
 
 const Determinants = Vector{Determinant}
 
-function get_node_idxs(n::Int, has_inch_node::Bool)::Vector{Int}
-    if has_inch_node
-        n_idxs = vcat([n - 1], collect(n-3:-1:2))
+function get_node_idxs(n::Int, inch_node_pos::Int = nothing)::Vector{Int}
+    if inch_node_pos !== nothing
+        n_idxs = vcat(collect(n-1:-1:inch_node_pos+1), collect(inch_node_pos-1:-1:2))
     else
         n_idxs = collect((n - 1):-1:2)
     end
@@ -289,6 +289,7 @@ struct Configuration
     "List of precomputed trace paths with operator sub matrices"
     paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}}
     has_inch_node::Bool
+    inch_node_idx::Int
     node_idxs::Vector{Int}
 
     function Configuration(single_nodes::Nodes, pairs::NodePairs, exp::Expansion)
@@ -314,17 +315,18 @@ struct Configuration
 
         has_inch_node = any([ is_inch_node(node) for node in nodes ])
         paths = get_paths(exp, nodes)
-        n_idxs = get_node_idxs(length(nodes), has_inch_node)
+        n_idxs = get_node_idxs(length(nodes), 3)
 
-        return new(nodes, pairs, [], paths, has_inch_node, n_idxs)
+        return new(nodes, pairs, [], paths, has_inch_node, 3, n_idxs)
     end
-    function Configuration(diagram::Diagram, exp::Expansion; bare_expansion=false)
+    function Configuration(diagram::Diagram, exp::Expansion, d_bold::Int)
 
         contour = first(exp.P).grid.contour
         time = contour(0.0)
         n_f, n_w, n_i = Node(time), InchNode(time), Node(time)
 
-        has_inch_node = !bare_expansion
+        has_inch_node = d_bold > 0
+        inch_node_idx = d_bold + 2
         single_nodes = has_inch_node ? [n_f, n_w, n_i] : [n_f, n_i]
 
         pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
@@ -343,7 +345,7 @@ struct Configuration
 
         if length(pairnodes) > 0
             if has_inch_node
-                nodes = vcat([n_i], pairnodes[1:end-1], [n_w], [pairnodes[end]], [n_f])
+                nodes = vcat([n_i], pairnodes[1:d_bold], [n_w], pairnodes[d_bold+1:end], [n_f])
             else
                 nodes = vcat([n_i], pairnodes, [n_f])
             end
@@ -352,9 +354,9 @@ struct Configuration
         end
 
         paths = get_paths(exp, nodes)
-        n_idxs = get_node_idxs(length(nodes), has_inch_node)
+        n_idxs = get_node_idxs(length(nodes), inch_node_idx)
 
-        return new(nodes, pairs, [], paths, has_inch_node, n_idxs)
+        return new(nodes, pairs, [], paths, has_inch_node, inch_node_idx, n_idxs)
     end
 end
 

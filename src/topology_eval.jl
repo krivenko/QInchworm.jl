@@ -165,10 +165,10 @@ function eval(
     return accumulated_value
 end
 
-function get_configurations(expansion::cfg.Expansion, diagrams::Diagrams; bare_expansion=false)::cfg.Configurations
+function get_configurations(expansion::cfg.Expansion, diagrams::Diagrams, d_bold::Int)::cfg.Configurations
     configurations = cfg.Configurations()
     for (didx, diagram) in enumerate(diagrams)
-        configuration = Configuration(diagram, expansion; bare_expansion=bare_expansion)
+        configuration = Configuration(diagram, expansion, d_bold)
         if length(configuration.paths) > 0
             push!(configurations, configuration)
         end
@@ -176,11 +176,11 @@ function get_configurations(expansion::cfg.Expansion, diagrams::Diagrams; bare_e
     return configurations
 end
 
-function update_inch_times!(configuration::cfg.Configuration, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint, inch_node_pos::Int)
+function update_inch_times!(configuration::cfg.Configuration, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint)
     if configuration.has_inch_node
         @inbounds begin
             configuration.nodes[1] = Node(τ_i)
-            configuration.nodes[inch_node_pos] = InchNode(τ_w)
+            configuration.nodes[configuration.inch_node_idx] = InchNode(τ_w)
             configuration.nodes[end] = Node(τ_f)
         end
     else
@@ -191,14 +191,13 @@ function update_inch_times!(configuration::cfg.Configuration, τ_i::kd.BranchPoi
     end
 end
 
-function update_inch_times!(configurations::cfg.Configurations, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint, inch_node_pos::Int)
+function update_inch_times!(configurations::cfg.Configurations, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint)
     for configuration in configurations
-        update_inch_times!(configuration, τ_i, τ_w, τ_f, inch_node_pos)
+        update_inch_times!(configuration, τ_i, τ_w, τ_f)
     end
 end
 
 function update_times!(configuration::cfg.Configuration, diagram::Diagram, times::cfg.Times)
-
     for (t_idx, n_idx) in enumerate(configuration.node_idxs)
         op_ref = configuration.nodes[n_idx].operator_ref
         configuration.nodes[n_idx] = cfg.Node(times[t_idx], op_ref)
