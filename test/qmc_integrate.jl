@@ -21,7 +21,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         τ = 5.0
 
         @testset "d = 1, constant integrand" begin
-            let d = 1, c = contour, f = t -> 1.0, N = 200000
+            let d = 1, c = contour, f = t -> 1.0, N = 2^17
                 val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(0.5); τ=τ, N=N)
                 @show N_samples / N
                 @test isapprox(val, -0.4, rtol=1e-4)
@@ -41,7 +41,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         end
 
         @testset "d = 1, linear in t integrand" begin
-            let d = 1, c = contour, f = t -> t[1].val, N = 200000
+            let d = 1, c = contour, f = t -> t[1].val, N = 2^17
                 val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(0.5), τ=τ, N=N)
                 @show N_samples / N
                 @test isapprox(val, -0.28, rtol=1e-4)
@@ -61,7 +61,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         end
 
         @testset "d = 2, constant integrand" begin
-            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); 1.0), N = 500000
+            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); 1.0), N = 2^18
                 val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(0.5), τ=τ, N=N)
                 @show N_samples / N
                 @test isapprox(val, 0.08, rtol=5e-3)
@@ -81,7 +81,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         end
 
         @testset "d = 2, bilinear in t1, t2 integrand" begin
-            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); t[1].val * t[2].val), N = 1000000
+            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); t[1].val * t[2].val), N = 2^19
                 val, N_samples = qmc_time_ordered_integral(f, d, c, c(0.1), c(0.5), τ=τ, N=N)
                 @show N_samples / N
                 @test isapprox(val, 0.0392, rtol=5e-3)
@@ -106,7 +106,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         τ = 5.0
 
         @testset "d = 1, constant integrand" begin
-            let d = 1, c = contour, f = t -> 1.0, N_samples = 50000
+            let d = 1, c = contour, f = t -> 1.0, N_samples = 2^16
                 val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(0.5); τ=τ, N_samples=N_samples)
                 @show N_samples / N
                 @test isapprox(val, -0.4, rtol=1e-4)
@@ -126,7 +126,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         end
 
         @testset "d = 1, linear in t integrand" begin
-            let d = 1, c = contour, f = t -> t[1].val, N_samples = 50000
+            let d = 1, c = contour, f = t -> t[1].val, N_samples = 2^15
                 val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(0.5), τ=τ, N_samples=N_samples)
                 @show N_samples / N
                 @test isapprox(val, -0.28, rtol=1e-4)
@@ -146,7 +146,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         end
 
         @testset "d = 2, constant integrand" begin
-            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); 1.0), N_samples = 50000
+            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); 1.0), N_samples = 2^15
                 val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(0.5), τ=τ, N_samples=N_samples)
                 @show N_samples / N
                 @test isapprox(val, 0.08, rtol=5e-3)
@@ -166,7 +166,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         end
 
         @testset "d = 2, bilinear in t1, t2 integrand" begin
-            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); t[1].val * t[2].val), N_samples = 50000
+            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); t[1].val * t[2].val), N_samples = 2^15
                 val, N = qmc_time_ordered_integral_n_samples(f, d, c, c(0.1), c(0.5), τ=τ, N_samples=N_samples)
                 @show N_samples / N
                 @test isapprox(val, 0.0392, rtol=5e-3)
@@ -189,7 +189,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
     @testset "qmc_time_ordered_integral_sort()" begin
 
         @testset "d = 1, constant integrand" begin
-            let d = 1, c = contour, f = t -> 1.0, N = 200000
+            let d = 1, c = contour, f = t -> 1.0, N = 2^17
                 val = qmc_time_ordered_integral_sort(f, d, c, c(0.1), c(0.5); N=N)
                 @test isapprox(val, -0.4, rtol=1e-4)
                 val = qmc_time_ordered_integral_sort(f, d, c, c(0.1), c(2.0); N=N)
@@ -204,7 +204,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         end
 
         @testset "d = 1, linear in t integrand" begin
-            let d = 1, c = contour, f = t -> t[1].val, N = 200000
+            let d = 1, c = contour, f = t -> t[1].val, N = 2^18
                 val = qmc_time_ordered_integral_sort(f, d, c, c(0.1), c(0.5), N=N)
                 @test isapprox(val, -0.28, rtol=1e-5)
                 val = qmc_time_ordered_integral_sort(f, d, c, c(0.1), c(2.0), N=N)
@@ -219,7 +219,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         end
 
         @testset "d = 2, constant integrand" begin
-            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); 1.0), N = 500000
+            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); 1.0), N = 2^18
                 val = qmc_time_ordered_integral_sort(f, d, c, c(0.1), c(0.5), N=N)
                 @test isapprox(val, 0.08, rtol=1e-4)
                 val = qmc_time_ordered_integral_sort(f, d, c, c(0.1), c(2.0), N=N)
@@ -234,7 +234,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         end
 
         @testset "d = 2, bilinear in t1, t2 integrand" begin
-            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); t[1].val * t[2].val), N = 1000000
+            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); t[1].val * t[2].val), N = 2^19
                 val = qmc_time_ordered_integral_sort(f, d, c, c(0.1), c(0.5), N=N)
                 @test isapprox(val, 0.0392, rtol=1e-4)
                 val = qmc_time_ordered_integral_sort(f, d, c, c(0.1), c(2.0), N=N)
@@ -252,7 +252,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
     @testset "qmc_time_ordered_integral_root()" begin
 
         @testset "d = 1, constant integrand" begin
-            let d = 1, c = contour, f = t -> 1.0, N = 200000
+            let d = 1, c = contour, f = t -> 1.0, N = 2^17
                 val = qmc_time_ordered_integral_root(f, d, c, c(0.1), c(0.5); N=N)
                 @test isapprox(val, -0.4, rtol=1e-4)
                 val = qmc_time_ordered_integral_root(f, d, c, c(0.1), c(2.0); N=N)
@@ -267,7 +267,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         end
 
         @testset "d = 1, linear in t integrand" begin
-            let d = 1, c = contour, f = t -> t[1].val, N = 200000
+            let d = 1, c = contour, f = t -> t[1].val, N = 2^18
                 val = qmc_time_ordered_integral_root(f, d, c, c(0.1), c(0.5), N=N)
                 @test isapprox(val, -0.28, rtol=1e-5)
                 val = qmc_time_ordered_integral_root(f, d, c, c(0.1), c(2.0), N=N)
@@ -282,7 +282,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         end
 
         @testset "d = 2, constant integrand" begin
-            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); 1.0), N = 500000
+            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); 1.0), N = 2^18
                 val = qmc_time_ordered_integral_root(f, d, c, c(0.1), c(0.5), N=N)
                 @test isapprox(val, 0.08, rtol=1e-4)
                 val = qmc_time_ordered_integral_root(f, d, c, c(0.1), c(2.0), N=N)
@@ -297,7 +297,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         end
 
         @testset "d = 2, bilinear in t1, t2 integrand" begin
-            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); t[1].val * t[2].val), N = 1000000
+            let d = 2, c = contour, f = t -> (@assert kd.heaviside(c, t[1], t[2]); t[1].val * t[2].val), N = 2^19
                 val = qmc_time_ordered_integral_root(f, d, c, c(0.1), c(0.5), N=N)
                 @test isapprox(val, 0.0392, rtol=1e-4)
                 val = qmc_time_ordered_integral_root(f, d, c, c(0.1), c(2.0), N=N)
@@ -315,7 +315,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
     @testset "qmc_inchworm_integral_root()" begin
 
         @testset "d_bold = 0, d_bare = 3, constant integrand" begin
-            let d_bold = 0, d_bare = 3, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 1000000
+            let d_bold = 0, d_bare = 3, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 2^19
                 function f(t)
                     @assert kd.heaviside(c, t_f, t[1])
                     @assert kd.heaviside(c, t[1], t[2])
@@ -329,7 +329,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         end
 
         @testset "d_bold = 0, d_bare = 3, multilinear integrand" begin
-            let d_bold = 0, d_bare = 3, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 1000000
+            let d_bold = 0, d_bare = 3, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 2^19
                 function f(t)
                     @assert kd.heaviside(c, t_f, t[1])
                     @assert kd.heaviside(c, t[1], t[2])
@@ -343,7 +343,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         end
 
         @testset "d_bold = 3, d_bare = 2, constant integrand" begin
-            let d_bold = 3, d_bare = 2, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 2000000
+            let d_bold = 3, d_bare = 2, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 2^20
                 function f(t)
                     @assert kd.heaviside(c, t_f, t[1])
                     @assert kd.heaviside(c, t[1], t[2])
@@ -360,7 +360,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
         end
 
         @testset "d_bold = 3, d_bare = 2, multilinear integrand" begin
-            let d_bold = 3, d_bare = 2, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 2000000
+            let d_bold = 3, d_bare = 2, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 2^20
                 function f(t)
                     @assert kd.heaviside(c, t_f, t[1])
                     @assert kd.heaviside(c, t[1], t[2])

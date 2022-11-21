@@ -2,11 +2,11 @@ module inchworm
 
 using Printf
 
-import Sobol: SobolSeq
-
 import Keldysh; kd = Keldysh
 
 import QInchworm; teval = QInchworm.topology_eval
+
+using  QInchworm.utility: BetterSobolSeq, next!
 
 import QInchworm.configuration: Expansion,
                                 Configurations,
@@ -81,7 +81,7 @@ function inchworm_step(expansion::Expansion,
 
             teval.update_inch_times!(od.configurations, t_i, t_w, t_f)
 
-            seq = SobolSeq(2 * od.order)
+            seq = BetterSobolSeq(2 * od.order)
             N = 0
             order_contrib = deepcopy(zero_sector_block_matrix)
             order_contrib_prev = deepcopy(zero_sector_block_matrix)
@@ -156,7 +156,7 @@ function inchworm_step_bare(expansion::Expansion,
             teval.update_inch_times!(od.configurations, t_i, t_i, t_f)
 
             d = 2 * od.order
-            seq = SobolSeq(d)
+            seq = BetterSobolSeq(d)
             N = 0
             order_contrib = deepcopy(zero_sector_block_matrix)
             order_contrib_prev = deepcopy(zero_sector_block_matrix)

@@ -46,7 +46,7 @@ end
     tmax = 1.
 
     # -- Quasi Monte Carlo
-    N = 10000
+    N = 2^13
 
     # -- Exact Diagonalization
 

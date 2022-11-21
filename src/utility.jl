@@ -9,6 +9,8 @@ using Interpolations: BoundaryCondition,
                       WoodburyMatrices,
                       lut!
 
+import Sobol: AbstractSobolSeq, SobolSeq, next!, ndims
+
 """
     Inverse of get_point(c::AbstractContour, ref)
 
@@ -90,6 +92,27 @@ function (spline::IncrementalSpline{T})(z) where {T<:Number}
     δx = x - i
     @inbounds c3 = spline.der_data[i] - 2 * spline.data[i + 1]
     @inbounds spline.data[i] * (1-δx^2) + spline.data[i + 1] * (1-(1-δx)^2) + c3 * (0.25-(δx-0.5)^2)
+end
+
+"""
+    Sobol sequence including the initial point (0, 0, ...)
+
+    C.f. https://github.com/stevengj/Sobol.jl/issues/31
+"""
+mutable struct BetterSobolSeq{N} <: AbstractSobolSeq{N}
+    seq::SobolSeq{N}
+    init_pt_returned::Bool
+
+    BetterSobolSeq(N::Int) = new{N}(SobolSeq(N), false)
+end
+
+function next!(bseq::BetterSobolSeq)
+    if bseq.init_pt_returned
+        next!(bseq.seq)
+    else
+        bseq.init_pt_returned = true
+        zeros(Float64, ndims(bseq.seq))
+    end
 end
 
 end
