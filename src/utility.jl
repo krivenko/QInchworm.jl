@@ -115,4 +115,20 @@ function next!(bseq::BetterSobolSeq)
     end
 end
 
+function arbitrary_skip(s::SobolSeq, n::Integer)
+    x = Array{Float64,1}(undef, ndims(s))
+    for unused = 1:n
+        next!(s,x)
+    end
+    return nothing
+end
+
+function arbitrary_skip(bseq::BetterSobolSeq, n::Integer)
+    @assert n >= 0
+    if n >= 1
+        bseq.init_pt_returned = true
+        arbitrary_skip(bseq.seq, n-1)
+    end
+end
+
 end
