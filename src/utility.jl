@@ -1,5 +1,7 @@
 module utility
 
+using MPI: MPI
+
 import Keldysh
 import Interpolations
 using Interpolations: BoundaryCondition,
@@ -129,6 +131,31 @@ function arbitrary_skip(bseq::BetterSobolSeq, n::Integer)
         bseq.init_pt_returned = true
         arbitrary_skip(bseq.seq, n-1)
     end
+end
+
+"""
+    split_count(N::Integer, n::Integer)
+
+Return a vector of `n` integers which are approximately equally sized and sum to `N`.
+"""
+function split_count(N::Integer, n::Integer)
+    q,r = divrem(N, n)
+    return [i <= r ? q+1 : q for i = 1:n]
+end
+
+function mpi_N_skip_and_N_samples_on_rank(N_samples)
+
+    comm_rank = MPI.Comm_rank(MPI.COMM_WORLD)
+    comm_size = MPI.Comm_size(MPI.COMM_WORLD)
+    N_split = split_count(N_samples, comm_size)
+    N_skip = sum(N_split[1:comm_rank])
+    N_samples_on_rank = N_split[comm_rank+1]
+    return N_skip, N_samples_on_rank
+    
+end
+
+function inch_print()
+    return MPI.Comm_rank(MPI.COMM_WORLD) == 0
 end
 
 end
