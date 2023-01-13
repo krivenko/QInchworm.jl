@@ -10,6 +10,7 @@ import KeldyshED: c_connection, cdag_connection
 import KeldyshED: c_matrix, cdag_matrix
 
 import QInchworm.spline_gf: SplineInterpolatedGF
+using  QInchworm.utility: inch_print
 
 export FullTimePPGF, ImaginaryTimePPGF
 export atomic_ppgf
@@ -412,13 +413,13 @@ end
 
 function initial_ppgf_derivative(ed::ked.EDCore, β::Float64)
     Z = sum([ sum(exp.(-β * eig.eigenvalues)) for eig in ed.eigensystems ])
-    @show Z
+    if inch_print(); @show Z; end
     λ = log(Z) / β
-    @show λ
+    if inch_print(); @show λ; end
 
     dP = []
     for eig in ed.eigensystems
-        @show eig.eigenvalues
+        if inch_print(); @show eig.eigenvalues; end
         dP_s = -im * diagm(-eig.eigenvalues .- λ)
         push!(dP, dP_s)
     end

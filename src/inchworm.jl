@@ -1,5 +1,7 @@
 module inchworm
 
+using ProgressBars: ProgressBar
+using MPI: MPI
 using Printf
 
 import Keldysh; kd = Keldysh
@@ -7,6 +9,8 @@ import Keldysh; kd = Keldysh
 import QInchworm; teval = QInchworm.topology_eval
 
 using  QInchworm.utility: BetterSobolSeq, next!
+using  QInchworm.utility: inch_print
+using QInchworm.utility: mpi_N_skip_and_N_samples_on_rank, split_count
 
 import QInchworm.configuration: Expansion,
                                 Configurations,
@@ -72,7 +76,7 @@ function inchworm_step(expansion::Expansion,
     result = deepcopy(zero_sector_block_matrix)
 
     for od in order_data
-        @printf "order %i, k_attached %i, " od.order od.k_attached
+        #if inch_print(); @printf "order %i, k_attached %i, " od.order od.k_attached; end
         if od.order == 0
             result += teval.eval(expansion, [n_f, n_w, n_i], kd.BranchPoint[], od.diagrams)
         else
@@ -82,35 +86,53 @@ function inchworm_step(expansion::Expansion,
             teval.update_inch_times!(od.configurations, t_i, t_w, t_f)
 
             seq = BetterSobolSeq(2 * od.order)
-            N = 0
             order_contrib = deepcopy(zero_sector_block_matrix)
-            order_contrib_prev = deepcopy(zero_sector_block_matrix)
-            fill!(order_contrib_prev, Inf)
 
-            while ((N < od.N_chunk * od.max_chunks) &&
-                !isapprox(order_contrib, order_contrib_prev, atol=od.convergence_atol))
-                order_contrib_prev = deepcopy(order_contrib)
+            if false
+                N = 0
+                order_contrib_prev = deepcopy(zero_sector_block_matrix)
+                fill!(order_contrib_prev, Inf)
 
-                order_contrib *= N
-                order_contrib -= qmc_inchworm_integral_root(
-                    #t -> teval.eval(expansion, [n_f, n_w, n_i], t, od.diagrams),
-                    t -> teval.eval(expansion, od.diagrams, od.configurations, t),
-                    d_bold, d_bare,
-                    c, t_i, t_w, t_f,
-                    init = deepcopy(zero_sector_block_matrix),
-                    seq = seq,
-                    N = od.N_chunk
-                ) * od.N_chunk
-                N += od.N_chunk
-                order_contrib *= 1 / N
+                while ((N < od.N_chunk * od.max_chunks) &&
+                    !isapprox(order_contrib, order_contrib_prev, atol=od.convergence_atol))
+                    order_contrib_prev = deepcopy(order_contrib)
 
-                #@printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
+                    order_contrib *= N
+                    order_contrib -= qmc_inchworm_integral_root(
+                        #t -> teval.eval(expansion, [n_f, n_w, n_i], t, od.diagrams),
+                        t -> teval.eval(expansion, od.diagrams, od.configurations, t),
+                        d_bold, d_bare,
+                        c, t_i, t_w, t_f,
+                        init = deepcopy(zero_sector_block_matrix),
+                        seq = seq,
+                        N = od.N_chunk
+                    ) * od.N_chunk
+                    N += od.N_chunk
+                    order_contrib *= 1 / N
+                    
+                    #@printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
+                end
+
+                if inch_print()
+                    @printf "%2.2e N_chunks = %i" maxabs(order_contrib - order_contrib_prev) N/od.N_chunk
+                end
+            else
+                N_samples = od.N_chunk * od.max_chunks
+                if N_samples > 0
+                    order_contrib -= qmc_inchworm_integral_root(
+                        t -> teval.eval(expansion, od.diagrams, od.configurations, t),
+                        d_bold, d_bare,
+                        c, t_i, t_w, t_f,
+                        init = deepcopy(zero_sector_block_matrix),
+                        seq = seq,
+                        N = N_samples
+                    )
+                end
             end
 
-            @printf "%2.2e N_chunks = %i" maxabs(order_contrib - order_contrib_prev) N/od.N_chunk
             result += order_contrib
         end
-        @printf "\n"
+        #if inch_print(); @printf "\n"; end
     end
     result
 end
@@ -149,7 +171,7 @@ function inchworm_step_bare(expansion::Expansion,
     result = deepcopy(zero_sector_block_matrix)
 
     for od in order_data
-        @printf "order %i " od.order
+        #if inch_print(); @printf "order %i " od.order; end
         if od.order == 0
             result += teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
         else
@@ -157,35 +179,57 @@ function inchworm_step_bare(expansion::Expansion,
 
             d = 2 * od.order
             seq = BetterSobolSeq(d)
-            N = 0
             order_contrib = deepcopy(zero_sector_block_matrix)
-            order_contrib_prev = deepcopy(zero_sector_block_matrix)
-            fill!(order_contrib_prev, Inf)
 
-            while ((N < od.N_chunk * od.max_chunks) &&
-                   !isapprox(order_contrib, order_contrib_prev, atol=od.convergence_atol))
-                order_contrib_prev = deepcopy(order_contrib)
+            # === OLD Chunk based sampling
+            if false
+                N = 0
+                order_contrib_prev = deepcopy(zero_sector_block_matrix)
+                fill!(order_contrib_prev, Inf)
+                
+                while ((N < od.N_chunk * od.max_chunks) &&
+                    !isapprox(order_contrib, order_contrib_prev, atol=od.convergence_atol))
+                    order_contrib_prev = deepcopy(order_contrib)
+                    
+                    order_contrib *= N
+                    order_contrib -= qmc_time_ordered_integral_root(
+                        #t -> teval.eval(expansion, [n_f, n_i, n_i], t, od.diagrams),
+                        t -> teval.eval(expansion, od.diagrams, od.configurations, t),
+                        d,
+                        c, t_i, t_f,
+                        init = deepcopy(zero_sector_block_matrix),
+                        seq = seq,
+                        N = od.N_chunk
+                    ) * od.N_chunk
+                    N += od.N_chunk
+                    order_contrib *= 1 / N
+                    
+                    #@printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
+                end
 
-                order_contrib *= N
-                order_contrib -= qmc_time_ordered_integral_root(
-                    #t -> teval.eval(expansion, [n_f, n_i, n_i], t, od.diagrams),
-                    t -> teval.eval(expansion, od.diagrams, od.configurations, t),
-                    d,
-                    c, t_i, t_f,
-                    init = deepcopy(zero_sector_block_matrix),
-                    seq = seq,
-                    N = od.N_chunk
-                ) * od.N_chunk
-                N += od.N_chunk
-                order_contrib *= 1 / N
+                if inch_print()
+                    @printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
+                end
 
-                #@printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
+            # === Direct sampling of N_samples
+            else
+                N_samples = od.N_chunk * od.max_chunks
+                if N_samples > 0
+                    order_contrib -= qmc_time_ordered_integral_root(
+                        t -> teval.eval(expansion, od.diagrams, od.configurations, t),
+                        d,
+                        c, t_i, t_f,
+                        init = deepcopy(zero_sector_block_matrix),
+                        seq = seq,
+                        N = N_samples
+                    )
+                end
+
             end
-
-            @printf "%2.2e " maxabs(order_contrib - order_contrib_prev)
+            
             result += order_contrib
         end
-        @printf "\n"
+        #if inch_print(); @printf "\n"; end
     end
     result
 end
@@ -220,9 +264,22 @@ function inchworm_matsubara!(expansion::Expansion,
 \_____\ \_/___|___|  /\___  >___|  /\__/\  / \____/|__|  |__|_|  /
        \__>        \/     \/     \/      \/                    \/ """
 
-    println(logo)
+    if inch_print()
+        comm = MPI.COMM_WORLD
+        comm_size = MPI.Comm_size(comm)
+        N_samples = N_chunk * max_chunks
+        N_split = split_count(N_samples, comm_size)
+        
+        println(logo)
+        println("N_tau = ", length(grid))
+        println("orders_bare = ", orders_bare)
+        println("orders = ", orders)
+        println("N_samples = ", N_samples)
+        println("N_ranks = ", comm_size)
+        println("N_samples (per rank) = ", N_split)
+    end
 
-    println("Inch step 1 (bare)")
+    if inch_print(); println("Inch step 1 (bare)"); end
 
     # First inchworm step
     order_data = InchwormOrderData[]
@@ -269,13 +326,16 @@ function inchworm_matsubara!(expansion::Expansion,
         end
     end
 
+    iter = 2:length(grid)-1
+    iter = inch_print() ? ProgressBar(iter) : iter
+    
     τ_i = grid[1]
-    for n = 2:length(grid)-1
-        println("Inch step $n of $(length(grid)-1)")
+    for n in iter
+        #if inch_print(); println("Inch step $n of $(length(grid)-1)"); end
         τ_w = grid[n]
         τ_f = grid[n + 1]
 
-        @time result = inchworm_step(expansion,
+        result = inchworm_step(expansion,
                                grid.contour,
                                τ_i.bpoint,
                                τ_w.bpoint,
