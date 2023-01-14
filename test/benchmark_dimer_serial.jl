@@ -1,7 +1,7 @@
 using MPI
 using Test
 using Printf
-import PyPlot as plt
+#import PyPlot as plt
 
 import LinearAlgebra; trace = LinearAlgebra.tr
 

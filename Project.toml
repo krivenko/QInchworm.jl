@@ -11,6 +11,8 @@ KeldyshED = "675b6b9c-7c2f-11e9-3bf3-dfd4d61640f7"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Sobol = "ed01d8cd-4d21-5b2a-85b4-cc3bdc58bad4"
+MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
+ProgressBars = "49802e3a-d2f1-5c88-81d8-b72133a6f568"
 
 [compat]
 julia = "1.5"

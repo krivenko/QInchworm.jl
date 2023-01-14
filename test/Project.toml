@@ -7,3 +7,6 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Sobol = "ed01d8cd-4d21-5b2a-85b4-cc3bdc58bad4"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+MD5 = "6ac74813-4b46-53a4-afec-0b5dc9d7885c"
+HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
+
