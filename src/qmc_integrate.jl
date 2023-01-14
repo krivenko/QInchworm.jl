@@ -123,7 +123,7 @@ function qmc_integral_mpi(f, init = zero(typeof(f(trans(0))));
 
     # Eq. (5)
     res = init
-    for i = 1:N
+    for i = 1:N_samples_on_rank
         x = next!(seq)
         u = trans(x)
         f_val = f(u)
@@ -132,7 +132,7 @@ function qmc_integral_mpi(f, init = zero(typeof(f(trans(0))));
     end
 
     for (s_i, (s_f, mat)) in res
-        mat = MPI.Allreduce(mat, +, MPI.COMM_WORLD)
+        mat[:] = MPI.Allreduce(mat, +, MPI.COMM_WORLD)
     end
     (p_norm / N) * res
 end
