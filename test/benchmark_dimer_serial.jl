@@ -1,4 +1,8 @@
 using MPI
+
+import MD5
+import HDF5; h5 = HDF5
+
 using Test
 using Printf
 #import PyPlot as plt
@@ -10,12 +14,15 @@ import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 import QInchworm.ppgf
 import QInchworm.configuration: Expansion, InteractionPair
+
 import QInchworm.topology_eval: get_topologies_at_order,
                                 get_diagrams_at_order
+
 import QInchworm.inchworm: InchwormOrderData,
                            inchworm_step,
                            inchworm_step_bare,
                            inchworm_matsubara!
+
 import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
 import QInchworm.spline_gf: SplineInterpolatedGF
 using  QInchworm.utility: inch_print
@@ -109,71 +116,32 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
     return diff
 end
 
-
-@testset "ntau_plot" begin
-
-    MPI.Init()
+function run_ntau_calc(ntau::Integer)
 
     comm_root = 0
     comm = MPI.COMM_WORLD
     comm_size = MPI.Comm_size(comm)
     comm_rank = MPI.Comm_rank(comm)
-
     
     orders = 0:1
     orders_bare = 0:1
     qmc_convergence_atol = 1e-15
     N_per_chunk = 8
-    #ntau = 4
-    #ntau = 8
-    #ntau = 16
-    #ntau = 32
-    ntau = 64
-    #ntau = 128
-    #ntau = 256
-    #ntau = 512
-    #ntau = 1024
-    #ntau = 2048
-    #ntau = 4096
-    #ntau = 4096*2
-    #ntau = 4096*4
-    #ntau = 4096*8
+    N_chunkss = 2 .^ range(0, 13)
+    #N_chunkss = 2 .^ range(0, 4)
 
-    #N_chunkss = unique(trunc.(Int, 2 .^ (range(2, 13))))
-    N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 13))))
-    #N_chunkss = unique(trunc.(Int, 2 .^ (range(4, 4))))
     if inch_print(); @show N_chunkss; end
 
-    #exit()
-
-    #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 8, 40))))
-    #N_chunkss = unique(trunc.(Int, 2 .^ (range(8, 10, 8*2))))
-    #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 10, 8*2 + 8*5))))
-
-    #N_chunkss = unique(trunc.(Int, 2 .^ (range(10, 12, 8*2))))
-    #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 12, 8*(2 + 2 + 5)))))
-
-    #N_chunkss = unique(trunc.(Int, 2 .^ (range(12, 14, 8*2))))
-
-    #N_chunkss = [1024 / 8 / 8]
-
-
-    # -- Do calculation here
-    
-    #local_diffs = zeros(Float64, local_size)
-    #local_diffs .= 0.1 * comm_rank
-
     diffs = [ run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks,
-                              qmc_convergence_atol, interpolate_gfs=false) for N_chunks in N_chunkss ]
+                        qmc_convergence_atol, interpolate_gfs=false)
+              for N_chunks in N_chunkss ]
 
-
-    diff_0 = run_dimer(ntau, orders, orders_bare, N_per_chunk, 0, qmc_convergence_atol, interpolate_gfs=false)
+    diff_0 = run_dimer(
+        ntau, orders, orders_bare, N_per_chunk, 0,
+        qmc_convergence_atol, interpolate_gfs=false)
 
     if comm_rank == comm_root
         @show diffs
-
-        import MD5
-        import HDF5; h5 = HDF5
 
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, diffs)))
         filename = "data_ntau_$(ntau)_md5_$(id).h5"
@@ -200,4 +168,13 @@ end
     
     return
     
+end
+
+MPI.Init()
+
+ntaus = 2 .^ range(4, 12)
+if inch_print(); @show ntaus; end
+
+for ntau in ntaus
+    run_ntau_calc(ntau)
 end
