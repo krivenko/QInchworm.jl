@@ -10,7 +10,7 @@ import QInchworm.ppgf
 import QInchworm.spline_gf: SplineInterpolatedGF
 import QInchworm.spline_gf: IncSplineImaginaryTimeGF, extend!
 
-import QInchworm.diagrammatics: Diagram, Diagrams
+import QInchworm.diagrammatics: Diagram, Diagrams, n_crossings
 
 # -- Exports
 
@@ -280,6 +280,8 @@ struct Configuration
     nodes::Nodes
     "List of pairs of nodes in time associated with a hybridization propagator"
     pairs::NodePairs
+    "Number of hybridization line crossings"
+    ncross::Int
     "List of groups of time nodes associated with expansion determinants"
     determinants::Determinants
 
@@ -317,7 +319,8 @@ struct Configuration
         paths = get_paths(exp, nodes)
         n_idxs = get_node_idxs(length(nodes), 3)
 
-        return new(nodes, pairs, [], paths, has_inch_node, 3, n_idxs)
+        ncross = 0
+        return new(nodes, pairs, ncross, [], paths, has_inch_node, 3, n_idxs)
     end
     function Configuration(diagram::Diagram, exp::Expansion, d_bold::Int)
 
@@ -331,6 +334,7 @@ struct Configuration
 
         pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
                   for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
+        ncross = n_crossings(diagram.topology)
 
         n = diagram.topology.order*2
         pairnodes = [ Node(time) for i in 1:n ]
@@ -356,7 +360,7 @@ struct Configuration
         paths = get_paths(exp, nodes)
         n_idxs = get_node_idxs(length(nodes), inch_node_idx)
 
-        return new(nodes, pairs, [], paths, has_inch_node, inch_node_idx, n_idxs)
+        return new(nodes, pairs, ncross, [], paths, has_inch_node, inch_node_idx, n_idxs)
     end
 end
 
@@ -379,7 +383,7 @@ function Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint)
     end
 end
 
-function eval(exp::Expansion, pairs::NodePairs)
+function eval(exp::Expansion, pairs::NodePairs, ncross::Int)
     val::ComplexF64 = 1.0
     for pair in pairs
         if pair.time_f < pair.time_i
@@ -387,6 +391,7 @@ function eval(exp::Expansion, pairs::NodePairs)
         end
         val *= im * exp.pairs[pair.index].propagator(pair.time_f, pair.time_i)
     end
+    val *= (-1)^ncross
     return val
 end
 
@@ -660,13 +665,13 @@ $(TYPEDSIGNATURES)
 Evaluate the configuration `conf` in the pseud-particle expansion `exp`.
 """
 function eval(exp::Expansion, conf::Configuration)::SectorBlockMatrix
-    return eval(exp, conf.pairs) * eval(exp, conf.nodes, conf.paths, conf.has_inch_node)
+    return eval(exp, conf.pairs, conf.ncross) * eval(exp, conf.nodes, conf.paths, conf.has_inch_node)
     #return eval(exp, conf.pairs) * eval(exp, conf.nodes)
 end
 
 
 function eval_acc!(value::SectorBlockMatrix, exp::Expansion, conf::Configuration)
-    scalar::ComplexF64 = eval(exp, conf.pairs)
+    scalar::ComplexF64 = eval(exp, conf.pairs, conf.ncross)
     eval_acc!(value, scalar, exp, conf.nodes, conf.paths, conf.has_inch_node)
     return
 end
