@@ -5,7 +5,6 @@ import HDF5; h5 = HDF5
 
 using Test
 using Printf
-import PyPlot as plt
 
 import LinearAlgebra; trace = LinearAlgebra.tr
 
