@@ -336,6 +336,8 @@ struct Configuration
                   for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
         ncross = n_crossings(diagram.topology)
 
+        #println("topology = $(diagram.topology), ncross = $(ncross)") # DEBUG
+
         n = diagram.topology.order*2
         pairnodes = [ Node(time) for i in 1:n ]
 
@@ -391,7 +393,12 @@ function eval(exp::Expansion, pairs::NodePairs, ncross::Int)
         end
         val *= im * exp.pairs[pair.index].propagator(pair.time_f, pair.time_i)
     end
-    val *= (-1)^ncross
+    #val *= (-1)^(ncross + length(pairs) - 1)
+    order = length(pairs)
+    if order > 0
+        sign_diff = order - ncross - 1
+        val *= (-1)^sign_diff
+    end
     return val
 end
 
