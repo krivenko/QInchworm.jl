@@ -46,6 +46,43 @@ function semi_circular_g_tau(times, t, h, β)
     return g_out
 end
 
+function ρ_from_n_ref(ρ_wrm, n_ref)
+    ρ_ref = zero(ρ_wrm)
+    ρ_ref[1, 1] = (1 - n_ref) * (1 - n_ref)
+    ρ_ref[2, 2] = n_ref * (1 - n_ref)
+    ρ_ref[3, 3] = n_ref * (1 - n_ref)
+    ρ_ref[4, 4] = n_ref * n_ref
+    return ρ_ref
+end
+
+function ρ_from_ρ_ref(ρ_wrm, ρ_ref)
+    ρ = zero(ρ_wrm)
+    ρ[1, 1] = ρ_ref[1]
+    ρ[2, 2] = ρ_ref[2]
+    ρ[3, 3] = ρ_ref[3]
+    ρ[4, 4] = ρ_ref[4]
+    return ρ
+end
+
+function get_ρ_exact(ρ_wrm)
+    n = 0.5460872495307262 # from DLR calc
+    return ρ_from_n_ref(ρ_wrm, n)
+end
+
+function get_ρ_nca(ρ_wrm)
+    rho_nca = [ 0.1961713995875524, 0.2474226001525296, 0.2474226001525296, 0.3089834001073883,  ]
+    return ρ_from_ρ_ref(ρ_wrm , rho_nca)
+end
+
+function get_ρ_oca(ρ_wrm)
+    rho_oca = [ 0.2018070389569783, 0.2476929924482211, 0.2476929924482211, 0.3028069761465793,  ]
+    return ρ_from_ρ_ref(ρ_wrm , rho_oca)
+end
+
+function get_ρ_tca(ρ_wrm)
+    rho_tca = [ 0.205163794520457, 0.2478638876741985, 0.2478638876741985, 0.2991084301311462,  ]
+    return ρ_from_ρ_ref(ρ_wrm , rho_tca)
+end
 
 function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol)
 
@@ -134,23 +171,38 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
     ppgf.normalize!(expansion.P, β)
     ρ_wrm = density_matrix(expansion.P, ed)
 
-    ρ_ref = zero(ρ_wrm)
-    n_ref = 0.5460872495307262
-    ρ_ref[1, 1] = (1 - n_ref) * (1 - n_ref)
-    ρ_ref[2, 2] = n_ref * (1 - n_ref)
-    ρ_ref[3, 3] = n_ref * (1 - n_ref)
-    ρ_ref[4, 4] = n_ref * n_ref
+    ρ_exa = get_ρ_exact(ρ_wrm)
+    ρ_nca = get_ρ_nca(ρ_wrm)
+    ρ_oca = get_ρ_oca(ρ_wrm)
+    ρ_tca = get_ρ_tca(ρ_wrm)
     
-    diff = maximum(abs.(ρ_ref - ρ_wrm))
+    diff_nca = maximum(abs.(ρ_wrm - ρ_nca))
+    diff_oca = maximum(abs.(ρ_wrm - ρ_oca))
+    diff_tca = maximum(abs.(ρ_wrm - ρ_tca))
+    diff_exa = maximum(abs.(ρ_wrm - ρ_exa))
 
+    ρ_000 = real(LinearAlgebra.diag(ρ_0))
+    ρ_exa = real(LinearAlgebra.diag(ρ_exa))
+    ρ_nca = real(LinearAlgebra.diag(ρ_nca))
+    ρ_oca = real(LinearAlgebra.diag(ρ_oca))
+    ρ_tca = real(LinearAlgebra.diag(ρ_tca))
+    ρ_wrm = real(LinearAlgebra.diag(ρ_wrm))
+    
     if inch_print()
-        @printf "ρ_0   = %16.16f %16.16f %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2]) real(ρ_0[3, 3]) real(ρ_0[4, 4])
-        @printf "ρ_ref = %16.16f %16.16f %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2]) real(ρ_ref[3, 3]) real(ρ_ref[4, 4])
-        @printf "ρ_wrm = %16.16f %16.16f %16.16f %16.16f \n" real(ρ_wrm[1, 1]) real(ρ_wrm[2, 2]) real(ρ_wrm[3, 3]) real(ρ_wrm[4, 4])
-        @show diff
+        @show ρ_000        
+        @show ρ_nca
+        @show ρ_oca
+        @show ρ_tca
+        @show ρ_exa
+        @show ρ_wrm
+
+        @show diff_nca
+        @show diff_oca
+        @show diff_tca
+        @show diff_exa
     end
 
-    return diff
+    return diff_exa, diff_nca, diff_oca, diff_tca
 end
 
 function run_ntau_calc(ntau::Integer, orders, N_chunkss)
@@ -165,16 +217,30 @@ function run_ntau_calc(ntau::Integer, orders, N_chunkss)
     N_per_chunk = 8
 
     # -- Do calculation here
+    diffs_exa = Array{Float64}(undef, length(N_chunkss))
+    diffs_nca = Array{Float64}(undef, length(N_chunkss))
+    diffs_oca = Array{Float64}(undef, length(N_chunkss))
+    diffs_tca = Array{Float64}(undef, length(N_chunkss))
 
-    diffs = [ run_hubbard_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks,
-                                qmc_convergence_atol) for N_chunks in N_chunkss ]
+    for (idx, N_chunks) in enumerate(N_chunkss)
+        diffs_exa[idx], diffs_nca[idx], diffs_oca[idx], diffs_tca[idx] =
+            run_hubbard_dimer(ntau, orders, orders_bare,
+                              N_per_chunk, N_chunks, qmc_convergence_atol)
+    end
+        
+    diff_0_exa, diff_0_nca, diff_0_oca, diff_0_tca =
+        run_hubbard_dimer(ntau, orders, orders_bare,
+                          N_per_chunk, 0, qmc_convergence_atol)
 
-    diff_0 = run_hubbard_dimer(ntau, orders, orders_bare, N_per_chunk, 0, qmc_convergence_atol)
+    #diffs = [ run_hubbard_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks,
+    #                            qmc_convergence_atol) for N_chunks in N_chunkss ]
+
+    #diff_0 = run_hubbard_dimer(ntau, orders, orders_bare, N_per_chunk, 0, qmc_convergence_atol)
+    
     
     if comm_rank == comm_root
-        @show diffs
 
-        id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, diffs)))
+        id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, diffs_exa)))
         max_order = maximum(orders)
         filename = "data_FH_dimer_ntau_$(ntau)_maxorder_$(max_order)_md5_$(id).h5"
 
@@ -186,13 +252,19 @@ function run_ntau_calc(ntau::Integer, orders, N_chunkss)
         h5.attributes(g)["qmc_convergence_atol"] = qmc_convergence_atol
         h5.attributes(g)["ntau"] = ntau
         h5.attributes(g)["N_per_chunk"] = N_per_chunk
-        h5.attributes(g)["diff_0"] = diff_0
+        h5.attributes(g)["diff_0_exa"] = diff_0_exa
+        h5.attributes(g)["diff_0_nca"] = diff_0_nca
+        h5.attributes(g)["diff_0_oca"] = diff_0_oca
+        h5.attributes(g)["diff_0_tca"] = diff_0_tca
 
         g["orders"] = collect(orders)
         g["orders_bare"] = collect(orders_bare)
         g["N_chunkss"] = N_chunkss
 
-        g["diffs"] = diffs
+        g["diffs_exa"] = diffs_exa
+        g["diffs_nca"] = diffs_nca
+        g["diffs_oca"] = diffs_oca
+        g["diffs_tca"] = diffs_tca
         
         h5.close(fid)
         
@@ -203,18 +275,23 @@ end
 MPI.Init()
 
 #ntaus = 2 .^ range(4, 12)
-ntaus = 2 .^ range(3, 6)
-#ntaus = [32]
+#ntaus = 2 .^ range(3, 6)
+#ntaus = 2 .^ range(3, 8)
+#ntaus = 2 .^ range(9, 11)
+ntaus = 2 .^ range(3, 12)
+#ntaus = [128]
 #ntaus = [128]
 
-N_chunkss = 2 .^ range(0, 7)
-#N_chunkss = 2 .^ range(8, 10)
+#N_chunkss = 2 .^ range(0, 7)
+#N_chunkss = 2 .^ range(8, 12)
+N_chunkss = 2 .^ range(0, 12)
 #N_chunkss = 2 .^ range(1, 10)
 #N_chunkss = [2^5]
 
+orderss = [0:2, 0:3, 0:1]
 #orderss = [0:1, 0:2, 0:3]
 #orderss = [0:1, 0:2, 0:3]
-orderss = [0:4]
+#orderss = [0:4]
 
 if inch_print()
     @show ntaus
