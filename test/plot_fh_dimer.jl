@@ -77,7 +77,8 @@ colors = Dict()
 styles = Dict(
     1=> ".",
     2=>"x",
-    #3=>"+",
+    3=>"+",
+    4=>"s",
     )
 
 for key in sort(collect(keys(merged_data)))
@@ -151,6 +152,7 @@ plt.ylabel("Relative Error in ρ")
 plt.grid(true)
 plt.axis("image")
 #plt.xlim([2, 4000])
+plt.xlim([1e0, 1e3])
 plt.legend(fontsize=7, loc="best")
 
 plt.savefig("figure_fh_dimer_convergence.pdf")

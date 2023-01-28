@@ -157,17 +157,17 @@ end
 MPI.Init()
 
 #ntaus = 2 .^ range(4, 12)
-#ntaus = 2 .^ range(4, 6)
+ntaus = 2 .^ range(3, 6)
 #ntaus = [64]
-ntaus = [128]
+#ntaus = [128]
 
 #N_chunkss = 2 .^ range(0, 7)
 #N_chunkss = 2 .^ range(8, 10)
 N_chunkss = 2 .^ range(1, 10)
 #N_chunkss = [2^1]
 
-#orderss = [0:1, 0:2, 0:3]
-orderss = [0:2, 0:3]
+orderss = [0:1, 0:2, 0:3]
+#orderss = [0:2, 0:3]
 
 if inch_print()
     @show ntaus

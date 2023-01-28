@@ -78,7 +78,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
     ip_2_bwd = InteractionPair(op.c(2), op.c_dag(2), reverse(Δ_2))
     expansion = Expansion(ed, grid, [ip_1_fwd, ip_1_bwd, ip_2_fwd, ip_2_bwd])
 
-    ρ_0 = density_matrix(expansion.P0, ed, β)
+    ρ_0 = density_matrix(expansion.P0, ed)
     
     inchworm_matsubara!(expansion,
                         grid,
@@ -89,7 +89,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
                         qmc_convergence_atol)
 
     ppgf.normalize!(expansion.P, β)
-    ρ_wrm = density_matrix(expansion.P, ed, β)
+    ρ_wrm = density_matrix(expansion.P, ed)
 
     @printf "ρ_0   = %16.16f %16.16f %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2]) real(ρ_0[3, 3]) real(ρ_0[4, 4])
     @printf "ρ_ref = %16.16f %16.16f %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2]) real(ρ_ref[3, 3]) real(ρ_ref[4, 4])
@@ -120,25 +120,24 @@ end
     qmc_convergence_atol = 1e-15
     N_per_chunk = 8
     #ntau = 4
-    #ntau = 6
     #ntau = 8
-    #ntau = 12
     #ntau = 16
     #ntau = 32
     #ntau = 64
-    #ntau = 128
+    ntau = 128
     #ntau = 256
     #ntau = 512
     #ntau = 1024
     #ntau = 2048
     #ntau = 4096
-    ntau = 4096 * 2
+    #ntau = 4096 * 2
     #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 6, 2*8))))
     #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 8, 8*5))))
     #N_chunkss = unique(trunc.(Int, 2 .^ (range(8, 10, 8*2))))
     #N_chunkss = unique(trunc.(Int, 2 .^ (range(10, 11, 8))))
-    N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 10, 8*2 + 8*5))))
-    #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 11, 8*3 + 8*5))))
+    #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 10, 8*2 + 8*5))))
+    N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 11, 8*3 + 8*5))))
+    #N_chunkss = unique(trunc.(Int, 2 .^ (range(11, 12, 8))))
     #N_chunkss = [1, 2]
 
     # --    

@@ -16,10 +16,13 @@ import QInchworm.inchworm: InchwormOrderData,
                            inchworm_step_bare,
                            inchworm_matsubara!
 import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
+import QInchworm.spline_gf: SplineInterpolatedGF
 
 
-function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol)
+function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol; interpolate_gfs=false)
 
+    @show interpolate_gfs
+    
     β = 1.0
     ϵ_1, ϵ_2 = 0.0, 2.0
     V = 0.5
@@ -60,11 +63,17 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
     
     # -- Pseudo Particle Strong Coupling Expansion
 
-    ip_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
-    ip_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
-    expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
-
-    ρ_0 = density_matrix(expansion.P0, ed, β)
+    if interpolate_gfs
+        ip_fwd = InteractionPair(op.c_dag(1), op.c(1), SplineInterpolatedGF(Δ))
+        ip_bwd = InteractionPair(op.c(1), op.c_dag(1), SplineInterpolatedGF(reverse(Δ)))
+        expansion = Expansion(ed, grid, [ip_fwd, ip_bwd], interpolate_ppgf=true)
+    else
+        ip_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
+        ip_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
+        expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
+    end
+    
+    ρ_0 = density_matrix(expansion.P0, ed)
     
     inchworm_matsubara!(expansion,
                         grid,
@@ -74,9 +83,18 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
                         max_chunks,
                         qmc_convergence_atol)
 
-    ppgf.normalize!(expansion.P, β)
-    ρ_wrm = density_matrix(expansion.P, ed, β)
+    if interpolate_gfs
+        P = [ p.GF for p in expansion.P ]
+        ppgf.normalize!(P, β) # DEBUG fixme!
+        ρ_wrm = density_matrix(P, ed)
+    else
+        ppgf.normalize!(expansion.P, β) # DEBUG fixme!
+        ρ_wrm = density_matrix(expansion.P, ed)
+    end
 
+    #ppgf.normalize!(expansion.P, β)
+    #ρ_wrm = density_matrix(expansion.P, ed)
+    
     @printf "ρ_0   = %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2])
     @printf "ρ_ref = %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2])
     @printf "ρ_wrm = %16.16f %16.16f \n" real(ρ_wrm[1, 1]) real(ρ_wrm[2, 2])
@@ -85,62 +103,6 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
     @show diff
     return diff
 end
-
-
-@testset "chunks_plot" begin
-
-    return
-    
-    orders = 0:1
-    orders_bare = 0:1
-    qmc_convergence_atol = 1e-15
-
-    #ntaus = [16, 32, 64, 128, 256, 512, 1024]
-    #ntaus = [16, 32, 64, 128, 256]
-    #ntaus = [4, 8, 16, 32, 64, 128, 256, 512, 1024]
-    ntaus = [4, 8, 16, 32, 64, 128]
-    #N_chunkss = [0, 1, 2, 4, 8, 16]
-    N_chunkss = [0, 1, 2, 4, 8, 16] 
-    #N_chunkss = [1, 2, 4, 8]
-    #max_chunkss = [1]
-
-    @show ntaus
-    @show N_chunkss
-
-    #for ntau in ntaus
-    for N_chunks in N_chunkss
-
-        N_per_chunk = 8
-        
-        #diffs = [ run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol) for max_chunks in max_chunkss ]
-        diffs = [ run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol) for ntau in ntaus ]
-
-        #@show ntau
-        #@show max_chunkss
-
-        @show N_chunks
-        @show ntaus
-        @show diffs
-
-        #N = max_chunkss .* ntau .* N_chunk
-        N = N_chunks .* ntaus .* N_per_chunk
-        
-        #plt.loglog(N, diffs, "-o", label="n_tau = $ntau")
-        plt.loglog(ntaus, diffs, "-o", label="N_chunks = $N_chunks")
-        
-    end
-
-    plt.legend()
-    plt.xlabel("N_tau")
-    plt.ylabel("Err")
-    #plt.ylim(bottom=0)
-    #plt.xlim(left=0)
-    plt.axis("image")
-    plt.grid(true)
-    plt.show()
-    
-end
-
 
 """
     split_count(N::Integer, n::Integer)
@@ -158,21 +120,34 @@ end
     orders_bare = 0:1
     qmc_convergence_atol = 1e-15
     N_per_chunk = 8
+    #ntau = 4
+    #ntau = 8
+    #ntau = 16
     #ntau = 32
     #ntau = 64
     #ntau = 128
     #ntau = 256
     #ntau = 512
-    #ntau = 1024
+    ntau = 1024
     #ntau = 2048
     #ntau = 4096
     #ntau = 4096*2
     #ntau = 4096*4
-    ntau = 4096*8
-    #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 8, 40))))
+    #ntau = 4096*8
+
+    N_chunkss = unique(trunc.(Int, 2 .^ (range(2, 13))))
+    @show N_chunkss
+
+    #exit()
+
     #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 8, 40))))
     #N_chunkss = unique(trunc.(Int, 2 .^ (range(8, 10, 8*2))))
-    N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 10, 8*2 + 8*5))))
+    #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 10, 8*2 + 8*5))))
+
+    #N_chunkss = unique(trunc.(Int, 2 .^ (range(10, 12, 8*2))))
+    #N_chunkss = unique(trunc.(Int, 2 .^ (range(0, 12, 8*(2 + 2 + 5)))))
+
+    #N_chunkss = unique(trunc.(Int, 2 .^ (range(12, 14, 8*2))))
 
     #N_chunkss = [1024 / 8 / 8]
 
@@ -231,7 +206,8 @@ end
     #local_diffs = zeros(Float64, local_size)
     #local_diffs .= 0.1 * comm_rank
 
-    local_diffs = [ run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol) for N_chunks in local_N_chunkss ]
+    local_diffs = [ run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks,
+                              qmc_convergence_atol, interpolate_gfs=false) for N_chunks in local_N_chunkss ]
 
     if false
         for i = 1:comm_size
@@ -249,7 +225,7 @@ end
     
     if comm_rank == comm_root
 
-        diff_0 = run_dimer(ntau, orders, orders_bare, N_per_chunk, 0, qmc_convergence_atol)
+        diff_0 = run_dimer(ntau, orders, orders_bare, N_per_chunk, 0, qmc_convergence_atol, interpolate_gfs=false)
 
         @show diffs
 
@@ -282,32 +258,5 @@ end
     MPI.Barrier(comm)
     
     return
-
-    for ntau in ntaus
-
-
-        diff_0 = run_dimer(ntau, orders, orders_bare, N_per_chunk, 0, qmc_convergence_atol)
-
-        diffs = [ run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol) for N_chunks in N_chunkss ]
-        @show diffs
-
-        rel_diffs = diffs ./ diff_0
-        @show rel_diffs
-
-        N = N_chunkss .* ntau .* N_per_chunk
-        
-        plt.loglog(N, rel_diffs, "-o", label=raw"$n_{\tau}$" * " = $ntau")
-        
-    end
-
-    plt.legend()
-    #plt.xlabel("N_tau")
-    plt.xlabel("N")
-    plt.ylabel("Err")
-    #plt.ylim(bottom=0)
-    #plt.xlim(left=0)
-    plt.axis("image")
-    plt.grid(true)
-    plt.show()
     
 end

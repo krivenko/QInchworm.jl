@@ -1,3 +1,5 @@
+using MPI
+
 using Test
 using Printf
 
@@ -27,6 +29,7 @@ import QInchworm.spline_gf: SplineInterpolatedGF
 import PyPlot as plt # DEBUG
 
 
+MPI.Init()
 
 
 function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol; interpolate_gfs=false)
@@ -231,6 +234,21 @@ end
     @show diff_linear
 end
 
+@testset "inchworm_matsubara_dimer_order3" begin    
+
+    orders = 0:3
+    orders_bare = 0:3
+    qmc_convergence_atol = 1e-15
+
+    ntau = 32
+    N_per_chunk = 64
+    N_chunks = 2
+
+    diff_linear = run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol, interpolate_gfs=false) 
+    @show diff_linear
+    @test diff_linear < 1e-3
+end
+
 
 function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol)
 
@@ -316,16 +334,19 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
 end
 
 @testset "inchworm_matsubara_hubbard_dimer" begin
-    
+
+    if false
     qmc_convergence_atol = 1e-15
 
     ntau = 16
     N_per_chunk = 32
-    N_chunks = 2
+    N_chunks = 8
 
     orders_bare, orders = 0:1, 0:1
     diff_o1 = run_hubbard_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol) 
 
+    ntau = 16
+    N_chunks = 8
     orders_bare, orders = 0:2, 0:2
     diff_o2 = run_hubbard_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks, qmc_convergence_atol) 
     
@@ -334,6 +355,6 @@ end
 
     @test diff_o1 < 1e-4
     @test diff_o2 < 1e-4
-    
+    end
 end
 

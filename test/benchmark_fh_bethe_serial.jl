@@ -284,11 +284,13 @@ ntaus = 2 .^ range(3, 12)
 
 #N_chunkss = 2 .^ range(0, 7)
 #N_chunkss = 2 .^ range(8, 12)
-N_chunkss = 2 .^ range(0, 12)
-#N_chunkss = 2 .^ range(1, 10)
+#N_chunkss = 2 .^ range(0, 12)
+N_chunkss = 2 .^ range(0, 8)
 #N_chunkss = [2^5]
 
-orderss = [0:2, 0:3, 0:1]
+orderss = [0:3]
+#orderss = [0:2]
+#orderss = [0:2, 0:3, 0:1]
 #orderss = [0:1, 0:2, 0:3]
 #orderss = [0:1, 0:2, 0:3]
 #orderss = [0:4]
