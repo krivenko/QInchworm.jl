@@ -1,5 +1,6 @@
 module diagrammatics
 
+import LinearAlgebra
 using DocStringExtensions
 
 const PairVector = Vector{Pair{Int,Int}}
@@ -16,7 +17,7 @@ $(TYPEDFIELDS)
 struct Topology
   order::Int
   pairs::PairVector
-
+    
   function Topology(pairs::PairVector)
     new(length(pairs), pairs)
   end
@@ -61,6 +62,24 @@ function n_crossings(top::Topology)::Int
         end
     end
     return n
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Returns the parity of the permutation matrix of the topolgy.
+
+"""
+function parity(top::Topology)::Int
+    n = top.order
+    P = zeros(Int, 2n, 2n)
+    for i in 1:n
+        j1, j2 = top.pairs[i]
+        P[2i-1, j1] = 1
+        P[2i-0, j2] = 1
+    end
+    parity = LinearAlgebra.det(P)
+    return parity
 end
 
 """
