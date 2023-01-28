@@ -7,6 +7,7 @@ using Printf
 import Keldysh; kd = Keldysh
 
 import QInchworm; teval = QInchworm.topology_eval
+import QInchworm.diagrammatics
 
 using  QInchworm.utility: BetterSobolSeq, next!
 using  QInchworm.utility: inch_print
@@ -281,10 +282,18 @@ function inchworm_matsubara!(expansion::Expansion,
 
     if inch_print(); println("Inch step 1 (bare)"); end
 
+    println("= Bare Diagrams ========")
     # First inchworm step
     order_data = InchwormOrderData[]
     for order in orders_bare
         topologies = teval.get_topologies_at_order(order)
+
+        println("order $(order)")
+        println("diagram topologies")
+        for top in topologies
+            println("top = $(top), ncross = $(diagrammatics.n_crossings(top)), parity = $(diagrammatics.parity(top))")
+        end
+
         diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
         configurations = teval.get_configurations(expansion, diagrams, 0)
         if length(configurations) > 0
@@ -305,12 +314,21 @@ function inchworm_matsubara!(expansion::Expansion,
                                 order_data)
     set_bold_ppgf!(expansion, grid[1], grid[2], result)
 
+    println("= Bold Diagrams ========")
     # The rest of inching
     empty!(order_data)
     for order in orders
         for k_attached = 1:max(1, 2*order-1)
             d_bold = 2 * order - k_attached
             topologies = teval.get_topologies_at_order(order, k_attached)
+
+            println("order $(order)")
+            println("k_attached $(k_attached)")
+            println("diagram topologies")
+            for top in topologies
+                println("top = $(top), ncross = $(diagrammatics.n_crossings(top)), parity = $(diagrammatics.parity(top))")
+            end
+
             diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
             configurations = teval.get_configurations(expansion, diagrams, d_bold)
 
