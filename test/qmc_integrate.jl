@@ -1,5 +1,7 @@
 using Test
 
+using MPI; MPI.Init()
+
 import Keldysh; kd = Keldysh
 
 import QInchworm.qmc_integrate: qmc_time_ordered_integral,
