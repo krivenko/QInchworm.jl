@@ -1,6 +1,8 @@
 
 using Test
 
+import MPI; MPI.Init()
+
 import Keldysh; kd = Keldysh
 import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
