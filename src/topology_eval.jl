@@ -165,15 +165,17 @@ function eval(
     return accumulated_value
 end
 
-function get_configurations(expansion::cfg.Expansion, diagrams::Diagrams, d_bold::Int)::cfg.Configurations
+function get_configurations_and_diagrams(expansion::cfg.Expansion, diagrams::Diagrams, d_bold::Int)::Tuple{cfg.Configurations, Diagrams}
+    diagrams_out = Diagrams()
     configurations = cfg.Configurations()
     for (didx, diagram) in enumerate(diagrams)
         configuration = Configuration(diagram, expansion, d_bold)
         if length(configuration.paths) > 0
             push!(configurations, configuration)
+            push!(diagrams_out, diagram)
         end
     end
-    return configurations
+    return configurations, diagrams_out
 end
 
 function update_inch_times!(configuration::cfg.Configuration, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint)

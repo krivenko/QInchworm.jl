@@ -287,6 +287,10 @@ function inchworm_matsubara!(expansion::Expansion,
     order_data = InchwormOrderData[]
     for order in orders_bare
         topologies = teval.get_topologies_at_order(order)
+        all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
+        configurations, diagrams =
+            teval.get_configurations_and_diagrams(
+                expansion, all_diagrams, 0)
         
         if inch_print()
             println("order $(order)")
@@ -294,10 +298,11 @@ function inchworm_matsubara!(expansion::Expansion,
             for top in topologies
                 println("top = $(top), ncross = $(diagrammatics.n_crossings(top)), parity = $(diagrammatics.parity(top))")
             end
+            println("length(diagrams) = $(length(diagrams))")
+            println("length(configurations) = $(length(configurations))")
+            @assert length(diagrams) == length(configurations)
         end
 
-        diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
-        configurations = teval.get_configurations(expansion, diagrams, 0)
         if length(configurations) > 0
             push!(order_data, InchwormOrderData(order,
                                                 2*order,
@@ -321,8 +326,13 @@ function inchworm_matsubara!(expansion::Expansion,
     empty!(order_data)
     for order in orders
         for k_attached = 1:max(1, 2*order-1)
+        #for k_attached = 1:1
             d_bold = 2 * order - k_attached
             topologies = teval.get_topologies_at_order(order, k_attached)
+            all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
+            configurations, diagrams =
+                teval.get_configurations_and_diagrams(
+                    expansion, all_diagrams, d_bold)
 
             if inch_print()
                 println("order $(order)")
@@ -331,10 +341,10 @@ function inchworm_matsubara!(expansion::Expansion,
                 for top in topologies
                     println("top = $(top), ncross = $(diagrammatics.n_crossings(top)), parity = $(diagrammatics.parity(top))")
                 end
+                println("length(diagrams) = $(length(diagrams))")
+                println("length(configurations) = $(length(configurations))")
+                @assert length(diagrams) == length(configurations)
             end
-
-            diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
-            configurations = teval.get_configurations(expansion, diagrams, d_bold)
 
             if length(configurations) > 0
                 push!(order_data, InchwormOrderData(order,
