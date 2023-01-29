@@ -99,7 +99,7 @@ function inchworm_step(expansion::Expansion,
                     order_contrib_prev = deepcopy(order_contrib)
 
                     order_contrib *= N
-                    order_contrib -= qmc_inchworm_integral_root(
+                    order_contrib += qmc_inchworm_integral_root(
                         #t -> teval.eval(expansion, [n_f, n_w, n_i], t, od.diagrams),
                         t -> teval.eval(expansion, od.diagrams, od.configurations, t),
                         d_bold, d_bare,
@@ -120,7 +120,7 @@ function inchworm_step(expansion::Expansion,
             else
                 N_samples = od.N_chunk * od.max_chunks
                 if N_samples > 0
-                    order_contrib -= qmc_inchworm_integral_root(
+                    order_contrib += qmc_inchworm_integral_root(
                         t -> teval.eval(expansion, od.diagrams, od.configurations, t),
                         d_bold, d_bare,
                         c, t_i, t_w, t_f,
@@ -193,7 +193,7 @@ function inchworm_step_bare(expansion::Expansion,
                     order_contrib_prev = deepcopy(order_contrib)
                     
                     order_contrib *= N
-                    order_contrib -= qmc_time_ordered_integral_root(
+                    order_contrib += qmc_time_ordered_integral_root(
                         #t -> teval.eval(expansion, [n_f, n_i, n_i], t, od.diagrams),
                         t -> teval.eval(expansion, od.diagrams, od.configurations, t),
                         d,
@@ -216,7 +216,7 @@ function inchworm_step_bare(expansion::Expansion,
             else
                 N_samples = od.N_chunk * od.max_chunks
                 if N_samples > 0
-                    order_contrib -= qmc_time_ordered_integral_root(
+                    order_contrib += qmc_time_ordered_integral_root(
                         t -> teval.eval(expansion, od.diagrams, od.configurations, t),
                         d,
                         c, t_i, t_f,

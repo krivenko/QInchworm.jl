@@ -155,8 +155,8 @@ function eval(
     accumulated_value = 0 * cfg.operator(expansion, first(worm_nodes))
 
     for (didx, diagram) in enumerate(diagrams)
-        nodepairs = [ NodePair(τs[a], τs[b], diagram.pair_idxs[idx])
-                      for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
+        nodepairs = [ NodePair(τs[f], τs[i], diagram.pair_idxs[idx])
+                      for (idx, (f, i)) in enumerate(diagram.topology.pairs) ]
         configuration = Configuration(worm_nodes, nodepairs, expansion)
         value = cfg.eval(expansion, configuration)
         accumulated_value += value
@@ -203,7 +203,7 @@ function update_times!(configuration::cfg.Configuration, diagram::Diagram, times
         configuration.nodes[n_idx] = cfg.Node(times[t_idx], op_ref)
     end
 
-    for (p_idx, (idx_ti, idx_tf)) in enumerate(diagram.topology.pairs)
+    for (p_idx, (idx_tf, idx_ti)) in enumerate(diagram.topology.pairs)
         int_idx = configuration.pairs[p_idx].index
         configuration.pairs[p_idx] = cfg.NodePair(times[idx_tf], times[idx_ti], int_idx)
     end

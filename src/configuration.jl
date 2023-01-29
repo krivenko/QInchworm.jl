@@ -336,14 +336,14 @@ struct Configuration
         pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
                   for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
         parity = (-1.0)^diag.n_crossings(diagram.topology)
-
+        
         #@assert diag.parity(diagram.topology) == (-1.0)^diag.n_crossings(diagram.topology)
         #println("topology = $(diagram.topology), parity = $(parity)") # DEBUG
 
         n = diagram.topology.order*2
         pairnodes = [ Node(time) for i in 1:n ]
 
-        for (idx, (i_idx, f_idx)) in enumerate(diagram.topology.pairs)
+        for (idx, (f_idx, i_idx)) in enumerate(diagram.topology.pairs)
             p_idx = diagram.pair_idxs[idx]
             pairnodes[i_idx] = Node(time, OperatorReference(pair_flag, p_idx, 1))
             pairnodes[f_idx] = Node(time, OperatorReference(pair_flag, p_idx, 2))
@@ -388,11 +388,12 @@ function Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint)
 end
 
 function eval(exp::Expansion, pairs::NodePairs, parity::Float64)
-    val::ComplexF64 = parity
+
+    order = length(pairs)
+    val::ComplexF64 = parity * (-1)^order
+
     for pair in pairs
-        if pair.time_f < pair.time_i
-            val *= -1.0
-        end
+        @assert pair.time_f >= pair.time_i
         val *= im * exp.pairs[pair.index].propagator(pair.time_f, pair.time_i)
     end
     return val
@@ -616,6 +617,8 @@ function eval(exp::Expansion, nodes::Nodes, paths::Vector{Vector{Tuple{Int, Int,
 
             s_i, s_f, op_mat = path[nidx + 1]
 
+            #@assert node.time >= prev_node.time
+            
             P_interp = bold_P ? exp.P[s_i](node.time, prev_node.time) : exp.P0[s_i](node.time, prev_node.time)
 
             mat = im * op_mat * P_interp * mat
@@ -649,6 +652,9 @@ function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
 
             s_i, s_f, op_mat = path[nidx + 1]
 
+            #@assert !(node.time < prev_node.time)
+            #@assert node.time >= prev_node.time # BROKEN FIXME ?
+            
             P_interp = bold_P ?
                 exp.P[s_i](node.time, prev_node.time) :
                 exp.P0[s_i](node.time, prev_node.time)
