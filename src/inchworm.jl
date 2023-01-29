@@ -195,6 +195,8 @@ function inchworm_matsubara!(expansion::Expansion,
         println("N_samples (per rank) = ", N_split)
     end
 
+    @assert N_samples == 2^Int(log2(N_samples))
+
     if inch_print(); println("Inch step 1 (bare)"); end
 
     if inch_print(); println("= Bare Diagrams ========"); end
