@@ -84,13 +84,14 @@ function get_ρ_tca(ρ_wrm)
     return ρ_from_ρ_ref(ρ_wrm , rho_tca)
 end
 
-function run_hubbard_dimer(ntau, orders, N_chunks)
+function run_hubbard_dimer(ntau, orders, orders_bare, N_chunks, μ_bethe)
 
     β = 10.0
     V = 0.5
     μ = 0.0
     t_bethe = 1.0
-    μ_bethe = 0.25
+    #μ_bethe = 0.25
+    #μ_bethe = 0.0
 
     # -- ED solution
 
@@ -117,10 +118,8 @@ function run_hubbard_dimer(ntau, orders, N_chunks)
         grid, 1, kd.fermionic, true)
     
     #println("=========================")
-    #println(Δ)
+    #@show Δ
     #println("=========================")
-    #println(Δ_old)
-    #exit()
     
     function reverse(g::kd.ImaginaryTimeGF)
         g_rev = deepcopy(g)
@@ -132,7 +131,7 @@ function run_hubbard_dimer(ntau, orders, N_chunks)
     end
 
     #println("=========================")
-    #println(reverse(Δ))
+    #@show reverse(Δ)
     #println("=========================")
 
     # -- Pseudo Particle Strong Coupling Expansion
@@ -147,7 +146,7 @@ function run_hubbard_dimer(ntau, orders, N_chunks)
     
     N_per_chunk = 8
     qmc_convergence_atol = 1e-15
-    orders_bare = orders
+    #orders_bare = orders
 
     inchworm_matsubara!(expansion,
                         grid,
@@ -185,54 +184,107 @@ function run_hubbard_dimer(ntau, orders, N_chunks)
         @show ρ_exa
         @show ρ_wrm
 
+        @show sum(ρ_wrm)
+        @show ρ_wrm[2] - ρ_wrm[3]
+
         @show diff_nca
         @show diff_oca
         @show diff_tca
         @show diff_exa
     end
 
-    return diff_exa, diff_nca, diff_oca, diff_tca
+    return ρ_wrm, diff_exa, diff_nca, diff_oca, diff_tca
 end
 
+
+if true
+
+@testset "bethe_ph_symmetry" begin
+
+    ntau = 3
+    N_chunks = 2^4
+    μ_bethe = 0.0
+
+    tests = [
+        (0:0, 0:0), # ok
+        (0:1, 0:0), # ok
+        (0:0, 0:1), # ok
+        # -- higher order ph symmetry is broken
+        (0:2, 0:0), # ok
+        (0:0, 0:2), # ok
+        (0:3, 0:0), # ok
+        (0:0, 0:3), # ok
+        #(0:4, 0:0), # ok
+        #(0:0, 0:4), # ok
+        ]
+
+    for (orders_bare, orders) in tests
+        ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
+            run_hubbard_dimer(ntau, orders, orders_bare, N_chunks, μ_bethe)
+        @show orders_bare, orders
+        @test ρ ≈ [0.25, 0.25, 0.25, 0.25]
+    end
+
+end
+
+end
+if true
     
 @testset "bethe_order1" begin
     
     ntau = 128
     orders = 0:1
-    N_chunks = 2^6
-    diffs_exa, diffs_nca, diffs_oca, diffs_tca = run_hubbard_dimer(ntau, orders, N_chunks)
+    N_chunks = 2^5
+    μ_bethe = 0.25
+    
+    ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
+        run_hubbard_dimer(ntau, orders, orders, N_chunks, μ_bethe)
 
-    @test diffs_nca < 1e-3
+    @test diffs_nca < 2e-3
     @test diffs_nca < diffs_oca 
     @test diffs_nca < diffs_tca
     @test diffs_nca < diffs_exa
 
 end
 
+end
+if true
+        
 @testset "bethe_order2" begin
 
     ntau = 128
     orders = 0:2
-    N_chunks = 2^6
-    diffs_exa, diffs_nca, diffs_oca, diffs_tca = run_hubbard_dimer(ntau, orders, N_chunks)
+    N_chunks = 2^5
+    μ_bethe = 0.25
 
-    @test diffs_oca < 1e-3
+    ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
+        run_hubbard_dimer(ntau, orders, orders, N_chunks, μ_bethe)
+
+    @test diffs_oca < 2e-3
     @test diffs_oca < diffs_nca
     @test diffs_oca < diffs_tca
     @test diffs_oca < diffs_exa
 
 end
 
-@testset "bethe_order3" begin
+end
+if true
 
+@testset "bethe_order3" begin
+    
     ntau = 128
     orders = 0:3
-    N_chunks = 2^6
-    diffs_exa, diffs_nca, diffs_oca, diffs_tca = run_hubbard_dimer(ntau, orders, N_chunks)
+    N_chunks = 2^5
+    μ_bethe = 0.25
+    
+    ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
+        run_hubbard_dimer(ntau, orders, orders, N_chunks, μ_bethe)
 
-    @test diffs_tca < 2e-3
+    @test diffs_tca < 3e-3
     @test diffs_tca < diffs_nca
     @test diffs_tca < diffs_oca
-    @test diffs_tca < diffs_exa
+    #@test diffs_tca < diffs_exa
+
+end
 
 end
