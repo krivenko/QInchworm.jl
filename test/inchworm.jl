@@ -10,7 +10,7 @@ import QInchworm.spline_gf: SplineInterpolatedGF
 import QInchworm.configuration: Expansion, InteractionPair
 import QInchworm.topology_eval: get_topologies_at_order,
                                 get_diagrams_at_order,
-                                get_configurations
+                                get_configurations_and_diagrams
 
 import QInchworm.inchworm: InchwormOrderData,
                            inchworm_step,
@@ -61,25 +61,22 @@ ed = KeldyshED.EDCore(H, soi)
     τ_f = τ_grid[f_idx].bpoint
 
     orders = 0:3
-    N_chunk = 1000
-    max_chunks = 10
-    qmc_convergence_atol = 1e-3
+    N_samples = 2^8
 
     order_data = InchwormOrderData[]
     for order in 0:3
         for k_attached = 1:max(1, 2*order-1)
             d_bold = 2 * order - k_attached
             topologies = get_topologies_at_order(order, 1)
-            diagrams = get_diagrams_at_order(expansion, topologies, order)
-            configurations = get_configurations(expansion, diagrams, d_bold)
+            all_diagrams = get_diagrams_at_order(expansion, topologies, order)
+            configurations, diagrams = get_configurations_and_diagrams(
+                expansion, all_diagrams, d_bold)
             if length(configurations) > 0
                 push!(order_data, InchwormOrderData(order,
                                                     k_attached,
                                                     diagrams,
                                                     configurations,
-                                                    N_chunk,
-                                                    max_chunks,
-                                                    qmc_convergence_atol))
+                                                    N_samples))
             end
         end
     end
@@ -115,23 +112,20 @@ end
     τ_f = τ_grid[f_idx].bpoint
 
     orders = 0:3
-    N_chunk = 1000
-    max_chunks = 10
-    qmc_convergence_atol = 1e-3
+    N_samples = 2^8
 
     order_data = InchwormOrderData[]
     for order in 0:3
         topologies = get_topologies_at_order(order)
-        diagrams = get_diagrams_at_order(expansion, topologies, order)
-        configurations = get_configurations(expansion, diagrams, 0)
+        all_diagrams = get_diagrams_at_order(expansion, topologies, order)
+        configurations, diagrams = get_configurations_and_diagrams(
+            expansion, all_diagrams, 0)
         if length(configurations) > 0
             push!(order_data, InchwormOrderData(order,
                                                 1,
                                                 diagrams,
                                                 configurations,
-                                                N_chunk,
-                                                max_chunks,
-                                                qmc_convergence_atol))
+                                                N_samples))
         end
     end
 
@@ -159,17 +153,13 @@ end
 
     orders = 0:3
     orders_bare = 0:2
-    N_chunk = 1000
-    max_chunks = 10
-    qmc_convergence_atol = 1e-3
+    N_samples = 2^8
 
     inchworm_matsubara!(expansion,
                         grid,
                         orders,
                         orders_bare,
-                        N_chunk,
-                        max_chunks,
-                        qmc_convergence_atol)
+                        N_samples)
 
     @show expansion.P
 end

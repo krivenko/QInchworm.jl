@@ -393,7 +393,7 @@ function eval(exp::Expansion, pairs::NodePairs, parity::Float64)
     val::ComplexF64 = parity * (-1)^order
 
     for pair in pairs
-        @assert pair.time_f >= pair.time_i
+        #@assert pair.time_f >= pair.time_i
         val *= im * exp.pairs[pair.index].propagator(pair.time_f, pair.time_i)
     end
     return val

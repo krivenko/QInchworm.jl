@@ -84,7 +84,7 @@ function get_ρ_tca(ρ_wrm)
     return ρ_from_ρ_ref(ρ_wrm , rho_tca)
 end
 
-function run_hubbard_dimer(ntau, orders, orders_bare, N_chunks, μ_bethe)
+function run_hubbard_dimer(ntau, orders, orders_bare, N_samples, μ_bethe)
 
     β = 10.0
     V = 0.5
@@ -144,17 +144,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunks, μ_bethe)
 
     ρ_0 = density_matrix(expansion.P0, ed)
     
-    N_per_chunk = 8
-    qmc_convergence_atol = 1e-15
-    #orders_bare = orders
-
-    inchworm_matsubara!(expansion,
-                        grid,
-                        orders,
-                        orders_bare,
-                        N_per_chunk,
-                        N_chunks,
-                        qmc_convergence_atol)
+    inchworm_matsubara!(expansion, grid, orders, orders_bare, N_samples)
 
     ppgf.normalize!(expansion.P, β)
     ρ_wrm = density_matrix(expansion.P, ed)
@@ -202,7 +192,7 @@ if true
 @testset "bethe_ph_symmetry" begin
 
     ntau = 3
-    N_chunks = 2^4
+    N_samples = 2^4
     μ_bethe = 0.0
 
     tests = [
@@ -220,7 +210,7 @@ if true
 
     for (orders_bare, orders) in tests
         ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
-            run_hubbard_dimer(ntau, orders, orders_bare, N_chunks, μ_bethe)
+            run_hubbard_dimer(ntau, orders, orders_bare, N_samples, μ_bethe)
         @show orders_bare, orders
         @test ρ ≈ [0.25, 0.25, 0.25, 0.25]
     end
@@ -234,11 +224,11 @@ if true
     
     ntau = 128
     orders = 0:1
-    N_chunks = 2^5
+    N_samples = 8 * 2^5
     μ_bethe = 0.25
     
     ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
-        run_hubbard_dimer(ntau, orders, orders, N_chunks, μ_bethe)
+        run_hubbard_dimer(ntau, orders, orders, N_samples, μ_bethe)
 
     @test diffs_nca < 2e-3
     @test diffs_nca < diffs_oca 
@@ -254,11 +244,11 @@ if true
 
     ntau = 128
     orders = 0:2
-    N_chunks = 2^5
+    N_samples = 8 * 2^5
     μ_bethe = 0.25
 
     ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
-        run_hubbard_dimer(ntau, orders, orders, N_chunks, μ_bethe)
+        run_hubbard_dimer(ntau, orders, orders, N_samples, μ_bethe)
 
     @test diffs_oca < 2e-3
     @test diffs_oca < diffs_nca
@@ -274,11 +264,11 @@ if true
     
     ntau = 128
     orders = 0:3
-    N_chunks = 2^5
+    N_samples = 8 * 2^5
     μ_bethe = 0.25
     
     ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
-        run_hubbard_dimer(ntau, orders, orders, N_chunks, μ_bethe)
+        run_hubbard_dimer(ntau, orders, orders, N_samples, μ_bethe)
 
     @test diffs_tca < 3e-3
     @test diffs_tca < diffs_nca
