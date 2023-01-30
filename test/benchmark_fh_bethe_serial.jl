@@ -84,11 +84,9 @@ function get_ρ_tca(ρ_wrm)
     return ρ_from_ρ_ref(ρ_wrm , rho_tca)
 end
 
-function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol)
+function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
 
     β = 10.0
-    #U = 0.0
-    #ϵ_1, ϵ_2 = 0.0 - 0.5*U, 2.0
     V = 0.5
     μ = 0.0
     t_bethe = 1.0
@@ -96,16 +94,8 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
 
     # -- ED solution
 
-    #H_imp = U * op.n(1) * op.n(2) + ϵ_1 * (op.n(1) + op.n(2))
     H_imp = -μ * (op.n(1) + op.n(2))
-    
-    #H_dimer = H_imp + ϵ_2 * (op.n(3) + op.n(4)) + 
-    #    V_1 * ( op.c_dag(1) * op.c(3) + op.c_dag(3) * op.c(1) ) + 
-    #    V_2 * ( op.c_dag(2) * op.c(4) + op.c_dag(4) * op.c(2) )
-                             
-    #soi_dimer = KeldyshED.Hilbert.SetOfIndices([[1], [2], [3], [4]])
-    #ed_dimer = KeldyshED.EDCore(H_dimer, soi_dimer)
-    
+        
     # -- Impurity problem
 
     contour = kd.ImaginaryContour(β=β);
@@ -113,22 +103,11 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
     
     soi = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
     ed = KeldyshED.EDCore(H_imp, soi)
-
-    #ρ_ref = Array{ComplexF64}( reduced_density_matrix(ed_dimer, ed, β) )
     
     # -- Hybridization propagator
 
     tau = [ real(im * τ.bpoint.val) for τ in grid ]
-    #println(tau)
     delta_bethe = V^2 * semi_circular_g_tau(tau, t_bethe, μ_bethe, β)
-    #println(delta_bethe)
-    #exit()
-    
-    #Δ_old = kd.ImaginaryTimeGF(
-    #    (t1, t2) -> -1.0im * V^2 *
-    #        (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(μ_bethe, contour.β)) *
-    #        exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * μ_bethe),
-    #    grid, 1, kd.fermionic, true)
 
     Δ = kd.ImaginaryTimeGF(
         (t1, t2) -> 1.0im * V^2 *
@@ -136,11 +115,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
                 [-imag(t1.bpoint.val - t2.bpoint.val)],
                 t_bethe, μ_bethe, β)[1],
         grid, 1, kd.fermionic, true)
-    
-    #println(Δ)
-    #println(Δ_old)
-    #exit()
-    
+        
     function reverse(g::kd.ImaginaryTimeGF)
         g_rev = deepcopy(g)
         τ_0, τ_β = first(g.grid), last(g.grid)
@@ -164,9 +139,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
                         grid,
                         orders,
                         orders_bare,
-                        N_chunk,
-                        max_chunks,
-                        qmc_convergence_atol)
+                        N_samples)
 
     ppgf.normalize!(expansion.P, β)
     ρ_wrm = density_matrix(expansion.P, ed)
@@ -205,7 +178,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
     return diff_exa, diff_nca, diff_oca, diff_tca
 end
 
-function run_ntau_calc(ntau::Integer, orders, N_chunkss)
+function run_ntau_calc(ntau::Integer, orders, N_sampless)
 
     comm_root = 0
     comm = MPI.COMM_WORLD
@@ -213,31 +186,21 @@ function run_ntau_calc(ntau::Integer, orders, N_chunkss)
     comm_rank = MPI.Comm_rank(comm)
 
     orders_bare = orders
-    qmc_convergence_atol = 1e-15
-    N_per_chunk = 8
 
     # -- Do calculation here
-    diffs_exa = Array{Float64}(undef, length(N_chunkss))
-    diffs_nca = Array{Float64}(undef, length(N_chunkss))
-    diffs_oca = Array{Float64}(undef, length(N_chunkss))
-    diffs_tca = Array{Float64}(undef, length(N_chunkss))
+    diffs_exa = Array{Float64}(undef, length(N_sampless))
+    diffs_nca = Array{Float64}(undef, length(N_sampless))
+    diffs_oca = Array{Float64}(undef, length(N_sampless))
+    diffs_tca = Array{Float64}(undef, length(N_sampless))
 
-    for (idx, N_chunks) in enumerate(N_chunkss)
+    diff_0_exa, diff_0_nca, diff_0_oca, diff_0_tca =
+        run_hubbard_dimer(ntau, orders, orders_bare, 0)
+    
+    for (idx, N_samples) in enumerate(N_sampless)
         diffs_exa[idx], diffs_nca[idx], diffs_oca[idx], diffs_tca[idx] =
-            run_hubbard_dimer(ntau, orders, orders_bare,
-                              N_per_chunk, N_chunks, qmc_convergence_atol)
+            run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
     end
         
-    diff_0_exa, diff_0_nca, diff_0_oca, diff_0_tca =
-        run_hubbard_dimer(ntau, orders, orders_bare,
-                          N_per_chunk, 0, qmc_convergence_atol)
-
-    #diffs = [ run_hubbard_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks,
-    #                            qmc_convergence_atol) for N_chunks in N_chunkss ]
-
-    #diff_0 = run_hubbard_dimer(ntau, orders, orders_bare, N_per_chunk, 0, qmc_convergence_atol)
-    
-    
     if comm_rank == comm_root
 
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, diffs_exa)))
@@ -249,9 +212,7 @@ function run_ntau_calc(ntau::Integer, orders, N_chunkss)
 
         g = h5.create_group(fid, "data")
 
-        h5.attributes(g)["qmc_convergence_atol"] = qmc_convergence_atol
         h5.attributes(g)["ntau"] = ntau
-        h5.attributes(g)["N_per_chunk"] = N_per_chunk
         h5.attributes(g)["diff_0_exa"] = diff_0_exa
         h5.attributes(g)["diff_0_nca"] = diff_0_nca
         h5.attributes(g)["diff_0_oca"] = diff_0_oca
@@ -259,7 +220,7 @@ function run_ntau_calc(ntau::Integer, orders, N_chunkss)
 
         g["orders"] = collect(orders)
         g["orders_bare"] = collect(orders_bare)
-        g["N_chunkss"] = N_chunkss
+        g["N_sampless"] = N_sampless
 
         g["diffs_exa"] = diffs_exa
         g["diffs_nca"] = diffs_nca
@@ -274,30 +235,15 @@ end
 
 MPI.Init()
 
-#ntaus = 2 .^ range(4, 12)
-#ntaus = 2 .^ range(3, 6)
-#ntaus = 2 .^ range(3, 8)
-#ntaus = 2 .^ range(9, 11)
-ntaus = 2 .^ range(3, 12)
-#ntaus = [128]
-#ntaus = [128]
-
-#N_chunkss = 2 .^ range(0, 7)
-#N_chunkss = 2 .^ range(8, 12)
-#N_chunkss = 2 .^ range(0, 12)
-N_chunkss = 2 .^ range(0, 8)
-#N_chunkss = [2^5]
-
-orderss = [0:3]
-#orderss = [0:2]
-#orderss = [0:2, 0:3, 0:1]
-#orderss = [0:1, 0:2, 0:3]
-#orderss = [0:1, 0:2, 0:3]
-#orderss = [0:4]
+#ntaus = 2 .^ range(3, 12)
+#ntaus = 2 .^ range(4, 8)
+ntaus = 2 .^ range(4, 12)
+N_sampless = 2 .^ range(4, 15)
+orderss = [0:2, 0:3]
 
 if inch_print()
     @show ntaus
-    @show N_chunkss
+    @show N_sampless
     @show orderss
 end
 
@@ -305,6 +251,6 @@ end
 
 for ntau in ntaus
     for orders in orderss
-        run_ntau_calc(ntau, orders, N_chunkss)
+        run_ntau_calc(ntau, orders, N_sampless)
     end
 end
