@@ -195,7 +195,7 @@ function inchworm_matsubara!(expansion::Expansion,
         println("N_samples (per rank) = ", N_split)
     end
 
-    @assert N_samples == 2^Int(log2(N_samples))
+    @assert N_samples == 0 || N_samples == 2^Int(log2(N_samples))
 
     if inch_print(); println("Inch step 1 (bare)"); end
 
@@ -237,8 +237,8 @@ function inchworm_matsubara!(expansion::Expansion,
     # The rest of inching
     empty!(order_data)
     for order in orders
-        for k_attached = 1:max(1, 2*order-1)
-        #for k_attached = 1:1
+        #for k_attached = 1:max(1, 2*order-1)
+        for k_attached = 1:1
             d_bold = 2 * order - k_attached
             topologies = teval.get_topologies_at_order(order, k_attached)
             all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
