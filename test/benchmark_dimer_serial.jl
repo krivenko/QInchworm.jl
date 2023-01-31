@@ -28,7 +28,7 @@ import QInchworm.spline_gf: SplineInterpolatedGF
 using  QInchworm.utility: inch_print
 
 
-function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol; interpolate_gfs=false)
+function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     if inch_print(); @show interpolate_gfs; end
     
@@ -88,9 +88,7 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
                         grid,
                         orders,
                         orders_bare,
-                        N_chunk,
-                        max_chunks,
-                        qmc_convergence_atol)
+                        N_samples)
 
     if interpolate_gfs
         P = [ p.GF for p in expansion.P ]
@@ -116,29 +114,19 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
     return diff
 end
 
-function run_ntau_calc(ntau::Integer)
+function run_ntau_calc(ntau::Integer, orders, N_sampless)
 
     comm_root = 0
     comm = MPI.COMM_WORLD
     comm_size = MPI.Comm_size(comm)
     comm_rank = MPI.Comm_rank(comm)
     
-    orders = 0:1
-    orders_bare = 0:1
-    qmc_convergence_atol = 1e-15
-    N_per_chunk = 8
-    N_chunkss = 2 .^ range(0, 13)
-    #N_chunkss = 2 .^ range(0, 4)
+    orders_bare = orders
 
-    if inch_print(); @show N_chunkss; end
+    diff_0 = run_dimer(ntau, orders, orders_bare, 0, interpolate_gfs=false)
 
-    diffs = [ run_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks,
-                        qmc_convergence_atol, interpolate_gfs=false)
-              for N_chunks in N_chunkss ]
-
-    diff_0 = run_dimer(
-        ntau, orders, orders_bare, N_per_chunk, 0,
-        qmc_convergence_atol, interpolate_gfs=false)
+    diffs = [ run_dimer(ntau, orders, orders_bare, N_samples, interpolate_gfs=false)
+              for N_samples in N_sampless ]
 
     if comm_rank == comm_root
         @show diffs
@@ -151,14 +139,12 @@ function run_ntau_calc(ntau::Integer)
         
         g = h5.create_group(fid, "data")
         
-        h5.attributes(g)["qmc_convergence_atol"] = qmc_convergence_atol
         h5.attributes(g)["ntau"] = ntau
-        h5.attributes(g)["N_per_chunk"] = N_per_chunk
         h5.attributes(g)["diff_0"] = diff_0
         
         g["orders"] = collect(orders)
         g["orders_bare"] = collect(orders_bare)
-        g["N_chunkss"] = N_chunkss
+        g["N_sampless"] = N_sampless
         
         g["diffs"] = diffs
         
@@ -172,9 +158,25 @@ end
 
 MPI.Init()
 
-ntaus = 2 .^ range(4, 12)
-if inch_print(); @show ntaus; end
+#ntaus = 2 .^ range(4, 12)
+#N_samples = 8 * 2 .^ range(0, 13)
+#orderss = [0:1, 0:3]
 
-for ntau in ntaus
-    run_ntau_calc(ntau)
+#ntaus = 2 .^ range(4, 12)
+ntaus = [1024]
+N_sampless = 2 .^ range(3, 23)
+orderss = [0:1, 0:3]
+
+if inch_print()
+    @show ntaus
+    @show N_sampless
+    @show orderss
+end
+
+exit()
+
+for orders in orderss
+    for ntau in ntaus
+        run_ntau_calc(ntau, orders, N_sampless)
+    end
 end

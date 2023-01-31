@@ -29,9 +29,10 @@ end
 
 merged_data = Dict()
 for d in data
-    key = d["ntau"]
+    key = (d["ntau"], maximum(d["orders"]))
+    @show key
     if haskey(merged_data, key)
-        for dkey in ["diffs", "N_chunkss"]
+        for dkey in ["diffs", "N_sampless"]
             merged_data[key][dkey] = vcat(merged_data[key][dkey], d[dkey])
         end
     else
@@ -42,16 +43,20 @@ end
 # sort on N_chunkss
 
 for (key, d) in merged_data
-    sort_idx = sortperm(d["N_chunkss"])
-    for dkey in ["diffs", "N_chunkss"]
+    sort_idx = sortperm(d["N_sampless"])
+    for dkey in ["diffs", "N_sampless"]
         d[dkey] = d[dkey][sort_idx]
     end
 end
 
 # Get scaling wrt N_tau
 
-ntaus = sort(collect(keys(merged_data)))
-rel_diffs = [ d["diffs"][end] ./ d["diff_0"] for d in [ merged_data[ntau] for ntau in ntaus ] ]
+data_keys = sort(collect(keys(merged_data)))
+@show data_keys
+ntaus = [ key[1] for key in data_keys ]
+@show ntaus
+rel_diffs = [ d["diffs"][end] ./ d["diff_0"] for d in [ merged_data[key] for key in data_keys ] ]
+@show rel_diffs
 
 # Plot for all ntau
 
@@ -68,37 +73,86 @@ plt.subplot(gs[1, 1])
 plt.plot([1e2, 1e4], [1e-1, 1e-3], "-k", lw=3, alpha=0.25)
 plt.plot([1e1, 1e4], [1e-1, 1e-4], "-k", lw=3, alpha=0.25)
 
+colors = Dict()
+styles = Dict(
+    1=> ".",
+    #2=>"x",
+    3=>"+",
+    )
+
 for key in sort(collect(keys(merged_data)))
     d = merged_data[key]
     ntau = d["ntau"]
-    #N = d["N_chunkss"] .* d["ntau"] .* d["N_per_chunk"]
-    N = d["N_chunkss"] .* d["N_per_chunk"]
+    order_max = maximum(d["orders"])
+    
+    N = d["N_sampless"]
     rel_diffs = d["diffs"] ./ d["diff_0"]
-    l = plt.loglog(N, rel_diffs, ".-",
-                   label=raw"$N_{\tau}$" * " = $ntau", alpha=0.75)
-    color = l[1].get_color()
-    @show color
+
+    style = styles[order_max]
+    color = haskey(colors, ntau) ? colors[ntau] : nothing
+
+    if color == nothing
+        #label= raw"$N_{\tau}$" * " = $ntau, max(order) = $order_max"
+        label= raw"$N_{\tau}$" * " = $ntau"
+        
+        l = plt.plot([], [], label=label)
+        color = l[1].get_color()
+        @show color
+    end
+    
+    plt.loglog(N, rel_diffs, style * "-", color=color,
+                   #label=raw"$N_{\tau}$" * " = $ntau, max(order) = $order_max",
+                   alpha=0.75, markersize=4, lw=0.5)
     plt.plot(N[end], rel_diffs[end], "s", color=color, alpha=0.75)
+
+    colors[ntau] = color
 end
 
-plt.legend(fontsize=7, loc="best")
+#for order_max in 1:length(styles)
+#    style = styles[order_max]
+#    plt.plot([], [], style, color="gray", label="Order = $order_max")
+#end
+
+plt.legend(fontsize=7, loc="best", labelspacing=0.1)
 plt.xlabel(raw"$N_{QQMC, tot} / N_{\tau}$")
 plt.ylabel("Relative Error in ρ")
 plt.axis("image")
 plt.grid(true)
 #plt.ylim(bottom=5e-5)
-plt.ylim(bottom=1e-5)
 
 plt.subplot(gs[2, 1])
-plt.loglog(ntaus, rel_diffs, "-", color="gray")
-for i in 1:length(ntaus)
-    plt.loglog(ntaus[i], rel_diffs[i], "s", alpha=0.75)
+
+#for order_max in 1:length(styles)
+for (order_max, style) in styles
+    #style = styles[order_max]
+    plt.plot([], [], style, color="gray", label="Order = $order_max")
 end
+
+#styles = Dict(1=>".-", 2=>"x-", 3=>"+-")
+for (order_max, style) in styles
+    ntaus_o = [ ntau for (i, ntau) in enumerate(ntaus) if data_keys[i][2] == order_max ]
+    rel_diffs_o = [ rel_diff for (i, rel_diff) in enumerate(rel_diffs) if data_keys[i][2] == order_max ]
+    plt.loglog(ntaus_o, rel_diffs_o, "-", color="gray")
+end
+
+for i in 1:length(data_keys)
+    ntau, order_max = data_keys[i]
+    color = colors[ntau]
+    #style = Dict(1=>".-", 2=>"x-", 3=>"+-")[order_max]
+    style = styles[order_max]
+    plt.loglog(ntau, rel_diffs[i], style, alpha=0.75, color=color)
+end
+
+#plt.plot([1e1, 1e2], [1e-1, 1e-3], "-k", lw=3, alpha=0.25)
+#plt.plot([1e1, 1e2], [1e-1, 1e-4], "-k", lw=3, alpha=0.25)
+
 plt.xlabel(raw"$N_{\tau}$")
 plt.ylabel("Relative Error in ρ")
-plt.axis("image")
 plt.grid(true)
-plt.xlim([1e0, 1e5])
+plt.axis("image")
+#plt.xlim([2, 4000])
+plt.xlim([1e1, 1e4])
+plt.legend(fontsize=7, loc="best")
 
-plt.savefig("figure_dimer_convergence.pdf")
+plt.savefig("figure_dimer_convergence_order.pdf")
 plt.show()
