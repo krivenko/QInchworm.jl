@@ -123,8 +123,9 @@ plt.grid(true)
 plt.subplot(gs[2, 1])
 
 #for order_max in 1:length(styles)
-for (order_max, style) in styles
-    #style = styles[order_max]
+#for (order_max, style) in styles
+for order_max in sort(collect(keys(styles)))
+    style = styles[order_max]
     plt.plot([], [], style, color="gray", label="Order = $order_max")
 end
 

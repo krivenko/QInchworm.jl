@@ -23,7 +23,7 @@ import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
 using  QInchworm.utility: inch_print
 
 
-function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergence_atol)
+function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
 
     β = 1.0
     U = 4.0
@@ -89,9 +89,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
                         grid,
                         orders,
                         orders_bare,
-                        N_chunk,
-                        max_chunks,
-                        qmc_convergence_atol)
+                        N_samples)
 
     ppgf.normalize!(expansion.P, β)
     ρ_wrm = density_matrix(expansion.P, ed)
@@ -107,7 +105,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
     return diff
 end
 
-function run_ntau_calc(ntau::Integer, orders, N_chunkss)
+function run_ntau_calc(ntau::Integer, orders, N_sampless)
 
     comm_root = 0
     comm = MPI.COMM_WORLD
@@ -115,15 +113,13 @@ function run_ntau_calc(ntau::Integer, orders, N_chunkss)
     comm_rank = MPI.Comm_rank(comm)
 
     orders_bare = orders
-    qmc_convergence_atol = 1e-15
-    N_per_chunk = 8
 
     # -- Do calculation here
 
-    diffs = [ run_hubbard_dimer(ntau, orders, orders_bare, N_per_chunk, N_chunks,
-                                qmc_convergence_atol) for N_chunks in N_chunkss ]
+    diff_0 = run_hubbard_dimer(ntau, orders, orders_bare, 0)
 
-    diff_0 = run_hubbard_dimer(ntau, orders, orders_bare, N_per_chunk, 0, qmc_convergence_atol)
+    diffs = [ run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
+              for N_samples in N_sampless ]
     
     if comm_rank == comm_root
         @show diffs
@@ -137,14 +133,12 @@ function run_ntau_calc(ntau::Integer, orders, N_chunkss)
 
         g = h5.create_group(fid, "data")
 
-        h5.attributes(g)["qmc_convergence_atol"] = qmc_convergence_atol
         h5.attributes(g)["ntau"] = ntau
-        h5.attributes(g)["N_per_chunk"] = N_per_chunk
         h5.attributes(g)["diff_0"] = diff_0
 
         g["orders"] = collect(orders)
         g["orders_bare"] = collect(orders_bare)
-        g["N_chunkss"] = N_chunkss
+        g["N_sampless"] = N_sampless
 
         g["diffs"] = diffs
         
@@ -156,27 +150,29 @@ end
 
 MPI.Init()
 
-#ntaus = 2 .^ range(4, 12)
-ntaus = 2 .^ range(3, 6)
-#ntaus = [64]
-#ntaus = [128]
+#ntaus = 2 .^ range(4, 8)
+#N_sampless = 8 * 2 .^ range(1, 10)
+#orderss = [0:1, 0:2, 0:3]
 
-#N_chunkss = 2 .^ range(0, 7)
-#N_chunkss = 2 .^ range(8, 10)
-N_chunkss = 2 .^ range(1, 10)
-#N_chunkss = [2^1]
-
-orderss = [0:1, 0:2, 0:3]
-#orderss = [0:2, 0:3]
+#ntaus = 2 .^ range(4, 6)
+#ntaus = 2 .^ range(4, 8)
+#ntaus = 2 .^ range(7, 8)
+ntaus = 2 .^ range(8, 8)
+#orderss = [0:1]
+orderss = [0:2, 0:3]
+#N_sampless = 2 .^ range(3, 14)
+N_sampless = 2 .^ range(15, 17)
 
 if inch_print()
     @show ntaus
-    @show N_chunkss
+    @show N_sampless
     @show orderss
 end
 
+#exit()
+
 for ntau in ntaus
     for orders in orderss
-        run_ntau_calc(ntau, orders, N_chunkss)
+        run_ntau_calc(ntau, orders, N_sampless)
     end
 end
