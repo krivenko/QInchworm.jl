@@ -20,16 +20,18 @@ def eval_semi_circ_tau(tau, beta, h, t):
 eval_semi_circ_tau = np.vectorize(eval_semi_circ_tau)
 
 
-def calc_single_fermion(beta=8., e0=0., V=1.0, t_bethe=1., mu_bethe=4.0,
-                        n_cycles=1e5, seed=1337, delta_tau=None, n_ref=None):
+def calc_single_fermion(
+        #beta=8., e0=0., V=1.0, t_bethe=1., mu_bethe=4.0,
+        beta=8., e0=0., V=0.25, t_bethe=1., mu_bethe=1.0,
+        n_cycles=1e5, seed=1337, delta_tau=None, n_ref=None):
 
     gf_struct = [("0", 1)]
 
     S = Solver(
         beta=beta,
         gf_struct=gf_struct,
-        n_iw=1025,
-        n_tau=8001,
+        n_iw=125,
+        n_tau=2001,
         n_l=30,
         delta_interface=True)
 
@@ -88,7 +90,7 @@ if __name__ == "__main__":
     delta_tau, n_ref = None, None
     
     ps = []
-    for n_cycles in 2**np.arange(4, 20):
+    for n_cycles in 2**np.arange(4, 25):
     #for n_cycles in 2**np.arange(19, 20):
         for seed in seeds:
             p, delta_tau, n_ref = calc_single_fermion(

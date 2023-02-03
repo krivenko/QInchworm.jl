@@ -57,6 +57,10 @@ const AllPPGFTypes = Union{
     Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}
 }
 
+function Base.zero(P::T) where T <: AllPPGFTypes
+    [ zero(p) for p in P ]
+end
+
 """
 Interaction type classification using `@enum`
 
@@ -114,6 +118,8 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
   P0::PPGF
   "Interacting pseudo-particle Green's function"
   P::PPGF
+  "Contribution to interacting pseudo-particle Green's function, per diagram order"
+  P_orders::Vector{PPGF}
   "List of pseudo-particle interactions"
   pairs::InteractionPairs{ScalarGF}
   "List of hybridization function determinants (not implemented yet)"
@@ -128,6 +134,8 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
     P0 = ppgf.atomic_ppgf(grid, ed)
     dP0 = ppgf.initial_ppgf_derivative(ed, grid.contour.β)
     P = deepcopy(P0)
+    P_orders = Vector{typeof(P)}()
+      
     if interpolate_ppgf
 
         #P0 = [SplineInterpolatedGF(P0_s) for P0_s in P0]
@@ -149,7 +157,7 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
 
     end
 
-    return new{ScalarGF, typeof(P0)}(ed, P0, P, interaction_pairs, [])
+    return new{ScalarGF, typeof(P0)}(ed, P0, P, P_orders, interaction_pairs, [])
   end
 end
 
@@ -397,6 +405,17 @@ function eval(exp::Expansion, pairs::NodePairs, parity::Float64)
         val *= im * exp.pairs[pair.index].propagator(pair.time_f, pair.time_i)
     end
     return val
+end
+
+function set_bold_ppgf!(P::PPGF,
+                        t_i::kd.TimeGridPoint,
+                        t_f::kd.TimeGridPoint,
+                        result::SectorBlockMatrix) where PPGF <: AllPPGFTypes
+    for (s_i, (s_f, mat)) in result
+        # Boldification must preserve the block structure
+        @assert s_i == s_f
+        P[s_i][t_f, t_i] = mat
+    end
 end
 
 function set_bold_ppgf!(exp::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},

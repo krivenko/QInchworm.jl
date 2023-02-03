@@ -58,10 +58,15 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     if inch_print(); @show interpolate_gfs; end
     
     β = 8.0
+    #β = 32.0
     μ = 0.0
-    V = 1.0
+    #V = 1.0
+    V = 0.25
     t_bethe = 1.0
-    μ_bethe = 4.0
+    #μ_bethe = 4.0
+    #μ_bethe = 2.0
+    μ_bethe = 1.0
+    #μ_bethe = 0.0
 
     # -- Impurity problem
 
@@ -117,28 +122,47 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     else
         ppgf.normalize!(expansion.P, β) # DEBUG fixme!
         ρ_wrm = density_matrix(expansion.P, ed)
+        
+        ρ_wrm_orders = [ density_matrix(p, ed) for p in expansion.P_orders ]
+        ρ_wrm_orders = [ real(LinearAlgebra.diag(r)) for r in ρ_wrm_orders ]
+        norm = sum(sum(ρ_wrm_orders))
+        ρ_wrm_orders /= norm
+        pto_hist = Array{Float64}([ sum(r) for r in ρ_wrm_orders ])
+
+        #@show ρ_wrm_orders
+        #@show norm
+        #@show ρ_wrm_orders
     end
 
     #ppgf.normalize!(expansion.P, β)
     #ρ_wrm = density_matrix(expansion.P, ed)
 
     ρ_ref = zero(ρ_wrm)
+
     #ρ_ref[1, 1] = 0.4755162392200716
     #ρ_ref[2, 2] = 0.5244837607799284
+
     #ρ_ref[1, 1] = 0.3309930890867673
     #ρ_ref[2, 2] = 0.6690069109132327
-    ρ_ref[1, 1] = 0.1763546951780647
-    ρ_ref[2, 2] = 0.8236453048219353
+
+    #ρ_ref[1, 1] = 0.1763546951780647
+    #ρ_ref[2, 2] = 0.8236453048219353
+
+    ρ_ref[1, 1] = 1 - 0.5767879786180553
+    ρ_ref[2, 2] = 0.5767879786180553
+
     diff = maximum(abs.(ρ_ref - ρ_wrm))
 
     if inch_print()
+        @show ρ_wrm_orders
+        @show pto_hist
         @printf "ρ_0   = %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2])
         @printf "ρ_ref = %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2])
         @printf "ρ_wrm = %16.16f %16.16f \n" real(ρ_wrm[1, 1]) real(ρ_wrm[2, 2])
     
         @show diff
     end
-    return diff
+    return diff, pto_hist
 end
 
 function run_ntau_calc(ntau::Integer, orders, N_sampless)
@@ -150,11 +174,16 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
     
     orders_bare = orders
 
-    diff_0 = run_dimer(ntau, orders, orders_bare, 0, interpolate_gfs=false)
+    diff_0, pto_hist_0 = run_dimer(ntau, orders, orders_bare, 0, interpolate_gfs=false)
 
-    diffs = [ run_dimer(ntau, orders, orders_bare, N_samples, interpolate_gfs=false)
+    diffs_pto_hists = [
+        run_dimer(ntau, orders, orders_bare,
+                  N_samples, interpolate_gfs=false)
               for N_samples in N_sampless ]
 
+    diffs = [ el[1] for el in diffs_pto_hists ]
+    pto_hists = [ el[2] for el in diffs_pto_hists ]
+    
     if comm_rank == comm_root
         @show diffs
 
@@ -175,6 +204,7 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
         g["N_sampless"] = N_sampless
         
         g["diffs"] = diffs
+        g["pto_hists"] = reduce(hcat, pto_hists)
         
         h5.close(fid)
     end
@@ -203,11 +233,19 @@ MPI.Init()
 #orderss = [0:5]
 #orderss = [[0,1,3,5]]
 
-ntaus = 2 .^ range(11, 12)
 #ntaus = [1024]
-N_sampless = 2 .^ range(3, 15)
-orderss = [0:1]
+#ntaus = 2 .^ range(11, 12)
+#N_sampless = 2 .^ range(3, 15)
+#orderss = [0:1]
 #orderss = [0:1, 0:3]
+
+#ntaus = [128]
+#N_sampless = 2 .^ range(8, 8)
+#orderss = [0:5]
+
+ntaus = [1024 * 2]
+N_sampless = 2 .^ range(3, 15)
+orderss = [0:5]
 
 if inch_print()
     @show ntaus

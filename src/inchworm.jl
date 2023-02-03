@@ -59,13 +59,13 @@ Accummulated value of the bold pseudo-particle GF.
 """
 function inchworm_step(expansion::Expansion,
                        c::kd.AbstractContour,
-                       t_i::kd.BranchPoint,
-                       t_w::kd.BranchPoint,
-                       t_f::kd.BranchPoint,
+                       τ_i::kd.TimeGridPoint,
+                       τ_w::kd.TimeGridPoint,
+                       τ_f::kd.TimeGridPoint,
                        order_data::Vector{InchwormOrderData})
-    n_i = Node(t_i)
-    n_w = InchNode(t_w)
-    n_f = Node(t_f)
+
+    t_i, t_w, t_f = τ_i.bpoint, τ_w.bpoint, τ_f.bpoint
+    n_i, n_w, n_f = Node(t_i), InchNode(t_w), Node(t_f)
     @assert n_f.time.ref >= n_w.time.ref >= n_i.time.ref
 
     zero_sector_block_matrix = 0 * operator(expansion, n_i)
@@ -73,16 +73,17 @@ function inchworm_step(expansion::Expansion,
     result = deepcopy(zero_sector_block_matrix)
 
     for od in order_data
+        order_contrib = deepcopy(zero_sector_block_matrix)
         if od.order == 0
-            result += teval.eval(expansion, [n_f, n_w, n_i], kd.BranchPoint[], od.diagrams)
+            order_contrib = teval.eval(
+                expansion, [n_f, n_w, n_i], kd.BranchPoint[], od.diagrams)
         else
             d_bare = od.k_attached
             d_bold = 2 * od.order - od.k_attached
             teval.update_inch_times!(od.configurations, t_i, t_w, t_f)
             seq = BetterSobolSeq(2 * od.order)
-            order_contrib = deepcopy(zero_sector_block_matrix)
             if od.N_samples > 0
-                order_contrib += qmc_inchworm_integral_root(
+                order_contrib = qmc_inchworm_integral_root(
                     t -> teval.eval(expansion, od.diagrams, od.configurations, t),
                     d_bold, d_bare,
                     c, t_i, t_w, t_f,
@@ -91,8 +92,9 @@ function inchworm_step(expansion::Expansion,
                     N = od.N_samples
                 )
             end
-            result += order_contrib
         end
+        set_bold_ppgf!(expansion.P_orders[1+od.order], τ_i, τ_f, order_contrib)
+        result += order_contrib
     end
     result
 end
@@ -119,26 +121,27 @@ Accummulated value of the bold pseudo-particle GF.
 """
 function inchworm_step_bare(expansion::Expansion,
                             c::kd.AbstractContour,
-                            t_i::kd.BranchPoint,
-                            t_f::kd.BranchPoint,
+                            τ_i::kd.TimeGridPoint,
+                            τ_f::kd.TimeGridPoint,
                             order_data::Vector{InchwormOrderData})
-    n_i = Node(t_i)
-    n_f = Node(t_f)
+
+    t_i, t_f = τ_i.bpoint, τ_f.bpoint
+    n_i, n_f = Node(t_i), Node(t_f)
     @assert n_f.time.ref >= n_i.time.ref
 
     zero_sector_block_matrix = 0 * operator(expansion, n_i)
     result = deepcopy(zero_sector_block_matrix)
 
     for od in order_data
+        order_contrib = deepcopy(zero_sector_block_matrix)
         if od.order == 0
-            result += teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
+            order_contrib = teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
         else
             teval.update_inch_times!(od.configurations, t_i, t_i, t_f)
             d = 2 * od.order
             seq = BetterSobolSeq(d)
-            order_contrib = deepcopy(zero_sector_block_matrix)
             if od.N_samples > 0
-                order_contrib += qmc_time_ordered_integral_root(
+                order_contrib = qmc_time_ordered_integral_root(
                     t -> teval.eval(expansion, od.diagrams, od.configurations, t),
                     d,
                     c, t_i, t_f,
@@ -147,8 +150,9 @@ function inchworm_step_bare(expansion::Expansion,
                     N = od.N_samples
                 )
             end
-            result += order_contrib
         end
+        set_bold_ppgf!(expansion.P_orders[1+od.order], τ_i, τ_f, order_contrib)
+        result += order_contrib
     end
     result
 end
@@ -197,6 +201,12 @@ function inchworm_matsubara!(expansion::Expansion,
 
     @assert N_samples == 0 || N_samples == 2^Int(log2(N_samples))
 
+    # Extend expansion.P_order to max of orders, orders_bare
+    max_order = maximum([maximum(orders), maximum(orders_bare)])
+    for o in range(1, max_order+1)
+        push!(expansion.P_orders, kd.zero(expansion.P0))
+    end
+    
     if inch_print(); println("Inch step 1 (bare)"); end
 
     if inch_print(); println("= Bare Diagrams ========"); end
@@ -210,13 +220,13 @@ function inchworm_matsubara!(expansion::Expansion,
                 expansion, all_diagrams, 0)
         
         if inch_print()
-            println("order $(order)")
-            println("diagram topologies")
-            for top in topologies
-                println("top = $(top), ncross = $(diagrammatics.n_crossings(top)), parity = $(diagrammatics.parity(top))")
-            end
-            println("length(diagrams) = $(length(diagrams))")
-            println("length(configurations) = $(length(configurations))")
+            println("order $(order), N_diag $(length(diagrams))")
+            #println("diagram topologies")
+            #for top in topologies
+            #    println("top = $(top), ncross = $(diagrammatics.n_crossings(top)), parity = $(diagrammatics.parity(top))")
+            #end
+            #println("length(diagrams) = $(length(diagrams))")
+            #println("length(configurations) = $(length(configurations))")
             @assert length(diagrams) == length(configurations)
         end
 
@@ -228,8 +238,8 @@ function inchworm_matsubara!(expansion::Expansion,
 
     result = inchworm_step_bare(expansion,
                                 grid.contour,
-                                grid[1].bpoint,
-                                grid[2].bpoint,
+                                grid[1],
+                                grid[2],
                                 order_data)
     set_bold_ppgf!(expansion, grid[1], grid[2], result)
 
@@ -247,14 +257,14 @@ function inchworm_matsubara!(expansion::Expansion,
                     expansion, all_diagrams, d_bold)
 
             if inch_print()
-                println("order $(order)")
-                println("k_attached $(k_attached)")
-                println("diagram topologies")
-                for top in topologies
-                    println("top = $(top), ncross = $(diagrammatics.n_crossings(top)), parity = $(diagrammatics.parity(top))")
-                end
-                println("length(diagrams) = $(length(diagrams))")
-                println("length(configurations) = $(length(configurations))")
+                println("order $(order), k_attached $(k_attached), N_diag $(length(diagrams))")
+                #println("k_attached $(k_attached)")
+                #println("diagram topologies")
+                #for top in topologies
+                #    println("top = $(top), ncross = $(diagrammatics.n_crossings(top)), parity = $(diagrammatics.parity(top))")
+                #end
+                #println("length(diagrams) = $(length(diagrams))")
+                #println("length(configurations) = $(length(configurations))")
                 @assert length(diagrams) == length(configurations)
             end
 
@@ -274,12 +284,8 @@ function inchworm_matsubara!(expansion::Expansion,
         τ_w = grid[n]
         τ_f = grid[n + 1]
 
-        result = inchworm_step(expansion,
-                               grid.contour,
-                               τ_i.bpoint,
-                               τ_w.bpoint,
-                               τ_f.bpoint,
-                               order_data)
+        result = inchworm_step(
+            expansion, grid.contour, τ_i, τ_w, τ_f, order_data)
         set_bold_ppgf!(expansion, τ_i, τ_f, result)
     end
 end
