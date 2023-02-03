@@ -1,0 +1,224 @@
+using MPI
+
+import MD5
+import HDF5; h5 = HDF5
+
+import PyCall
+
+using Test
+using Printf
+#import PyPlot as plt
+
+import LinearAlgebra; trace = LinearAlgebra.tr
+
+import Keldysh; kd = Keldysh
+import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
+
+import QInchworm.ppgf
+import QInchworm.configuration: Expansion, InteractionPair
+
+import QInchworm.topology_eval: get_topologies_at_order,
+                                get_diagrams_at_order
+
+import QInchworm.inchworm: InchwormOrderData,
+                           inchworm_step,
+                           inchworm_step_bare,
+                           inchworm_matsubara!
+
+import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
+import QInchworm.spline_gf: SplineInterpolatedGF
+using  QInchworm.utility: inch_print
+
+
+function semi_circular_g_tau(times, t, h, β)
+
+    np = PyCall.pyimport("numpy")
+    kernel = PyCall.pyimport("pydlr").kernel
+    quad = PyCall.pyimport("scipy.integrate").quad
+
+    #def eval_semi_circ_tau(tau, beta, h, t):
+    #    I = lambda x : -2 / np.pi / t**2 * kernel(np.array([tau])/beta, beta*np.array([x]))[0,0]
+    #    g, res = quad(I, -t+h, t+h, weight='alg', wvar=(0.5, 0.5))
+    #    return g
+
+    g_out = zero(times)
+    
+    for (i, tau) in enumerate(times)
+        I = x -> -2 / np.pi / t^2 * kernel([tau/β], [β*x])[1, 1]
+        g, res = quad(I, -t+h, t+h, weight="alg", wvar=(0.5, 0.5))
+        g_out[i] = g
+    end
+
+    return g_out
+end
+
+
+function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
+
+    if inch_print(); @show interpolate_gfs; end
+    
+    β = 8.0
+    μ = 0.0
+    V = 1.0
+    t_bethe = 1.0
+    μ_bethe = 4.0
+
+    # -- Impurity problem
+
+    contour = kd.ImaginaryContour(β=β);
+    grid = kd.ImaginaryTimeGrid(contour, ntau);
+    
+    H = μ * op.n(1)
+    soi = KeldyshED.Hilbert.SetOfIndices([[1]])
+    ed = KeldyshED.EDCore(H, soi)
+    
+    # -- Hybridization propagator
+    
+    Δ = kd.ImaginaryTimeGF(
+        (t1, t2) -> 1.0im * V^2 *
+            semi_circular_g_tau(
+                [-imag(t1.bpoint.val - t2.bpoint.val)],
+                t_bethe, μ_bethe, β)[1],
+        grid, 1, kd.fermionic, true)
+    
+    function reverse(g::kd.ImaginaryTimeGF)
+        g_rev = deepcopy(g)
+        τ_0, τ_β = first(g.grid), last(g.grid)
+        for τ in g.grid
+            g_rev[τ, τ_0] = g[τ_β, τ]
+        end
+        return g_rev
+    end
+    
+    # -- Pseudo Particle Strong Coupling Expansion
+
+    if interpolate_gfs
+        ip_fwd = InteractionPair(op.c_dag(1), op.c(1), SplineInterpolatedGF(Δ))
+        ip_bwd = InteractionPair(op.c(1), op.c_dag(1), SplineInterpolatedGF(reverse(Δ)))
+        expansion = Expansion(ed, grid, [ip_fwd, ip_bwd], interpolate_ppgf=true)
+    else
+        ip_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
+        ip_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
+        expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
+    end
+    
+    ρ_0 = density_matrix(expansion.P0, ed)
+    
+    inchworm_matsubara!(expansion,
+                        grid,
+                        orders,
+                        orders_bare,
+                        N_samples)
+
+    if interpolate_gfs
+        P = [ p.GF for p in expansion.P ]
+        ppgf.normalize!(P, β) # DEBUG fixme!
+        ρ_wrm = density_matrix(P, ed)
+    else
+        ppgf.normalize!(expansion.P, β) # DEBUG fixme!
+        ρ_wrm = density_matrix(expansion.P, ed)
+    end
+
+    #ppgf.normalize!(expansion.P, β)
+    #ρ_wrm = density_matrix(expansion.P, ed)
+
+    ρ_ref = zero(ρ_wrm)
+    #ρ_ref[1, 1] = 0.4755162392200716
+    #ρ_ref[2, 2] = 0.5244837607799284
+    #ρ_ref[1, 1] = 0.3309930890867673
+    #ρ_ref[2, 2] = 0.6690069109132327
+    ρ_ref[1, 1] = 0.1763546951780647
+    ρ_ref[2, 2] = 0.8236453048219353
+    diff = maximum(abs.(ρ_ref - ρ_wrm))
+
+    if inch_print()
+        @printf "ρ_0   = %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2])
+        @printf "ρ_ref = %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2])
+        @printf "ρ_wrm = %16.16f %16.16f \n" real(ρ_wrm[1, 1]) real(ρ_wrm[2, 2])
+    
+        @show diff
+    end
+    return diff
+end
+
+function run_ntau_calc(ntau::Integer, orders, N_sampless)
+
+    comm_root = 0
+    comm = MPI.COMM_WORLD
+    comm_size = MPI.Comm_size(comm)
+    comm_rank = MPI.Comm_rank(comm)
+    
+    orders_bare = orders
+
+    diff_0 = run_dimer(ntau, orders, orders_bare, 0, interpolate_gfs=false)
+
+    diffs = [ run_dimer(ntau, orders, orders_bare, N_samples, interpolate_gfs=false)
+              for N_samples in N_sampless ]
+
+    if comm_rank == comm_root
+        @show diffs
+
+        max_order = maximum(orders)
+        id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, diffs)))
+        filename = "data_bethe_ntau_$(ntau)_maxorder_$(max_order)_md5_$(id).h5"
+        
+        @show filename
+        fid = h5.h5open(filename, "w")
+        
+        g = h5.create_group(fid, "data")
+        
+        h5.attributes(g)["ntau"] = ntau
+        h5.attributes(g)["diff_0"] = diff_0
+        
+        g["orders"] = collect(orders)
+        g["orders_bare"] = collect(orders_bare)
+        g["N_sampless"] = N_sampless
+        
+        g["diffs"] = diffs
+        
+        h5.close(fid)
+    end
+    
+    return
+    
+end
+
+MPI.Init()
+
+#ntaus = 2 .^ range(4, 12)
+#N_samples = 8 * 2 .^ range(0, 13)
+#orderss = [0:1, 0:3]
+
+#ntaus = 2 .^ range(4, 12)
+#ntaus = [64]
+#N_sampless = 2 .^ range(10, 10)
+#N_sampless = 2 .^ range(3, 23)
+#orderss = [0:1]
+
+#ntaus = 2 .^ range(4, 8)
+#N_sampless = 2 .^ range(3, 10)
+#ntaus = 2 .^ range(9, 10)
+#ntaus = 2 .^ range(11, 12)
+#N_sampless = 2 .^ range(3, 15)
+#orderss = [0:5]
+#orderss = [[0,1,3,5]]
+
+ntaus = 2 .^ range(11, 12)
+#ntaus = [1024]
+N_sampless = 2 .^ range(3, 15)
+orderss = [0:1]
+#orderss = [0:1, 0:3]
+
+if inch_print()
+    @show ntaus
+    @show N_sampless
+    @show orderss
+end
+
+#exit()
+
+for orders in orderss
+    for ntau in ntaus
+        run_ntau_calc(ntau, orders, N_sampless)
+    end
+end
