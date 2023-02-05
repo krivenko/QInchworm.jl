@@ -5,26 +5,58 @@ using DocStringExtensions
 
 const PairVector = Vector{Pair{Int,Int}}
 
+# TODO implement a fast calculation here
+"""
+$(TYPEDSIGNATURES)
+
+Returns sign of the permutation ``x``
+
+Sign is computed by calculating the determinant of the permutation matrix.
+Does not check if ``x`` is a valid permutation.
+"""
+function parity_slow(x::Vector{Int})
+    n = length(x)
+
+    P = zeros(Int, n, n)
+
+    for (i, j) in enumerate(x)
+       P[i,j] = 1
+    end
+
+    return Int(LinearAlgebra.det(P))
+end
+
 """
 $(TYPEDEF)
 
 Datatype for diagram topology.
-A topology of order ``n`` consists of a partition of ``\\{1,...,2n\\}`` into ``n`` pairs.
+A topology of order ``n`` consists of a partition of the ordered set ``s = \\{1,...,2n\\}``
+into ``n`` pairs `\\{(x(1), x(2)), ..., (x(2n-1), x(2n))\\}` where ``x`` is a permutation of ``s``.
 Diagrammatically a topology can be thought of as a set of arcs connecting vertices located at ``\\{1,...,2n\\}``.
+The parity of the topology is the sign of the permutation ``x``.
 
 $(TYPEDFIELDS)
 """
 struct Topology
   order::Int
   pairs::PairVector
-    
-  function Topology(pairs::PairVector)
-    new(length(pairs), pairs)
+  parity::Int
+
+  function Topology(pairs::PairVector, parity::Int)
+    new(length(pairs), pairs, parity)
   end
+
 end
 
+function Topology(pairs::PairVector)
+  p = parity_slow(collect(Iterators.flatten(pairs)))
+  return Topology(pairs, p)
+end
+
+
 function Base.isvalid(t::Topology)
-  sort!(collect(Iterators.Flatten(t.pairs))) == 1:2*t.order
+  perm = collect(Iterators.flatten(t.pairs))
+  return ((t.parity == parity_slow(perm)) && (sort!(perm) == 1:2*t.order))
 end
 
 function sortpair(p::Pair{T,T}) where T
