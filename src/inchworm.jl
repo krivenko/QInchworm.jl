@@ -5,6 +5,7 @@ using MPI: MPI
 using Printf
 
 import Keldysh; kd = Keldysh
+import KeldyshED; ked = KeldyshED
 
 import QInchworm; teval = QInchworm.topology_eval
 import QInchworm.diagrammatics
@@ -157,6 +158,14 @@ function inchworm_step_bare(expansion::Expansion,
     result
 end
 
+# http://patorjk.com/software/taag/#p=display&f=Graffiti&t=QInchWorm
+const logo = raw"""________  .___              .__    __      __
+\_____  \ |   | ____   ____ |  |__/  \    /  \___________  _____
+ /  / \  \|   |/    \_/ ___\|  |  \   \/\/   /  _ \_  __ \/     \
+/   \_/.  \   |   |  \  \___|   Y  \        (  <_> )  | \/  Y Y  \
+\_____\ \_/___|___|  /\___  >___|  /\__/\  / \____/|__|  |__|_|  /
+       \__>        \/     \/     \/      \/                    \/ """
+
 raw"""
 Perform a complete qMC inchworm calculation of the bold PPGF on the Matsubara branch.
 
@@ -176,14 +185,6 @@ function inchworm_matsubara!(expansion::Expansion,
                              orders,
                              orders_bare,
                              N_samples::Int64)
-
-    # http://patorjk.com/software/taag/#p=display&f=Graffiti&t=QInchWorm
-    logo = raw"""________  .___              .__    __      __
-\_____  \ |   | ____   ____ |  |__/  \    /  \___________  _____
- /  / \  \|   |/    \_/ ___\|  |  \   \/\/   /  _ \_  __ \/     \
-/   \_/.  \   |   |  \  \___|   Y  \        (  <_> )  | \/  Y Y  \
-\_____\ \_/___|___|  /\___  >___|  /\__/\  / \____/|__|  |__|_|  /
-       \__>        \/     \/     \/      \/                    \/ """
 
     if inch_print()
         comm = MPI.COMM_WORLD
@@ -288,6 +289,94 @@ function inchworm_matsubara!(expansion::Expansion,
             expansion, grid.contour, τ_i, τ_w, τ_f, order_data)
         set_bold_ppgf!(expansion, τ_i, τ_f, result)
     end
+end
+
+"""
+    Implementation details of compute_gf_matsubara()
+"""
+function _compute_gf_matsubara!(gf::kd.ImaginaryTimeGF,
+                                expansion::Expansion,
+                                c_indices::Vector{ked.IndicesType},
+                                cdag_indices::Vector{ked.IndicesType},
+                                orders,
+                                N_samples::Int64)
+    grid = gf.grid
+
+    if inch_print()
+        comm = MPI.COMM_WORLD
+        comm_size = MPI.Comm_size(comm)
+        N_split = split_count(N_samples, comm_size)
+
+        println(logo)
+        println("N_tau = ", length(grid))
+        println("orders = ", orders)
+        println("N_samples = ", N_samples)
+        println("N_ranks = ", comm_size)
+        println("N_samples (per rank) = ", N_split)
+    end
+
+    @assert N_samples == 0 || N_samples == 2^Int(log2(N_samples))
+
+    # TODO
+
+end
+
+raw"""
+Perform a calculation of a matrix-valued single-particle Green's function on the Matsubara branch.
+
+Parameters
+----------
+expansion :            Pseudo-particle expansion problem containing a precomputed bold PPGF.
+grid :                 Imaginary time grid of the single-particle GF to be computed.
+c_indices :            List of indices of the annihilation operator.
+cdag_indices :         List of indices of the creation operator.
+orders :               List of expansion orders to be accounted for.
+N_samples :            Numbers of qMC samples.
+
+Returns
+-------
+
+gf : The matrix-valued single-particle GF.
+"""
+function compute_gf_matsubara(expansion::Expansion,
+                              grid::kd.ImaginaryTimeGrid,
+                              c_indices::Vector{ked.IndicesType},
+                              cdag_indices::Vector{ked.IndicesType},
+                              orders,
+                              N_samples::Int64)::kd.ImaginaryTimeGF{Float64, false}
+    norb = length(c_indices)
+    @assert norb == length(cdag_indices)
+    gf = ImaginaryTimeGF(grid, norb)
+    _compute_gf_matsubara!(gf, expansion, c_indices, cdag_indices, orders, N_samples)
+    gf
+end
+
+raw"""
+Perform a calculation of a scalar-valued single-particle Green's function on the Matsubara branch.
+
+Parameters
+----------
+expansion :            Pseudo-particle expansion problem containing a precomputed bold PPGF.
+grid :                 Imaginary time grid of the single-particle GF to be computed.
+c_index :              Index of the annihilation operator.
+cdag_index :           Index of the creation operator.
+orders :               List of expansion orders to be accounted for.
+N_samples :            Numbers of qMC samples.
+
+Returns
+-------
+
+gf : The scalar-valued single-particle GF.
+"""
+function compute_gf_matsubara(expansion::Expansion,
+                              grid::kd.ImaginaryTimeGrid,
+                              c_index::ked.IndicesType,
+                              cdag_index::ked.IndicesType,
+                              orders,
+                              N_samples::Int64)::kd.ImaginaryTimeGF{Float64, true}
+    gf = ImaginaryTimeGF(grid, 1, kd.fermionic, true)
+    _compute_gf_matsubara!(gf, expansion, [c_index], [cdag_index], orders, N_samples)
+    gf
 end
 
 end # module inchworm
