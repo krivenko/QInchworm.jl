@@ -165,11 +165,15 @@ function eval(
     return accumulated_value
 end
 
-function get_configurations_and_diagrams(expansion::cfg.Expansion, diagrams::Diagrams, d_bold::Int)::Tuple{cfg.Configurations, Diagrams}
+function get_configurations_and_diagrams(expansion::cfg.Expansion,
+                                         diagrams::Diagrams,
+                                         d_bold::Int;
+                                         op_pair_idx::Union{Int, Nothing} = nothing)::Tuple{cfg.Configurations, Diagrams}
     diagrams_out = Diagrams()
     configurations = cfg.Configurations()
     for (didx, diagram) in enumerate(diagrams)
-        configuration = Configuration(diagram, expansion, d_bold)
+        configuration = op_pair_idx === nothing ? Configuration(diagram, expansion, d_bold) :
+                                                  Configuration(diagram, expansion, d_bold, op_pair_idx)
         if length(configuration.paths) > 0
             push!(configurations, configuration)
             push!(diagrams_out, diagram)
@@ -208,6 +212,29 @@ function update_times!(configuration::cfg.Configuration, diagram::Diagram, times
     for (p_idx, (idx_tf, idx_ti)) in enumerate(diagram.topology.pairs)
         int_idx = configuration.pairs[p_idx].index
         configuration.pairs[p_idx] = cfg.NodePair(times[idx_tf], times[idx_ti], int_idx)
+    end
+end
+
+# TODO: Should this function be merged with update_inch_times!() ?
+function update_corr_times!(configuration::cfg.Configuration,
+    τ_1::kd.BranchPoint,
+    τ_2::kd.BranchPoint,
+    τ_f::kd.BranchPoint)
+    @assert configuration.op_node_idx !== nothing
+
+    op_ref = configuration.nodes[configuration.op_node_idx[1]].operator_ref
+    configuration.nodes[configuration.op_node_idx[1]] = Node(τ_1, op_ref)
+    op_ref = configuration.nodes[configuration.op_node_idx[2]].operator_ref
+    configuration.nodes[configuration.op_node_idx[2]] = Node(τ_2, op_ref)
+    configuration.nodes[end] = Node(τ_f)
+end
+
+function update_corr_times!(configurations::cfg.Configurations,
+                            τ_1::kd.BranchPoint,
+                            τ_2::kd.BranchPoint,
+                            τ_f::kd.BranchPoint)
+    for configuration in configurations
+        update_corr_times!(configuration, τ_1, τ_2, τ_f)
     end
 end
 

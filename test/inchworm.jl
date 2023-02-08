@@ -15,7 +15,8 @@ import QInchworm.topology_eval: get_topologies_at_order,
 import QInchworm.inchworm: InchwormOrderData,
                            inchworm_step,
                            inchworm_step_bare,
-                           inchworm_matsubara!
+                           inchworm_matsubara!,
+                           compute_gf_matsubara
 
 # -- Single state pseudo particle expansion
 
@@ -172,4 +173,11 @@ end
                         N_samples)
 
     @show expansion.P
+
+    # -- Single-particle GF
+
+    push!(expansion.corr_operators, (op.c("0"), op.c_dag("0")))
+    g = compute_gf_matsubara(expansion, grid, orders, N_samples)
+
+    @show g
 end

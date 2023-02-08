@@ -2,6 +2,7 @@ module configuration
 
 using DocStringExtensions
 using LinearAlgebra: norm
+import LinearAlgebra
 
 import Keldysh; kd = Keldysh
 import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
@@ -34,8 +35,6 @@ const Times = Vector{Time}
 const Operator = op.RealOperatorExpr
 const Operators = Vector{Operator}
 
-const OperatorBlocks = Dict{Tuple{Int64, Int64}, Matrix{Float64}}
-
 """ Representation of local many-body operator in terms of block matrices.
 
 See also: [`operator_to_sector_block_matrix`](@ref) """
@@ -64,11 +63,11 @@ end
 """
 Interaction type classification using `@enum`
 
-Possible values: `pair_flag`, `determinant_flag`, `identity_flag`, `inch_flag`
+Possible values: `pair_flag`, `determinant_flag`, `identity_flag`, `inch_flag`, `operator_flag`
 
 $(TYPEDEF)
 """
-@enum InteractionEnum pair_flag=1 determinant_flag=2 identity_flag=3 inch_flag=4
+@enum InteractionEnum pair_flag=1 determinant_flag=2 identity_flag=3 inch_flag=4 operator_flag=5
 
 """
 $(TYPEDEF)
@@ -124,12 +123,16 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
   pairs::InteractionPairs{ScalarGF}
   "List of hybridization function determinants (not implemented yet)"
   determinants::Vector{InteractionDeterminant}
+  "List of operator pairs used in accumulation of two-point correlation functions"
+  corr_operators::Vector{Tuple{Operator, Operator}}
+
   """
   $(TYPEDSIGNATURES)
   """
   function Expansion(ed::ked.EDCore,
                      grid::kd.AbstractTimeGrid,
                      interaction_pairs::InteractionPairs{ScalarGF};
+                     corr_operators::Vector{Tuple{Operator, Operator}} = Tuple{Operator, Operator}[],
                      interpolate_ppgf = false) where ScalarGF
     P0 = ppgf.atomic_ppgf(grid, ed)
     dP0 = ppgf.initial_ppgf_derivative(ed, grid.contour.β)
@@ -157,7 +160,7 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
 
     end
 
-    return new{ScalarGF, typeof(P0)}(ed, P0, P, P_orders, interaction_pairs, [])
+    return new{ScalarGF, typeof(P0)}(ed, P0, P, P_orders, interaction_pairs, [], corr_operators)
   end
 end
 
@@ -203,6 +206,17 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Returns an operator node at time `time::Time` with an associated operator.
+"""
+function OperatorNode(time::Time,
+                      interaction_index::Int64,
+                      operator_index::Int64)::Node
+    return Node(time, OperatorReference(operator_flag, interaction_index, operator_index))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Returns an "inch" node at time `time::Time` with an associated identity operator.
 
 The Inch node triggers the configuration evaluator to switch from bold to bare pseudo particle propagator.
@@ -218,6 +232,15 @@ Returns `true` if the node is an "inch" node.
 """
 function is_inch_node(node::Node)::Bool
     return node.operator_ref.kind == inch_flag
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Returns `true` if the node is an operator node.
+"""
+function is_operator_node(node::Node)::Bool
+    return node.operator_ref.kind == operator_flag
 end
 
 """
@@ -266,14 +289,12 @@ end
 
 const Determinants = Vector{Determinant}
 
-function get_node_idxs(n::Int, inch_node_pos::Int = nothing)::Vector{Int}
-    if inch_node_pos !== nothing
-        n_idxs = vcat(collect(n-1:-1:inch_node_pos+1), collect(inch_node_pos-1:-1:2))
-    else
-        n_idxs = collect((n - 1):-1:2)
-    end
-    return n_idxs
+function get_pair_node_idxs(nodes::Nodes)::Vector{Int}
+    reverse([idx for (idx, node) in enumerate(nodes) if node.operator_ref.kind == pair_flag])
 end
+
+const Path = Vector{Tuple{Int, Int, Matrix{ComplexF64}}}
+const Paths = Vector{Path}
 
 """
 $(TYPEDEF)
@@ -298,9 +319,12 @@ struct Configuration
     #operators::Vector{SectorBlockMatrix}
 
     "List of precomputed trace paths with operator sub matrices"
-    paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}}
+    paths::Paths
+    # TODO: Use Union{Int, Nothing} here
     has_inch_node::Bool
     inch_node_idx::Int
+    op_node_idx::Union{Tuple{Int, Int}, Nothing}
+
     node_idxs::Vector{Int}
 
     function Configuration(single_nodes::Nodes, pairs::NodePairs, exp::Expansion)
@@ -326,10 +350,10 @@ struct Configuration
 
         has_inch_node = any([ is_inch_node(node) for node in nodes ])
         paths = get_paths(exp, nodes)
-        n_idxs = get_node_idxs(length(nodes), 3)
+        n_idxs = get_pair_node_idxs(nodes)
 
         parity = 1.0
-        return new(nodes, pairs, parity, [], paths, has_inch_node, 3, n_idxs)
+        return new(nodes, pairs, parity, [], paths, has_inch_node, 3, nothing, n_idxs)
     end
     function Configuration(diagram::Diagram, exp::Expansion, d_bold::Int)
 
@@ -370,9 +394,44 @@ struct Configuration
         end
 
         paths = get_paths(exp, nodes)
-        n_idxs = get_node_idxs(length(nodes), inch_node_idx)
+        n_idxs = get_pair_node_idxs(nodes)
 
-        return new(nodes, pairs, parity, [], paths, has_inch_node, inch_node_idx, n_idxs)
+        return new(nodes, pairs, parity, [], paths, has_inch_node, inch_node_idx, nothing, n_idxs)
+    end
+    function Configuration(diagram::Diagram, exp::Expansion, d_bold::Int, op_pair_index::Int)
+        contour = first(exp.P).grid.contour
+        time = contour(0.0)
+
+        n_f = Node(time)
+        n_c = OperatorNode(time, op_pair_index, 1)
+        n_cdag = OperatorNode(time, op_pair_index, 2)
+
+        single_nodes = [n_f, n_c, n_cdag]
+
+        pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
+        for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
+        # TODO: Is this parity still correct in the presence of C/C^+?
+        parity = (-1.0)^diag.n_crossings(diagram.topology)
+
+        n = diagram.topology.order*2
+        pairnodes = [ Node(time) for i in 1:n ]
+
+        for (idx, (f_idx, i_idx)) in enumerate(diagram.topology.pairs)
+            p_idx = diagram.pair_idxs[idx]
+            pairnodes[i_idx] = Node(time, OperatorReference(pair_flag, p_idx, 1))
+            pairnodes[f_idx] = Node(time, OperatorReference(pair_flag, p_idx, 2))
+        end
+
+        if length(pairnodes) > 0
+            nodes = vcat([n_cdag], pairnodes[1:d_bold], [n_c], pairnodes[d_bold+1:end], [n_f])
+        else
+            nodes = single_nodes
+        end
+
+        paths = get_paths(exp, nodes)
+        n_idxs = get_pair_node_idxs(nodes)
+
+        return new(nodes, pairs, parity, [], paths, false, 0, (1, d_bold + 2), n_idxs)
     end
 end
 
@@ -497,6 +556,8 @@ function operator(exp::Expansion, node::Node)::SectorBlockMatrix
         op = exp.pairs[node.operator_ref.interaction_index][node.operator_ref.operator_index]
     elseif node.operator_ref.kind == determinant_flag
         op = exp.determinants[node.operator_ref.interaction_index][node.operator_ref.operator_index]
+    elseif node.operator_ref.kind == operator_flag
+        op = exp.corr_operators[node.operator_ref.interaction_index][node.operator_ref.operator_index]
     elseif node.operator_ref.kind == identity_flag || is_inch_node(node)
         op = Operator(1.)
     else
@@ -563,6 +624,10 @@ function Base.isapprox(A::SectorBlockMatrix, B::SectorBlockMatrix; atol::Real=0)
     return true
 end
 
+function LinearAlgebra.tr(A::SectorBlockMatrix)
+    sum(LinearAlgebra.tr(A_mat) for (s_i, (s_f, A_mat)) in A if s_i == s_f)
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -602,9 +667,6 @@ function eval(exp::Expansion, nodes::Nodes)
 
     return -im * val
 end
-
-const Path = Vector{Tuple{Int, Int, Matrix{ComplexF64}}}
-const Paths = Vector{Path}
 
 function get_paths(exp::Expansion, nodes::Nodes)::Paths
 
