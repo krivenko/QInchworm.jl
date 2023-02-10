@@ -8,13 +8,20 @@ import QInchworm.diagrammatics
   @test diagrammatics.double_factorial.(2:2:10) == [2, 8, 48, 384, 3840]
   @test diagrammatics.double_factorial.(1:2:10) == [1, 3, 15, 105, 945]
 
-  for n in 1:7
+  for n = 1:7
     partitions = diagrammatics.pair_partitions(n)
     @test length(partitions) == diagrammatics.double_factorial(2n - 1)
 
     for p in partitions
       # test if we have generated valid partition
-      @test sort!(collect(Iterators.Flatten(p))) == 1:2n
+      @test sort!(collect(Iterators.flatten(p))) == 1:(2n)
+    end
+  end
+
+  for n = 1:7
+    topologies = diagrammatics.generate_topologies(n)
+    for top in topologies
+      @test isvalid(top)
     end
   end
 

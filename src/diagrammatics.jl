@@ -15,15 +15,15 @@ Sign is computed by calculating the determinant of the permutation matrix.
 Does not check if ``x`` is a valid permutation.
 """
 function parity_slow(x::Vector{Int})
-    n = length(x)
+  n = length(x)
 
-    P = zeros(Int, n, n)
+  P = zeros(Int, n, n)
 
-    for (i, j) in enumerate(x)
-       P[i,j] = 1
-    end
+  for (i, j) in enumerate(x)
+    P[i, j] = 1
+  end
 
-    return Int(LinearAlgebra.det(P))
+  return Int(LinearAlgebra.det(P))
 end
 
 """
@@ -56,12 +56,13 @@ end
 
 function Base.isvalid(t::Topology)
   perm = collect(Iterators.flatten(t.pairs))
-  return ((t.parity == parity_slow(perm)) && (sort!(perm) == 1:2*t.order))
+  return ((t.parity == parity_slow(perm)) && (sort!(perm) == 1:(2*t.order)))
 end
 
-function sortpair(p::Pair{T,T}) where T
+function sortpair(p::Pair{T,T}) where {T}
   return p.first > p.second ? p.second => p.first : p
 end
+
 
 """
 $(TYPEDSIGNATURES)
@@ -87,13 +88,13 @@ Returns the number of crossing arcs in a topology.
 
 """
 function n_crossings(top::Topology)::Int
-    n = 0
-    for i1 in range(1, top.order), i2 in range(i1+1, top.order) # Iterate over all unique pairs of arcs
-        if iscrossing(top.pairs[i1], top.pairs[i2])
-            n += 1
-        end
+  n = 0
+  for i1 in range(1, top.order), i2 in range(i1 + 1, top.order) # Iterate over all unique pairs of arcs
+    if iscrossing(top.pairs[i1], top.pairs[i2])
+      n += 1
     end
-    return n
+  end
+  return n
 end
 
 """
@@ -103,15 +104,7 @@ Returns the parity of the permutation matrix of the topolgy.
 
 """
 function parity(top::Topology)::Int
-    n = top.order
-    P = zeros(Int, 2n, 2n)
-    for i in 1:n
-        j1, j2 = top.pairs[i]
-        P[2i-1, j1] = 1
-        P[2i-0, j2] = 1
-    end
-    parity = LinearAlgebra.det(P)
-    return parity
+  return top.parity
 end
 
 """
@@ -208,7 +201,7 @@ $(TYPEDSIGNATURES)
 returns the pair `v[i] => v[j]` and a copy of the vector `v` with elements `i`,`j` removed
 """
 function pop_pair(v::Vector, i, j)
-    v[i] => v[j], [v[k] for k in eachindex(v) if k ∉ (i,j)]
+  v[i] => v[j], [v[k] for k in eachindex(v) if k ∉ (i, j)]
 end
 
 """
@@ -243,8 +236,41 @@ $(TYPEDSIGNATURES)
 Return all partitions of ``\\{1,...,2n\\}`` into ``n`` pairs.
 """
 function pair_partitions(n::Int)
-   return pair_partitions(collect(1:2n))
+  return pair_partitions(collect(1:(2n)))
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Given a partial topology and a vector of unpaired vertices, return a vector of
+complete topologies, efficiently computing the permutation sign.
+"""
+function generate_topologies_impl(topology_partial::Topology, unpaired::Vector{Int})
+  length(unpaired) == 0 && return [topology_partial]
+  @assert length(unpaired) % 2 == 0
+  map(2:length(unpaired)) do i
+    p, rest = pop_pair(unpaired, 1, i)
+    # NOTE each step adds one swap => flips parity
+    parity = topology_partial.parity * (-1)^(i)
+    return generate_topologies_impl(
+      Topology(push!(copy(topology_partial.pairs), p), parity),
+      rest,
+    )
+  end |>
+  Iterators.flatten |>
+  collect
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return topologies of order ``n``, efficiently computing the permutation sign for each.
+"""
+function generate_topologies(n::Int)
+  empty_top = Topology(PairVector(), 1)
+  return generate_topologies_impl(empty_top, collect(1:(2*n)))
+end
+
 
 """
 $(SIGNATURES)
