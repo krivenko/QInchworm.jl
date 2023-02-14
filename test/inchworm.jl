@@ -56,12 +56,17 @@ ed = KeldyshED.EDCore(H, soi)
     w_idx = f_idx - 1
 
     τ_grid = grid[kd.imaginary_branch]
-    τ_i = τ_grid[i_idx].bpoint
-    τ_w = τ_grid[w_idx].bpoint
-    τ_f = τ_grid[f_idx].bpoint
+    τ_i = τ_grid[i_idx]
+    τ_w = τ_grid[w_idx]
+    τ_f = τ_grid[f_idx]
 
     orders = 0:3
     N_samples = 2^8
+
+    # Extend expansion.P_orders to max of orders
+    for o in range(1, maximum(orders)+1)
+        push!(expansion.P_orders, kd.zero(expansion.P0))
+    end
 
     order_data = InchwormOrderData[]
     for order in 0:3
@@ -108,11 +113,16 @@ end
     f_idx = 2
 
     τ_grid = grid[kd.imaginary_branch]
-    τ_i = τ_grid[i_idx].bpoint
-    τ_f = τ_grid[f_idx].bpoint
+    τ_i = τ_grid[i_idx]
+    τ_f = τ_grid[f_idx]
 
     orders = 0:3
     N_samples = 2^8
+
+    # Extend expansion.P_orders to max of orders
+    for o in range(1, maximum(orders)+1)
+        push!(expansion.P_orders, kd.zero(expansion.P0))
+    end
 
     order_data = InchwormOrderData[]
     for order in 0:3

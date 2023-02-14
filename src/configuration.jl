@@ -135,7 +135,7 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
     dP0 = ppgf.initial_ppgf_derivative(ed, grid.contour.β)
     P = deepcopy(P0)
     P_orders = Vector{typeof(P)}()
-      
+
     if interpolate_ppgf
 
         #P0 = [SplineInterpolatedGF(P0_s) for P0_s in P0]
@@ -344,7 +344,7 @@ struct Configuration
         pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
                   for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
         parity = (-1.0)^diag.n_crossings(diagram.topology)
-        
+
         #@assert diag.parity(diagram.topology) == (-1.0)^diag.n_crossings(diagram.topology)
         #println("topology = $(diagram.topology), parity = $(parity)") # DEBUG
 
@@ -415,6 +415,17 @@ function set_bold_ppgf!(P::PPGF,
         # Boldification must preserve the block structure
         @assert s_i == s_f
         P[s_i][t_f, t_i] = mat
+    end
+end
+
+function set_bold_ppgf!(P::Vector{IncSplineImaginaryTimeGF{ComplexF64, false}},
+                        t_i::kd.TimeGridPoint,
+                        t_f::kd.TimeGridPoint,
+                        result::SectorBlockMatrix)
+    for (s_i, (s_f, mat)) in result
+        # Boldification must preserve the block structure
+        @assert s_i == s_f
+        extend!(P[s_i], mat)
     end
 end
 
@@ -637,7 +648,7 @@ function eval(exp::Expansion, nodes::Nodes, paths::Vector{Vector{Tuple{Int, Int,
             s_i, s_f, op_mat = path[nidx + 1]
 
             #@assert node.time >= prev_node.time
-            
+
             P_interp = bold_P ? exp.P[s_i](node.time, prev_node.time) : exp.P0[s_i](node.time, prev_node.time)
 
             mat = im * op_mat * P_interp * mat
@@ -673,7 +684,7 @@ function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
 
             #@assert !(node.time < prev_node.time)
             #@assert node.time >= prev_node.time # BROKEN FIXME ?
-            
+
             P_interp = bold_P ?
                 exp.P[s_i](node.time, prev_node.time) :
                 exp.P0[s_i](node.time, prev_node.time)

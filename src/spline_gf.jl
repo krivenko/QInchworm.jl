@@ -195,6 +195,15 @@ end
 Base.eltype(::Type{<:IncSplineImaginaryTimeGF{T, scalar}}) where {T, scalar} = T
 Base.eltype(X::IncSplineImaginaryTimeGF) = eltype(typeof(X))
 
+function Base.zero(G_int::IncSplineImaginaryTimeGF{T, false}) where {T <: Number}
+    norb = kd.norbitals(G_int.GF)
+    IncSplineImaginaryTimeGF(kd.zero(G_int.GF), zeros(T, (norb, norb)))
+end
+
+function Base.zero(G_int::IncSplineImaginaryTimeGF{T, true}) where {T <: Number}
+    IncSplineImaginaryTimeGF(kd.zero(G_int.GF), zero(T))
+end
+
 function Base.getproperty(G_int::IncSplineImaginaryTimeGF, p::Symbol)
     (p == :grid) ? G_int.GF.grid : getfield(G_int, p)
 end

@@ -189,7 +189,7 @@ function inchworm_matsubara!(expansion::Expansion,
         comm = MPI.COMM_WORLD
         comm_size = MPI.Comm_size(comm)
         N_split = split_count(N_samples, comm_size)
-        
+
         println(logo)
         println("N_tau = ", length(grid))
         println("orders_bare = ", orders_bare)
@@ -201,12 +201,12 @@ function inchworm_matsubara!(expansion::Expansion,
 
     @assert N_samples == 0 || N_samples == 2^Int(log2(N_samples))
 
-    # Extend expansion.P_order to max of orders, orders_bare
+    # Extend expansion.P_orders to max of orders, orders_bare
     max_order = maximum([maximum(orders), maximum(orders_bare)])
     for o in range(1, max_order+1)
         push!(expansion.P_orders, kd.zero(expansion.P0))
     end
-    
+
     if inch_print(); println("Inch step 1 (bare)"); end
 
     if inch_print(); println("= Bare Diagrams ========"); end
@@ -218,7 +218,7 @@ function inchworm_matsubara!(expansion::Expansion,
         configurations, diagrams =
             teval.get_configurations_and_diagrams(
                 expansion, all_diagrams, 0)
-        
+
         if inch_print()
             println("order $(order), N_diag $(length(diagrams))")
             #println("diagram topologies")
@@ -277,7 +277,7 @@ function inchworm_matsubara!(expansion::Expansion,
 
     iter = 2:length(grid)-1
     iter = inch_print() ? ProgressBar(iter) : iter
-    
+
     τ_i = grid[1]
     for n in iter
         #if inch_print(); println("Inch step $n of $(length(grid)-1)"); end
