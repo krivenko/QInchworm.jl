@@ -1,3 +1,6 @@
+
+using MPI; MPI.Init()
+
 using Test
 
 import Random
