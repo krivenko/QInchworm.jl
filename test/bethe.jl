@@ -1,45 +1,57 @@
+""" Solve non-interacting two fermion AIM coupled to
+semi-circular (Behte lattice) hybridization functions.
+
+Performing two kinds of tests:
+
+1. Checking that the InchWorm expansion does not break particle-hole
+symmetry for an AIM with ph-symmetry.
+
+2. Compare to numerically exact results for the 1st, 2nd and 3rd
+order dressed self-consistent expansion for the many-body
+density matrix (computed using DLR elsewhere).
+
+Note that the 1,2, 3 order density matrix differs from the
+exact density matrix of the non-interacting system, since
+the low order expansions introduce "artificial" effective
+interactions between hybridization insertions.
+
+Author: Hugo U. R. Strand (2023)
+
+"""
+
 using MPI; MPI.Init()
 
-import MD5
-import HDF5; h5 = HDF5
-
-import PyCall
-
 using Test
-using Printf
 
-import LinearAlgebra; trace = LinearAlgebra.tr
+import LinearAlgebra: diag
 
 import Keldysh; kd = Keldysh
 import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-import QInchworm.ppgf
+import QInchworm.ppgf: normalize!
 import QInchworm.configuration: Expansion, InteractionPair
-import QInchworm.topology_eval: get_topologies_at_order,
-                                get_diagrams_at_order
-import QInchworm.inchworm: InchwormOrderData,
-                           inchworm_step,
-                           inchworm_step_bare,
-                           inchworm_matsubara!
+import QInchworm.inchworm: inchworm_matsubara!
+
 import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
 using  QInchworm.utility: inch_print
 
+using QuadGK: quadgk
+
 function semi_circular_g_tau(times, t, h, β)
 
-    np = PyCall.pyimport("numpy")
-    kernel = PyCall.pyimport("pydlr").kernel
-    quad = PyCall.pyimport("scipy.integrate").quad
-
-    #def eval_semi_circ_tau(tau, beta, h, t):
-    #    I = lambda x : -2 / np.pi / t**2 * kernel(np.array([tau])/beta, beta*np.array([x]))[0,0]
-    #    g, res = quad(I, -t+h, t+h, weight='alg', wvar=(0.5, 0.5))
-    #    return g
-
     g_out = zero(times)
+
+    function kernel(t, w)
+        if w > 0
+            return exp(-t * w) / (1 + exp(-w))
+        else
+            return exp((1 - t)*w) / (1 + exp(w))
+        end
+    end
     
-    for (i, tau) in enumerate(times)
-        I = x -> -2 / np.pi / t^2 * kernel([tau/β], [β*x])[1, 1]
-        g, res = quad(I, -t+h, t+h, weight="alg", wvar=(0.5, 0.5))
+    for (i, τ) in enumerate(times)
+        I = x -> -2 / pi / t^2 * kernel(τ/β, β*x) * sqrt(x + t - h) * sqrt(t + h - x)
+        g, err = quadgk(I, -t+h, t+h; rtol=1e-12)
         g_out[i] = g
     end
 
@@ -90,8 +102,6 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples, μ_bethe)
     V = 0.5
     μ = 0.0
     t_bethe = 1.0
-    #μ_bethe = 0.25
-    #μ_bethe = 0.0
 
     # -- ED solution
 
@@ -116,11 +126,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples, μ_bethe)
                 [-imag(t1.bpoint.val - t2.bpoint.val)],
                 t_bethe, μ_bethe, β)[1],
         grid, 1, kd.fermionic, true)
-    
-    #println("=========================")
-    #@show Δ
-    #println("=========================")
-    
+        
     function reverse(g::kd.ImaginaryTimeGF)
         g_rev = deepcopy(g)
         τ_0, τ_β = first(g.grid), last(g.grid)
@@ -129,10 +135,6 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples, μ_bethe)
         end
         return g_rev
     end
-
-    #println("=========================")
-    #@show reverse(Δ)
-    #println("=========================")
 
     # -- Pseudo Particle Strong Coupling Expansion
 
@@ -146,7 +148,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples, μ_bethe)
     
     inchworm_matsubara!(expansion, grid, orders, orders_bare, N_samples)
 
-    ppgf.normalize!(expansion.P, β)
+    normalize!(expansion.P, β)
     ρ_wrm = density_matrix(expansion.P, ed)
 
     ρ_exa = get_ρ_exact(ρ_wrm)
@@ -159,12 +161,12 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples, μ_bethe)
     diff_tca = maximum(abs.(ρ_wrm - ρ_tca))
     diff_exa = maximum(abs.(ρ_wrm - ρ_exa))
 
-    ρ_000 = real(LinearAlgebra.diag(ρ_0))
-    ρ_exa = real(LinearAlgebra.diag(ρ_exa))
-    ρ_nca = real(LinearAlgebra.diag(ρ_nca))
-    ρ_oca = real(LinearAlgebra.diag(ρ_oca))
-    ρ_tca = real(LinearAlgebra.diag(ρ_tca))
-    ρ_wrm = real(LinearAlgebra.diag(ρ_wrm))
+    ρ_000 = real(diag(ρ_0))
+    ρ_exa = real(diag(ρ_exa))
+    ρ_nca = real(diag(ρ_nca))
+    ρ_oca = real(diag(ρ_oca))
+    ρ_tca = real(diag(ρ_tca))
+    ρ_wrm = real(diag(ρ_wrm))
     
     if inch_print()
         @show ρ_000        
@@ -199,13 +201,12 @@ if true
         (0:0, 0:0), # ok
         (0:1, 0:0), # ok
         (0:0, 0:1), # ok
-        # -- higher order ph symmetry is broken
         (0:2, 0:0), # ok
         (0:0, 0:2), # ok
         (0:3, 0:0), # ok
         (0:0, 0:3), # ok
-        #(0:4, 0:0), # ok
-        #(0:0, 0:4), # ok
+        #(0:4, 0:0), # ok, but too slow for testing
+        #(0:0, 0:4), # ok, but too slow for testing
         ]
 
     for (orders_bare, orders) in tests
