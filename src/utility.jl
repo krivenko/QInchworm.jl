@@ -101,19 +101,19 @@ end
 
     C.f. https://github.com/stevengj/Sobol.jl/issues/31
 """
-mutable struct BetterSobolSeq{N} <: AbstractSobolSeq{N}
+mutable struct SobolSeqWith0{N} <: AbstractSobolSeq{N}
     seq::SobolSeq{N}
     init_pt_returned::Bool
 
-    BetterSobolSeq(N::Int) = new{N}(SobolSeq(N), false)
+    SobolSeqWith0(N::Int) = new{N}(SobolSeq(N), false)
 end
 
-function next!(bseq::BetterSobolSeq)
-    if bseq.init_pt_returned
-        next!(bseq.seq)
+function next!(s::SobolSeqWith0)
+    if s.init_pt_returned
+        next!(s.seq)
     else
-        bseq.init_pt_returned = true
-        zeros(Float64, ndims(bseq.seq))
+        s.init_pt_returned = true
+        zeros(Float64, ndims(s.seq))
     end
 end
 
@@ -125,11 +125,11 @@ function arbitrary_skip(s::SobolSeq, n::Integer)
     return nothing
 end
 
-function arbitrary_skip(bseq::BetterSobolSeq, n::Integer)
+function arbitrary_skip(s::SobolSeqWith0, n::Integer)
     @assert n >= 0
     if n >= 1
-        bseq.init_pt_returned = true
-        arbitrary_skip(bseq.seq, n-1)
+        s.init_pt_returned = true
+        arbitrary_skip(s.seq, n-1)
     end
 end
 
@@ -151,7 +151,7 @@ function mpi_N_skip_and_N_samples_on_rank(N_samples)
     N_skip = sum(N_split[1:comm_rank])
     N_samples_on_rank = N_split[comm_rank+1]
     return N_skip, N_samples_on_rank
-    
+
 end
 
 function inch_print()

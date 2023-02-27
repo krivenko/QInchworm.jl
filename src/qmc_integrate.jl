@@ -5,7 +5,7 @@ using MPI: MPI
 import Keldysh; kd = Keldysh
 
 using QInchworm.utility: get_ref
-using QInchworm.utility: BetterSobolSeq, arbitrary_skip, next!
+using QInchworm.utility: SobolSeqWith0, arbitrary_skip, next!
 using QInchworm.utility: mpi_N_skip_and_N_samples_on_rank
 
 #
@@ -139,7 +139,7 @@ function qmc_integral_mpi(f, init = zero(typeof(f(trans(0))));
         # -- For supporting the qmc_integrate.jl tests
         res = MPI.Allreduce(res, +, MPI.COMM_WORLD)
     end
-    
+
     (p_norm / N) * res
 end
 
@@ -212,7 +212,7 @@ function qmc_time_ordered_integral(f,
                                    t_i::kd.BranchPoint,
                                    t_f::kd.BranchPoint;
                                    init = zero(contour_function_return_type(f)),
-                                   seq = BetterSobolSeq(d),
+                                   seq = SobolSeqWith0(d),
                                    τ::Real,
                                    N::Int)
     @assert kd.heaviside(c, t_f, t_i)
@@ -267,7 +267,7 @@ function qmc_time_ordered_integral_n_samples(
     t_i::kd.BranchPoint,
     t_f::kd.BranchPoint;
     init = zero(contour_function_return_type(f)),
-    seq = BetterSobolSeq(d),
+    seq = SobolSeqWith0(d),
     τ::Real,
     N_samples::Int)
     @assert kd.heaviside(c, t_f, t_i)
@@ -318,7 +318,7 @@ function qmc_time_ordered_integral_sort(f,
                                         t_i::kd.BranchPoint,
                                         t_f::kd.BranchPoint;
                                         init = zero(contour_function_return_type(f)),
-                                        seq = BetterSobolSeq(d),
+                                        seq = SobolSeqWith0(d),
                                         N::Int)
     @assert kd.heaviside(c, t_f, t_i)
 
@@ -363,7 +363,7 @@ function qmc_time_ordered_integral_root(f,
                                         t_i::kd.BranchPoint,
                                         t_f::kd.BranchPoint;
                                         init = zero(contour_function_return_type(f)),
-                                        seq = BetterSobolSeq(d),
+                                        seq = SobolSeqWith0(d),
                                         N::Int)
     @assert kd.heaviside(c, t_f, t_i)
 
@@ -436,7 +436,7 @@ function qmc_inchworm_integral_root(f,
                                     t_w::kd.BranchPoint,
                                     t_f::kd.BranchPoint;
                                     init = zero(contour_function_return_type(f)),
-                                    seq = BetterSobolSeq(d_bold + d_bare),
+                                    seq = SobolSeqWith0(d_bold + d_bare),
                                     N::Int)
     @assert kd.heaviside(c, t_w, t_i)
     @assert kd.heaviside(c, t_f, t_w)

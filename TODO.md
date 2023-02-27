@@ -1,7 +1,6 @@
 TODO list for QInchworm
 =======================
 
-* Rename `BetterSobolSeq` -> `SobolSeqWith0`.
 * Consider renaming `InchwormOrderData` -> `ExpansionOrderData`.
   This data structure is now used in both inchworm propagation
   (PPGF accumulation) and GF accumulation.

@@ -14,7 +14,7 @@ using QInchworm.ppgf: partition_function
 import QInchworm; teval = QInchworm.topology_eval
 import QInchworm.diagrammatics
 
-using QInchworm.utility: BetterSobolSeq, next!
+using QInchworm.utility: SobolSeqWith0, next!
 using QInchworm.utility: inch_print
 using QInchworm.utility: mpi_N_skip_and_N_samples_on_rank, split_count
 
@@ -104,7 +104,7 @@ function inchworm_step(expansion::Expansion,
             d_bare = od.k_attached
             d_bold = 2 * od.order - od.k_attached
             teval.update_inch_times!(od.configurations, t_i, t_w, t_f)
-            seq = BetterSobolSeq(2 * od.order)
+            seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0
                 order_contrib = qmc_inchworm_integral_root(
                     t -> teval.eval(expansion, od.diagrams, od.configurations, t),
@@ -162,7 +162,7 @@ function inchworm_step_bare(expansion::Expansion,
         else
             teval.update_inch_times!(od.configurations, t_i, t_i, t_f)
             d = 2 * od.order
-            seq = BetterSobolSeq(d)
+            seq = SobolSeqWith0(d)
             if od.N_samples > 0
                 order_contrib = qmc_time_ordered_integral_root(
                     t -> teval.eval(expansion, od.diagrams, od.configurations, t),
@@ -356,7 +356,7 @@ function compute_gf_matsubara_point(expansion::Expansion,
 
             teval.update_corr_times!(od.configurations, t_cdag, t_c, t_f)
 
-            seq = BetterSobolSeq(2 * od.order)
+            seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0
                 result += LinearAlgebra.tr(qmc_inchworm_integral_root(
                     t -> teval.eval(expansion, od.diagrams, od.configurations, t),
