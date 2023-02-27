@@ -316,8 +316,8 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
 
     @testset "qmc_inchworm_integral_root()" begin
 
-        @testset "d_bold = 0, d_bare = 3, constant integrand" begin
-            let d_bold = 0, d_bare = 3, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 2^19
+        @testset "d_before = 0, d_after = 3, constant integrand" begin
+            let d_before = 0, d_after = 3, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 2^19
                 function f(t)
                     @assert kd.heaviside(c, t_f, t[1])
                     @assert kd.heaviside(c, t[1], t[2])
@@ -325,13 +325,13 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
                     @assert kd.heaviside(c, t[3], t_w)
                     1.0
                 end
-                val = qmc_inchworm_integral_root(f, d_bold, d_bare, c, t_i, t_w, t_f; N=N)
+                val = qmc_inchworm_integral_root(f, d_before, d_after, c, t_i, t_w, t_f; N=N)
                 @test isapprox(val, 0.0208333im, rtol=1e-5)
             end
         end
 
-        @testset "d_bold = 0, d_bare = 3, multilinear integrand" begin
-            let d_bold = 0, d_bare = 3, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 2^19
+        @testset "d_before = 0, d_after = 3, multilinear integrand" begin
+            let d_before = 0, d_after = 3, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 2^19
                 function f(t)
                     @assert kd.heaviside(c, t_f, t[1])
                     @assert kd.heaviside(c, t[1], t[2])
@@ -339,13 +339,13 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
                     @assert kd.heaviside(c, t[3], t_w)
                     mapreduce(tau -> tau.val, *, t)
                 end
-                val = qmc_inchworm_integral_root(f, d_bold, d_bare, c, t_i, t_w, t_f; N=N)
+                val = qmc_inchworm_integral_root(f, d_before, d_after, c, t_i, t_w, t_f; N=N)
                 @test isapprox(val, -1.59928, rtol=1e-5)
             end
         end
 
-        @testset "d_bold = 3, d_bare = 2, constant integrand" begin
-            let d_bold = 3, d_bare = 2, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 2^20
+        @testset "d_before = 3, d_after = 2, constant integrand" begin
+            let d_before = 3, d_after = 2, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 2^20
                 function f(t)
                     @assert kd.heaviside(c, t_f, t[1])
                     @assert kd.heaviside(c, t[1], t[2])
@@ -356,13 +356,13 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
                     @assert kd.heaviside(c, t[5], t_i)
                     1.0
                 end
-                val = qmc_inchworm_integral_root(f, d_bold, d_bare, c, t_i, t_w, t_f; N=N)
+                val = qmc_inchworm_integral_root(f, d_before, d_after, c, t_i, t_w, t_f; N=N)
                 @test isapprox(val, -1.23581im, rtol=1e-5)
             end
         end
 
-        @testset "d_bold = 3, d_bare = 2, multilinear integrand" begin
-            let d_bold = 3, d_bare = 2, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 2^20
+        @testset "d_before = 3, d_after = 2, multilinear integrand" begin
+            let d_before = 3, d_after = 2, c = contour, t_i = c(1.1), t_w = c(5.0), t_f = c(5.5), N = 2^20
                 function f(t)
                     @assert kd.heaviside(c, t_f, t[1])
                     @assert kd.heaviside(c, t[1], t[2])
@@ -373,7 +373,7 @@ import QInchworm.qmc_integrate: qmc_time_ordered_integral,
                     @assert kd.heaviside(c, t[5], t_i)
                     mapreduce(tau -> tau.val, *, t)
                 end
-                val = qmc_inchworm_integral_root(f, d_bold, d_bare, c, t_i, t_w, t_f; N=N)
+                val = qmc_inchworm_integral_root(f, d_before, d_after, c, t_i, t_w, t_f; N=N)
                 @test isapprox(val, -192.306, rtol=1e-5)
             end
         end

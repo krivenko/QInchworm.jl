@@ -40,8 +40,8 @@ $(TYPEDFIELDS)
 struct ExpansionOrderInputData
     "Expansion order"
     order::Int64
-    "Number of points in the attached region"
-    k_attached::Int64
+    "Number of points in the after-t_w region"
+    n_pts_after::Int64
     "List of diagrams contributing at this expansion order"
     diagrams::teval.Diagrams
     "Precomputed hilbert space paths"
@@ -101,14 +101,14 @@ function inchworm_step(expansion::Expansion,
             order_contrib = teval.eval(
                 expansion, [n_f, n_w, n_i], kd.BranchPoint[], od.diagrams)
         else
-            d_bare = od.k_attached
-            d_bold = 2 * od.order - od.k_attached
+            d_after = od.n_pts_after
+            d_before = 2 * od.order - od.n_pts_after
             teval.update_inch_times!(od.configurations, t_i, t_w, t_f)
             seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0
                 order_contrib = qmc_inchworm_integral_root(
                     t -> teval.eval(expansion, od.diagrams, od.configurations, t),
-                    d_bold, d_bare,
+                    d_before, d_after,
                     c, t_i, t_w, t_f,
                     init = deepcopy(zero_sector_block_matrix),
                     seq = seq,
@@ -262,18 +262,18 @@ function inchworm_matsubara!(expansion::Expansion,
     # The rest of inching
     empty!(order_data)
     for order in orders
-        #for k_attached = 1:max(1, 2*order-1)
-        for k_attached = 1:1
-            d_bold = 2 * order - k_attached
-            topologies = teval.get_topologies_at_order(order, k_attached)
+        #for n_pts_after = 1:max(1, 2*order-1)
+        for n_pts_after = 1:1
+            d_before = 2 * order - n_pts_after
+            topologies = teval.get_topologies_at_order(order, n_pts_after)
             all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
             configurations, diagrams =
                 teval.get_configurations_and_diagrams(
-                    expansion, all_diagrams, d_bold)
+                    expansion, all_diagrams, d_before)
 
             if inch_print()
-                println("order $(order), k_attached $(k_attached), N_diag $(length(diagrams))")
-                #println("k_attached $(k_attached)")
+                println("order $(order), n_pts_after $(n_pts_after), N_diag $(length(diagrams))")
+                #println("n_pts_after $(n_pts_after)")
                 #println("diagram topologies")
                 #for top in topologies
                 #    println("top = $(top), ncross = $(diagrammatics.n_crossings(top)), parity = $(diagrammatics.parity(top))")
@@ -285,7 +285,7 @@ function inchworm_matsubara!(expansion::Expansion,
 
             if length(configurations) > 0
                 push!(order_data, ExpansionOrderInputData(
-                    order, k_attached, diagrams, configurations, N_samples))
+                    order, n_pts_after, diagrams, configurations, N_samples))
             end
         end
     end
@@ -351,8 +351,8 @@ function compute_gf_matsubara_point(expansion::Expansion,
                 expansion, [n_f, n_cdag, n_c], kd.BranchPoint[], od.diagrams
             ))
         else
-            d_bare = od.k_attached
-            d_bold = 2 * od.order - od.k_attached
+            d_after = od.n_pts_after
+            d_before = 2 * od.order - od.n_pts_after
 
             teval.update_corr_times!(od.configurations, t_cdag, t_c, t_f)
 
@@ -360,7 +360,7 @@ function compute_gf_matsubara_point(expansion::Expansion,
             if od.N_samples > 0
                 result += LinearAlgebra.tr(qmc_inchworm_integral_root(
                     t -> teval.eval(expansion, od.diagrams, od.configurations, t),
-                    d_bold, d_bare,
+                    d_before, d_after,
                     grid.contour, t_i, t_c, t_f,
                     init = deepcopy(zero_sector_block_matrix),
                     seq = seq,
@@ -422,12 +422,12 @@ function compute_gf_matsubara(expansion::Expansion,
     # computed here will be excluded for a specific choice of C/C^+.
     common_order_data = ExpansionOrderInputData[]
     for order in orders
-        for k_attached = 1:max(1, 2*order-1)
-            d_bold = 2 * order - k_attached
-            topologies = teval.get_topologies_at_order(order, k_attached)
+        for n_pts_after = 1:max(1, 2*order-1)
+            d_before = 2 * order - n_pts_after
+            topologies = teval.get_topologies_at_order(order, n_pts_after)
             all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
             push!(common_order_data, ExpansionOrderInputData(
-                order, k_attached, all_diagrams, [], N_samples))
+                order, n_pts_after, all_diagrams, [], N_samples))
         end
     end
 
@@ -440,13 +440,13 @@ function compute_gf_matsubara(expansion::Expansion,
             configurations, diagrams = teval.get_configurations_and_diagrams(
                 expansion,
                 od.diagrams,
-                2 * od.order - od.k_attached,
+                2 * od.order - od.n_pts_after,
                 op_pair_idx = op_pair_idx
             )
 
             if length(configurations) > 0
                 push!(order_data, ExpansionOrderInputData(
-                    od.order, od.k_attached, diagrams, configurations, N_samples))
+                    od.order, od.n_pts_after, diagrams, configurations, N_samples))
             end
         end
 

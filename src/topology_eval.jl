@@ -167,13 +167,13 @@ end
 
 function get_configurations_and_diagrams(expansion::cfg.Expansion,
                                          diagrams::Diagrams,
-                                         d_bold::Int;
+                                         d_before::Int;
                                          op_pair_idx::Union{Int, Nothing} = nothing)::Tuple{cfg.Configurations, Diagrams}
     diagrams_out = Diagrams()
     configurations = cfg.Configurations()
     for (didx, diagram) in enumerate(diagrams)
-        configuration = op_pair_idx === nothing ? Configuration(diagram, expansion, d_bold) :
-                                                  Configuration(diagram, expansion, d_bold, op_pair_idx)
+        configuration = op_pair_idx === nothing ? Configuration(diagram, expansion, d_before) :
+                                                  Configuration(diagram, expansion, d_before, op_pair_idx)
         if length(configuration.paths) > 0
             push!(configurations, configuration)
             push!(diagrams_out, diagram)

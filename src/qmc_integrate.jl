@@ -398,8 +398,8 @@ raw"""
 
     \int_{t_w}^{t_f} dt_1
     \int_{t_w}^{t_1} dt_2 \ldots
-    \int_{t_w}^{t_{d_{bare}-1}} dt_{d_{bare}}
-    \int_{t_i}^{t_w} dt_{d_{bare}+1} \ldots
+    \int_{t_w}^{t_{d_{after}-1}} dt_{d_{after}}
+    \int_{t_i}^{t_w} dt_{d_{after}+1} \ldots
     \int_{t_i}^{t_{d-2}} dt_{d-1}
     \int_{t_i}^{t_{d-1}} dt_d
         f(t_1, t_2, \ldots, t_d)
@@ -407,17 +407,17 @@ raw"""
     using the Sobol sequence for quasi-random sampling and a two-piece `Root`
     transform.
     The total dimension of the domain `d` is a sum of the amount of integration
-    variables in the bare (`d_{bare}`) and the bold (`d_{bold}`) components.
+    variables in the 'before' (`d_{before}`) and the after (`d_{after}`) components.
 
 Parameters
 ----------
 
 f : Integrand.
-d_bold : Dimensionality of the 'bold' component of the integration domain.
-d_bare : Dimensionality of the 'bare' component of the integration domain.
+d_before : Dimensionality of the before-t_w component of the integration domain.
+d_after : Dimensionality of the after-t_w component of the integration domain.
 c : Time contour to integrate over.
 t_i : Starting time point on the contour.
-t_w : 'Worm' time point on the contour separating 'bold' and 'bare' parts.
+t_w : 'Worm' time point on the contour separating 'before' and 'after' parts.
 t_f : Final time point on the contour.
 init : Initial value of the integral.
 seq : Quasi-random sequence generator.
@@ -429,19 +429,19 @@ Returns
 Value of the integral.
 """
 function qmc_inchworm_integral_root(f,
-                                    d_bold::Int,
-                                    d_bare::Int,
+                                    d_before::Int,
+                                    d_after::Int,
                                     c::kd.AbstractContour,
                                     t_i::kd.BranchPoint,
                                     t_w::kd.BranchPoint,
                                     t_f::kd.BranchPoint;
                                     init = zero(contour_function_return_type(f)),
-                                    seq = SobolSeqWith0(d_bold + d_bare),
+                                    seq = SobolSeqWith0(d_before + d_after),
                                     N::Int)
     @assert kd.heaviside(c, t_w, t_i)
     @assert kd.heaviside(c, t_f, t_w)
-    @assert d_bold >= 0
-    @assert d_bare >= 1
+    @assert d_before >= 0
+    @assert d_after >= 1
 
     u_i = get_ref(c, t_i)
     u_w = get_ref(c, t_w)
@@ -450,38 +450,38 @@ function qmc_inchworm_integral_root(f,
     ref_diff_wi = u_w - u_i
     ref_diff_fw = u_f - u_w
 
-    d = d_bold + d_bare
+    d = d_before + d_after
 
     # QUESTION: Currently we apply the two-piece transformation to the same
     # quasi-random sequence of points in d dimensions. Would it make more sense
-    # to use two independent sequences with dimensions d_bare and d_bold?
+    # to use two independent sequences with dimensions d_after and d_before?
 
     u = Vector{Float64}(undef, d)
     # x -> u transformation
     trans = x -> begin
         # Points in the bare region
-        u[1] = x[1] ^ (1.0 / d_bare)
-        for s = 2:d_bare
-            u[s] = u[s - 1] * (x[s] ^ (1.0 / (d_bare - s + 1)))
+        u[1] = x[1] ^ (1.0 / d_after)
+        for s = 2:d_after
+            u[s] = u[s - 1] * (x[s] ^ (1.0 / (d_after - s + 1)))
         end
-        u[1:d_bare] *= ref_diff_fw
-        u[1:d_bare] .+= u_w
+        u[1:d_after] *= ref_diff_fw
+        u[1:d_after] .+= u_w
 
-        d_bold == 0 && return u
+        d_before == 0 && return u
 
         # Points in the bold region
-        u[d_bare + 1] = x[d_bare + 1] ^ (1.0 / d_bold)
-        for s = (d_bare + 2):d
+        u[d_after + 1] = x[d_after + 1] ^ (1.0 / d_before)
+        for s = (d_after + 2):d
             u[s] = u[s - 1] * (x[s] ^ (1.0 / (d - s + 1)))
         end
-        u[d_bare+1:d] *= ref_diff_wi
-        u[d_bare+1:d] .+= u_i
+        u[d_after+1:d] *= ref_diff_wi
+        u[d_after+1:d] .+= u_i
 
         return u
     end
 
-    p_norm = (ref_diff_fw ^ d_bare) / factorial(d_bare) *
-             (ref_diff_wi ^ d_bold) / factorial(d_bold)
+    p_norm = (ref_diff_fw ^ d_after) / factorial(d_after) *
+             (ref_diff_wi ^ d_before) / factorial(d_before)
 
     qmc_integral_mpi(init,
                  p = u -> 1.0,

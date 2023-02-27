@@ -360,14 +360,14 @@ struct Configuration
         parity = 1.0
         return new(nodes, pairs, parity, [], paths, has_inch_node, 3, nothing, n_idxs)
     end
-    function Configuration(diagram::Diagram, exp::Expansion, d_bold::Int)
+    function Configuration(diagram::Diagram, exp::Expansion, d_before::Int)
 
         contour = first(exp.P).grid.contour
         time = contour(0.0)
         n_f, n_w, n_i = Node(time), InchNode(time), Node(time)
 
-        has_inch_node = d_bold > 0
-        inch_node_idx = d_bold + 2
+        has_inch_node = d_before > 0
+        inch_node_idx = d_before + 2
         single_nodes = has_inch_node ? [n_f, n_w, n_i] : [n_f, n_i]
 
         pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
@@ -390,7 +390,7 @@ struct Configuration
 
         if length(pairnodes) > 0
             if has_inch_node
-                nodes = vcat([n_i], pairnodes[1:d_bold], [n_w], pairnodes[d_bold+1:end], [n_f])
+                nodes = vcat([n_i], pairnodes[1:d_before], [n_w], pairnodes[d_before+1:end], [n_f])
             else
                 nodes = vcat([n_i], pairnodes, [n_f])
             end
@@ -403,7 +403,7 @@ struct Configuration
 
         return new(nodes, pairs, parity, [], paths, has_inch_node, inch_node_idx, nothing, n_idxs)
     end
-    function Configuration(diagram::Diagram, exp::Expansion, d_bold::Int, op_pair_index::Int)
+    function Configuration(diagram::Diagram, exp::Expansion, d_before::Int, op_pair_index::Int)
         contour = first(exp.P).grid.contour
         time = contour(0.0)
 
@@ -428,7 +428,7 @@ struct Configuration
         end
 
         if length(pairnodes) > 0
-            nodes = vcat([n_cdag], pairnodes[1:d_bold], [n_c], pairnodes[d_bold+1:end], [n_f])
+            nodes = vcat([n_cdag], pairnodes[1:d_before], [n_c], pairnodes[d_before+1:end], [n_f])
         else
             nodes = single_nodes
         end
@@ -436,7 +436,7 @@ struct Configuration
         paths = get_paths(exp, nodes)
         n_idxs = get_pair_node_idxs(nodes)
 
-        return new(nodes, pairs, parity, [], paths, false, 0, (1, d_bold + 2), n_idxs)
+        return new(nodes, pairs, parity, [], paths, false, 0, (1, d_before + 2), n_idxs)
     end
 end
 

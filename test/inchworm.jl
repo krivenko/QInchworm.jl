@@ -71,15 +71,15 @@ ed = KeldyshED.EDCore(H, soi)
 
     order_data = ExpansionOrderInputData[]
     for order in 0:3
-        for k_attached = 1:max(1, 2*order-1)
-            d_bold = 2 * order - k_attached
+        for n_pts_after = 1:max(1, 2*order-1)
+            d_before = 2 * order - n_pts_after
             topologies = get_topologies_at_order(order, 1)
             all_diagrams = get_diagrams_at_order(expansion, topologies, order)
             configurations, diagrams = get_configurations_and_diagrams(
-                expansion, all_diagrams, d_bold)
+                expansion, all_diagrams, d_before)
             if length(configurations) > 0
                 push!(order_data, ExpansionOrderInputData(order,
-                                                          k_attached,
+                                                          n_pts_after,
                                                           diagrams,
                                                           configurations,
                                                           N_samples))
