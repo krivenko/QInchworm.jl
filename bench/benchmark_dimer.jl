@@ -18,10 +18,7 @@ import QInchworm.configuration: Expansion, InteractionPair
 import QInchworm.topology_eval: get_topologies_at_order,
                                 get_diagrams_at_order
 
-import QInchworm.inchworm: InchwormOrderData,
-                           inchworm_step,
-                           inchworm_step_bare,
-                           inchworm_matsubara!
+import QInchworm.inchworm: inchworm_matsubara!
 
 import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
 import QInchworm.spline_gf: SplineInterpolatedGF
@@ -31,7 +28,7 @@ using  QInchworm.utility: inch_print
 function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     if inch_print(); @show interpolate_gfs; end
-    
+
     β = 1.0
     ϵ_1, ϵ_2 = 0.0, 2.0
     V = 0.5
@@ -41,20 +38,20 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     H_dimer = ϵ_1 * op.n(1) + ϵ_2 * op.n(2) + V * ( op.c_dag(1) * op.c(2) + op.c_dag(2) * op.c(1) )
     soi_dimer = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
     ed_dimer = KeldyshED.EDCore(H_dimer, soi_dimer)
-    
+
     # -- Impurity problem
 
     contour = kd.ImaginaryContour(β=β);
     grid = kd.ImaginaryTimeGrid(contour, ntau);
-    
+
     H = ϵ_1 * op.n(1)
     soi = KeldyshED.Hilbert.SetOfIndices([[1]])
     ed = KeldyshED.EDCore(H, soi)
 
     ρ_ref = Array{ComplexF64}( reduced_density_matrix(ed_dimer, ed, β) )
-    
+
     # -- Hybridization propagator
-    
+
     Δ = kd.ImaginaryTimeGF(
         (t1, t2) -> -1.0im * V^2 *
             (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ_2, contour.β)) *
@@ -69,7 +66,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
         end
         return g_rev
     end
-    
+
     # -- Pseudo Particle Strong Coupling Expansion
 
     if interpolate_gfs
@@ -81,9 +78,9 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
         ip_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
         expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
     end
-    
+
     ρ_0 = density_matrix(expansion.P0, ed)
-    
+
     inchworm_matsubara!(expansion,
                         grid,
                         orders,
@@ -108,7 +105,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
         @printf "ρ_0   = %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2])
         @printf "ρ_ref = %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2])
         @printf "ρ_wrm = %16.16f %16.16f \n" real(ρ_wrm[1, 1]) real(ρ_wrm[2, 2])
-    
+
         @show diff
     end
     return diff
@@ -120,7 +117,7 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
     comm = MPI.COMM_WORLD
     comm_size = MPI.Comm_size(comm)
     comm_rank = MPI.Comm_rank(comm)
-    
+
     orders_bare = orders
 
     diff_0 = run_dimer(ntau, orders, orders_bare, 0, interpolate_gfs=false)
@@ -133,27 +130,27 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
 
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, diffs)))
         filename = "data_ntau_$(ntau)_md5_$(id).h5"
-        
+
         @show filename
         fid = h5.h5open(filename, "w")
-        
+
         g = h5.create_group(fid, "data")
-        
+
         h5.attributes(g)["ntau"] = ntau
         h5.attributes(g)["diff_0"] = diff_0
-        
+
         g["orders"] = collect(orders)
         g["orders_bare"] = collect(orders_bare)
         g["N_sampless"] = N_sampless
-        
+
         g["diffs"] = diffs
-        
+
         h5.close(fid)
     end
-        
-    
+
+
     return
-    
+
 end
 
 MPI.Init()

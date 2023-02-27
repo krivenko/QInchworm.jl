@@ -12,7 +12,7 @@ import QInchworm.topology_eval: get_topologies_at_order,
                                 get_diagrams_at_order,
                                 get_configurations_and_diagrams
 
-import QInchworm.inchworm: InchwormOrderData,
+import QInchworm.inchworm: ExpansionOrderInputData,
                            inchworm_step,
                            inchworm_step_bare,
                            inchworm_matsubara!,
@@ -69,7 +69,7 @@ ed = KeldyshED.EDCore(H, soi)
         push!(expansion.P_orders, kd.zero(expansion.P0))
     end
 
-    order_data = InchwormOrderData[]
+    order_data = ExpansionOrderInputData[]
     for order in 0:3
         for k_attached = 1:max(1, 2*order-1)
             d_bold = 2 * order - k_attached
@@ -78,11 +78,11 @@ ed = KeldyshED.EDCore(H, soi)
             configurations, diagrams = get_configurations_and_diagrams(
                 expansion, all_diagrams, d_bold)
             if length(configurations) > 0
-                push!(order_data, InchwormOrderData(order,
-                                                    k_attached,
-                                                    diagrams,
-                                                    configurations,
-                                                    N_samples))
+                push!(order_data, ExpansionOrderInputData(order,
+                                                          k_attached,
+                                                          diagrams,
+                                                          configurations,
+                                                          N_samples))
             end
         end
     end
@@ -125,18 +125,18 @@ end
         push!(expansion.P_orders, kd.zero(expansion.P0))
     end
 
-    order_data = InchwormOrderData[]
+    order_data = ExpansionOrderInputData[]
     for order in 0:3
         topologies = get_topologies_at_order(order)
         all_diagrams = get_diagrams_at_order(expansion, topologies, order)
         configurations, diagrams = get_configurations_and_diagrams(
             expansion, all_diagrams, 0)
         if length(configurations) > 0
-            push!(order_data, InchwormOrderData(order,
-                                                1,
-                                                diagrams,
-                                                configurations,
-                                                N_samples))
+            push!(order_data, ExpansionOrderInputData(order,
+                                                      1,
+                                                      diagrams,
+                                                      configurations,
+                                                      N_samples))
         end
     end
 

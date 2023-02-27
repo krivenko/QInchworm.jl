@@ -15,10 +15,7 @@ import QInchworm.ppgf
 import QInchworm.configuration: Expansion, InteractionPair
 import QInchworm.topology_eval: get_topologies_at_order,
                                 get_diagrams_at_order
-import QInchworm.inchworm: InchwormOrderData,
-                           inchworm_step,
-                           inchworm_step_bare,
-                           inchworm_matsubara!
+import QInchworm.inchworm: inchworm_matsubara!
 import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
 using  QInchworm.utility: inch_print
 
@@ -34,26 +31,26 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
     # -- ED solution
 
     H_imp = U * op.n(1) * op.n(2) + ϵ_1 * (op.n(1) + op.n(2))
-    
-    H_dimer = H_imp + ϵ_2 * (op.n(3) + op.n(4)) + 
-        V_1 * ( op.c_dag(1) * op.c(3) + op.c_dag(3) * op.c(1) ) + 
+
+    H_dimer = H_imp + ϵ_2 * (op.n(3) + op.n(4)) +
+        V_1 * ( op.c_dag(1) * op.c(3) + op.c_dag(3) * op.c(1) ) +
         V_2 * ( op.c_dag(2) * op.c(4) + op.c_dag(4) * op.c(2) )
-                             
+
     soi_dimer = KeldyshED.Hilbert.SetOfIndices([[1], [2], [3], [4]])
     ed_dimer = KeldyshED.EDCore(H_dimer, soi_dimer)
-    
+
     # -- Impurity problem
 
     contour = kd.ImaginaryContour(β=β);
     grid = kd.ImaginaryTimeGrid(contour, ntau);
-    
+
     soi = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
     ed = KeldyshED.EDCore(H_imp, soi)
 
     ρ_ref = Array{ComplexF64}( reduced_density_matrix(ed_dimer, ed, β) )
-    
+
     # -- Hybridization propagator
-    
+
     Δ_1 = kd.ImaginaryTimeGF(
         (t1, t2) -> -1.0im * V_1^2 *
             (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ_2, contour.β)) *
@@ -65,7 +62,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
             (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ_2, contour.β)) *
             exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ_2),
         grid, 1, kd.fermionic, true)
-    
+
     function reverse(g::kd.ImaginaryTimeGF)
         g_rev = deepcopy(g)
         τ_0, τ_β = first(g.grid), last(g.grid)
@@ -74,7 +71,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
         end
         return g_rev
     end
-    
+
     # -- Pseudo Particle Strong Coupling Expansion
 
     ip_1_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ_1)
@@ -84,7 +81,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
     expansion = Expansion(ed, grid, [ip_1_fwd, ip_1_bwd, ip_2_fwd, ip_2_bwd])
 
     ρ_0 = density_matrix(expansion.P0, ed)
-    
+
     inchworm_matsubara!(expansion,
                         grid,
                         orders,
@@ -120,7 +117,7 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
 
     diffs = [ run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
               for N_samples in N_sampless ]
-    
+
     if comm_rank == comm_root
         @show diffs
 
@@ -141,10 +138,10 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
         g["N_sampless"] = N_sampless
 
         g["diffs"] = diffs
-        
+
         h5.close(fid)
-        
-    end        
+
+    end
 end
 
 

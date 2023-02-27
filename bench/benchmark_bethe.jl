@@ -20,10 +20,7 @@ import QInchworm.configuration: Expansion, InteractionPair
 import QInchworm.topology_eval: get_topologies_at_order,
                                 get_diagrams_at_order
 
-import QInchworm.inchworm: InchwormOrderData,
-                           inchworm_step,
-                           inchworm_step_bare,
-                           inchworm_matsubara!
+import QInchworm.inchworm: inchworm_matsubara!
 
 import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
 import QInchworm.spline_gf: SplineInterpolatedGF
@@ -42,7 +39,7 @@ function semi_circular_g_tau(times, t, h, β)
     #    return g
 
     g_out = zero(times)
-    
+
     for (i, tau) in enumerate(times)
         I = x -> -2 / np.pi / t^2 * kernel([tau/β], [β*x])[1, 1]
         g, res = quad(I, -t+h, t+h, weight="alg", wvar=(0.5, 0.5))
@@ -56,7 +53,7 @@ end
 function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     if inch_print(); @show interpolate_gfs; end
-    
+
     β = 8.0
     #β = 32.0
     μ = 0.0
@@ -72,20 +69,20 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     contour = kd.ImaginaryContour(β=β);
     grid = kd.ImaginaryTimeGrid(contour, ntau);
-    
+
     H = μ * op.n(1)
     soi = KeldyshED.Hilbert.SetOfIndices([[1]])
     ed = KeldyshED.EDCore(H, soi)
-    
+
     # -- Hybridization propagator
-    
+
     Δ = kd.ImaginaryTimeGF(
         (t1, t2) -> 1.0im * V^2 *
             semi_circular_g_tau(
                 [-imag(t1.bpoint.val - t2.bpoint.val)],
                 t_bethe, μ_bethe, β)[1],
         grid, 1, kd.fermionic, true)
-    
+
     function reverse(g::kd.ImaginaryTimeGF)
         g_rev = deepcopy(g)
         τ_0, τ_β = first(g.grid), last(g.grid)
@@ -94,7 +91,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
         end
         return g_rev
     end
-    
+
     # -- Pseudo Particle Strong Coupling Expansion
 
     if interpolate_gfs
@@ -106,9 +103,9 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
         ip_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
         expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
     end
-    
+
     ρ_0 = density_matrix(expansion.P0, ed)
-    
+
     inchworm_matsubara!(expansion,
                         grid,
                         orders,
@@ -122,7 +119,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     else
         ppgf.normalize!(expansion.P, β) # DEBUG fixme!
         ρ_wrm = density_matrix(expansion.P, ed)
-        
+
         ρ_wrm_orders = [ density_matrix(p, ed) for p in expansion.P_orders ]
         ρ_wrm_orders = [ real(LinearAlgebra.diag(r)) for r in ρ_wrm_orders ]
         norm = sum(sum(ρ_wrm_orders))
@@ -159,7 +156,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
         @printf "ρ_0   = %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2])
         @printf "ρ_ref = %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2])
         @printf "ρ_wrm = %16.16f %16.16f \n" real(ρ_wrm[1, 1]) real(ρ_wrm[2, 2])
-    
+
         @show diff
     end
     return diff, pto_hist
@@ -171,7 +168,7 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
     comm = MPI.COMM_WORLD
     comm_size = MPI.Comm_size(comm)
     comm_rank = MPI.Comm_rank(comm)
-    
+
     orders_bare = orders
 
     diff_0, pto_hist_0 = run_dimer(ntau, orders, orders_bare, 0, interpolate_gfs=false)
@@ -183,34 +180,34 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
 
     diffs = [ el[1] for el in diffs_pto_hists ]
     pto_hists = [ el[2] for el in diffs_pto_hists ]
-    
+
     if comm_rank == comm_root
         @show diffs
 
         max_order = maximum(orders)
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, diffs)))
         filename = "data_bethe_ntau_$(ntau)_maxorder_$(max_order)_md5_$(id).h5"
-        
+
         @show filename
         fid = h5.h5open(filename, "w")
-        
+
         g = h5.create_group(fid, "data")
-        
+
         h5.attributes(g)["ntau"] = ntau
         h5.attributes(g)["diff_0"] = diff_0
-        
+
         g["orders"] = collect(orders)
         g["orders_bare"] = collect(orders_bare)
         g["N_sampless"] = N_sampless
-        
+
         g["diffs"] = diffs
         g["pto_hists"] = reduce(hcat, pto_hists)
-        
+
         h5.close(fid)
     end
-    
+
     return
-    
+
 end
 
 MPI.Init()

@@ -37,7 +37,7 @@ Inchworm algorithm input data specific to a particular expansion order.
 
 $(TYPEDFIELDS)
 """
-struct InchwormOrderData
+struct ExpansionOrderInputData
     "Expansion order"
     order::Int64
     "Number of points in the attached region"
@@ -85,7 +85,7 @@ function inchworm_step(expansion::Expansion,
                        τ_i::kd.TimeGridPoint,
                        τ_w::kd.TimeGridPoint,
                        τ_f::kd.TimeGridPoint,
-                       order_data::Vector{InchwormOrderData})
+                       order_data::Vector{ExpansionOrderInputData})
 
     t_i, t_w, t_f = τ_i.bpoint, τ_w.bpoint, τ_f.bpoint
     n_i, n_w, n_f = Node(t_i), InchNode(t_w), Node(t_f)
@@ -146,7 +146,7 @@ function inchworm_step_bare(expansion::Expansion,
                             c::kd.AbstractContour,
                             τ_i::kd.TimeGridPoint,
                             τ_f::kd.TimeGridPoint,
-                            order_data::Vector{InchwormOrderData})
+                            order_data::Vector{ExpansionOrderInputData})
 
     t_i, t_f = τ_i.bpoint, τ_f.bpoint
     n_i, n_f = Node(t_i), Node(t_f)
@@ -226,7 +226,7 @@ function inchworm_matsubara!(expansion::Expansion,
 
     if inch_print(); println("= Bare Diagrams ========"); end
     # First inchworm step
-    order_data = InchwormOrderData[]
+    order_data = ExpansionOrderInputData[]
     for order in orders_bare
         topologies = teval.get_topologies_at_order(order)
         all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
@@ -246,7 +246,7 @@ function inchworm_matsubara!(expansion::Expansion,
         end
 
         if length(configurations) > 0
-            push!(order_data, InchwormOrderData(
+            push!(order_data, ExpansionOrderInputData(
                 order, 2*order, diagrams, configurations, N_samples))
         end
     end
@@ -284,7 +284,7 @@ function inchworm_matsubara!(expansion::Expansion,
             end
 
             if length(configurations) > 0
-                push!(order_data, InchwormOrderData(
+                push!(order_data, ExpansionOrderInputData(
                     order, k_attached, diagrams, configurations, N_samples))
             end
         end
@@ -329,7 +329,7 @@ function compute_gf_matsubara_point(expansion::Expansion,
                                     grid::kd.ImaginaryTimeGrid,
                                     c_cdag_pair_idx::Int64,
                                     τ_c::kd.TimeGridPoint,
-                                    order_data::Vector{InchwormOrderData})::ComplexF64
+                                    order_data::Vector{ExpansionOrderInputData})::ComplexF64
     t_i, t_cdag, t_c, t_f = grid[1].bpoint,
                             grid[1].bpoint, # C^+ is always placed at τ=0
                             τ_c.bpoint,
@@ -420,13 +420,13 @@ function compute_gf_matsubara(expansion::Expansion,
     # Pre-compute topologies and diagrams: These are common for all
     # pairs of operators in expansion.corr_operators. Some of the diagrams
     # computed here will be excluded for a specific choice of C/C^+.
-    common_order_data = InchwormOrderData[]
+    common_order_data = ExpansionOrderInputData[]
     for order in orders
         for k_attached = 1:max(1, 2*order-1)
             d_bold = 2 * order - k_attached
             topologies = teval.get_topologies_at_order(order, k_attached)
             all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
-            push!(common_order_data, InchwormOrderData(
+            push!(common_order_data, ExpansionOrderInputData(
                 order, k_attached, all_diagrams, [], N_samples))
         end
     end
@@ -435,7 +435,7 @@ function compute_gf_matsubara(expansion::Expansion,
     gf_list = kd.ImaginaryTimeGF{ComplexF64, true}[]
     for (op_pair_idx, (c, cdag)) in enumerate(expansion.corr_operators)
         # Filter diagrams and generate lists of configurations
-        order_data = InchwormOrderData[]
+        order_data = ExpansionOrderInputData[]
         for od in common_order_data
             configurations, diagrams = teval.get_configurations_and_diagrams(
                 expansion,
@@ -445,7 +445,7 @@ function compute_gf_matsubara(expansion::Expansion,
             )
 
             if length(configurations) > 0
-                push!(order_data, InchwormOrderData(
+                push!(order_data, ExpansionOrderInputData(
                     od.order, od.k_attached, diagrams, configurations, N_samples))
             end
         end

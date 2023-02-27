@@ -17,10 +17,7 @@ import QInchworm.ppgf
 import QInchworm.configuration: Expansion, InteractionPair
 import QInchworm.topology_eval: get_topologies_at_order,
                                 get_diagrams_at_order
-import QInchworm.inchworm: InchwormOrderData,
-                           inchworm_step,
-                           inchworm_step_bare,
-                           inchworm_matsubara!
+import QInchworm.inchworm: inchworm_matsubara!
 import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
 using  QInchworm.utility: inch_print
 
@@ -36,7 +33,7 @@ function semi_circular_g_tau(times, t, h, β)
     #    return g
 
     g_out = zero(times)
-    
+
     for (i, tau) in enumerate(times)
         I = x -> -2 / np.pi / t^2 * kernel([tau/β], [β*x])[1, 1]
         g, res = quad(I, -t+h, t+h, weight="alg", wvar=(0.5, 0.5))
@@ -95,15 +92,15 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
     # -- ED solution
 
     H_imp = -μ * (op.n(1) + op.n(2))
-        
+
     # -- Impurity problem
 
     contour = kd.ImaginaryContour(β=β);
     grid = kd.ImaginaryTimeGrid(contour, ntau);
-    
+
     soi = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
     ed = KeldyshED.EDCore(H_imp, soi)
-    
+
     # -- Hybridization propagator
 
     tau = [ real(im * τ.bpoint.val) for τ in grid ]
@@ -115,7 +112,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
                 [-imag(t1.bpoint.val - t2.bpoint.val)],
                 t_bethe, μ_bethe, β)[1],
         grid, 1, kd.fermionic, true)
-        
+
     function reverse(g::kd.ImaginaryTimeGF)
         g_rev = deepcopy(g)
         τ_0, τ_β = first(g.grid), last(g.grid)
@@ -124,7 +121,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
         end
         return g_rev
     end
-    
+
     # -- Pseudo Particle Strong Coupling Expansion
 
     ip_1_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
@@ -134,7 +131,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
     expansion = Expansion(ed, grid, [ip_1_fwd, ip_1_bwd, ip_2_fwd, ip_2_bwd])
 
     ρ_0 = density_matrix(expansion.P0, ed)
-    
+
     inchworm_matsubara!(expansion,
                         grid,
                         orders,
@@ -148,7 +145,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
     ρ_nca = get_ρ_nca(ρ_wrm)
     ρ_oca = get_ρ_oca(ρ_wrm)
     ρ_tca = get_ρ_tca(ρ_wrm)
-    
+
     diff_nca = maximum(abs.(ρ_wrm - ρ_nca))
     diff_oca = maximum(abs.(ρ_wrm - ρ_oca))
     diff_tca = maximum(abs.(ρ_wrm - ρ_tca))
@@ -160,9 +157,9 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
     ρ_oca = real(LinearAlgebra.diag(ρ_oca))
     ρ_tca = real(LinearAlgebra.diag(ρ_tca))
     ρ_wrm = real(LinearAlgebra.diag(ρ_wrm))
-    
+
     if inch_print()
-        @show ρ_000        
+        @show ρ_000
         @show ρ_nca
         @show ρ_oca
         @show ρ_tca
@@ -195,12 +192,12 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
 
     diff_0_exa, diff_0_nca, diff_0_oca, diff_0_tca =
         run_hubbard_dimer(ntau, orders, orders_bare, 0)
-    
+
     for (idx, N_samples) in enumerate(N_sampless)
         diffs_exa[idx], diffs_nca[idx], diffs_oca[idx], diffs_tca[idx] =
             run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
     end
-        
+
     if comm_rank == comm_root
 
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, diffs_exa)))
@@ -226,10 +223,10 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
         g["diffs_nca"] = diffs_nca
         g["diffs_oca"] = diffs_oca
         g["diffs_tca"] = diffs_tca
-        
+
         h5.close(fid)
-        
-    end        
+
+    end
 end
 
 
