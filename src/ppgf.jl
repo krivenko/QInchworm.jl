@@ -1,15 +1,12 @@
 module ppgf
 
-import LinearAlgebra: Diagonal, tr, I, diagm
+using LinearAlgebra: Diagonal, tr, I, diagm
 
-import Keldysh; kd = Keldysh;
-import KeldyshED; ked = KeldyshED;
+using Keldysh; kd = Keldysh;
+using KeldyshED; ked = KeldyshED;
+import KeldyshED: partition_function
 
-import KeldyshED: EDCore, energies, partition_function
-import KeldyshED: c_connection, cdag_connection
-import KeldyshED: c_matrix, cdag_matrix
-
-import QInchworm.spline_gf: SplineInterpolatedGF
+using QInchworm.spline_gf: SplineInterpolatedGF
 using  QInchworm.utility: inch_print
 
 export FullTimePPGF, ImaginaryTimePPGF
@@ -62,19 +59,19 @@ const AllImaginaryTimeGF = Union{
 Compute atomic pseudo-particle Green's function on the time grid
 for a time-independent problem defined by the EDCore instance.
 """
-function atomic_ppgf(grid::kd.FullTimeGrid, ed::EDCore)::FullTimePPGF
+function atomic_ppgf(grid::kd.FullTimeGrid, ed::ked.EDCore)::FullTimePPGF
     G = [kd.GenericTimeGF(grid, length(s)) for s in ed.subspaces]
     atomic_ppgf!(G, ed)
     G
 end
 
-function atomic_ppgf(grid::kd.ImaginaryTimeGrid, ed::EDCore)::ImaginaryTimePPGF
+function atomic_ppgf(grid::kd.ImaginaryTimeGrid, ed::ked.EDCore)::ImaginaryTimePPGF
     G = [kd.ImaginaryTimeGF(grid, length(s)) for s in ed.subspaces]
     atomic_ppgf!(G, ed)
     G
 end
 
-function atomic_ppgf!(G::Vector, ed::EDCore)
+function atomic_ppgf!(G::Vector, ed::ked.EDCore)
     @assert length(G) == length(ed.subspaces)
 
     β = G[1].grid.contour.β
@@ -84,7 +81,7 @@ function atomic_ppgf!(G::Vector, ed::EDCore)
     N_op = total_density_operator(ed)
     N = operator_matrix_representation(N_op, ed)
 
-    for (G_s, s, E, n) in zip(G, ed.subspaces, energies(ed), N)
+    for (G_s, s, E, n) in zip(G, ed.subspaces, ked.energies(ed), N)
         ξ = (-1)^n[1,1] # Statistics sign
         grid = G_s.grid
         z_β = grid[kd.imaginary_branch][end]
@@ -114,7 +111,7 @@ the pseudo-particle Green's function sandwitched in between.
   `c_i` is +1/-1 for creation/annihilation operator respectively, and
   `o_i` is a spin-orbital index
 """
-function operator_product(ed::EDCore, G, s_i::Integer, z_i, z_f, vertices)
+function operator_product(ed::ked.EDCore, G, s_i::Integer, z_i, z_f, vertices)
 
     length(vertices) == 0 && return G[s_i][z_f, z_i], s_i
 
@@ -126,8 +123,8 @@ function operator_product(ed::EDCore, G, s_i::Integer, z_i, z_f, vertices)
 
     for (vidx, (z_a, c_a, o_a)) in enumerate(vertices)
 
-        connection = c_a > 0 ? cdag_connection : c_connection
-        matrix = c_a > 0 ? cdag_matrix : c_matrix
+        connection = c_a > 0 ? ked.cdag_connection : ked.c_connection
+        matrix = c_a > 0 ? ked.cdag_matrix : ked.c_matrix
 
         s_b = connection(ed, o_a, s_a)
         s_b === nothing && return 0 * prod0, -1

@@ -4,8 +4,7 @@ using DocStringExtensions
 
 using Keldysh; kd = Keldysh
 
-import QInchworm
-cfg = QInchworm.configuration
+using QInchworm; cfg = QInchworm.configuration
 
 using QInchworm: SectorBlockMatrix
 using QInchworm.expansion: Expansion

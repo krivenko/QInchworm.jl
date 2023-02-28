@@ -1,16 +1,16 @@
 using Test
 
-import Keldysh; kd = Keldysh
+using Keldysh; kd = Keldysh
 
-import QInchworm.spline_gf: SplineInterpolatedGF,
-                            update_interpolant!,
-                            update_interpolants!
-
-β = 10.
-ntau = 6
-ϵ = +0.1 # Energy level
+using QInchworm.spline_gf: SplineInterpolatedGF,
+                           update_interpolant!,
+                           update_interpolants!
 
 @testset "spline_gf" begin
+
+    β = 10.
+    ntau = 6
+    ϵ = +0.1 # Energy level
 
     @testset "Imaginary time GF" begin
         contour = kd.ImaginaryContour(β=β);

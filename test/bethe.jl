@@ -1,5 +1,5 @@
 """ Solve non-interacting two fermion AIM coupled to
-semi-circular (Behte lattice) hybridization functions.
+semi-circular (Bethe lattice) hybridization functions.
 
 Performing two kinds of tests:
 
@@ -19,23 +19,23 @@ Author: Hugo U. R. Strand (2023)
 
 """
 
-using MPI; MPI.Init()
-
 using Test
 
-import LinearAlgebra
+using MPI; MPI.Init()
 
-import Keldysh; kd = Keldysh
-import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
-
-import QInchworm.ppgf: normalize!
-import QInchworm.configuration: Expansion, InteractionPair
-import QInchworm.inchworm: inchworm_matsubara!
-
-import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
-using  QInchworm.utility: inch_print
+using LinearAlgebra: diag
 
 using QuadGK: quadgk
+
+using Keldysh; kd = Keldysh
+using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
+
+using QInchworm.ppgf: normalize!
+using QInchworm.expansion: Expansion, InteractionPair
+using QInchworm.inchworm: inchworm_matsubara!
+
+using QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
+using QInchworm.utility: inch_print
 
 function semi_circular_g_tau(times, t, h, β)
 
@@ -48,7 +48,7 @@ function semi_circular_g_tau(times, t, h, β)
             return exp((1 - t)*w) / (1 + exp(w))
         end
     end
-    
+
     for (i, τ) in enumerate(times)
         I = x -> -2 / pi / t^2 * kernel(τ/β, β*x) * sqrt(x + t - h) * sqrt(t + h - x)
         g, err = quadgk(I, -t+h, t+h; rtol=1e-12)
@@ -106,27 +106,27 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples, μ_bethe)
     # -- ED solution
 
     H_imp = -μ * (op.n(1) + op.n(2))
-        
+
     # -- Impurity problem
 
     contour = kd.ImaginaryContour(β=β);
     grid = kd.ImaginaryTimeGrid(contour, ntau);
-    
-    soi = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
-    ed = KeldyshED.EDCore(H_imp, soi)
-    
+
+    soi = ked.Hilbert.SetOfIndices([[1], [2]])
+    ed = ked.EDCore(H_imp, soi)
+
     # -- Hybridization propagator
 
     tau = [ real(im * τ.bpoint.val) for τ in grid ]
     delta_bethe = V^2 * semi_circular_g_tau(tau, t_bethe, μ_bethe, β)
-    
+
     Δ = kd.ImaginaryTimeGF(
         (t1, t2) -> 1.0im * V^2 *
             semi_circular_g_tau(
                 [-imag(t1.bpoint.val - t2.bpoint.val)],
                 t_bethe, μ_bethe, β)[1],
         grid, 1, kd.fermionic, true)
-        
+
     function reverse(g::kd.ImaginaryTimeGF)
         g_rev = deepcopy(g)
         τ_0, τ_β = first(g.grid), last(g.grid)
@@ -145,7 +145,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples, μ_bethe)
     expansion = Expansion(ed, grid, [ip_1_fwd, ip_1_bwd, ip_2_fwd, ip_2_bwd])
 
     ρ_0 = density_matrix(expansion.P0, ed)
-    
+
     inchworm_matsubara!(expansion, grid, orders, orders_bare, N_samples)
 
     normalize!(expansion.P, β)
@@ -155,21 +155,21 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples, μ_bethe)
     ρ_nca = get_ρ_nca(ρ_wrm)
     ρ_oca = get_ρ_oca(ρ_wrm)
     ρ_tca = get_ρ_tca(ρ_wrm)
-    
+
     diff_nca = maximum(abs.(ρ_wrm - ρ_nca))
     diff_oca = maximum(abs.(ρ_wrm - ρ_oca))
     diff_tca = maximum(abs.(ρ_wrm - ρ_tca))
     diff_exa = maximum(abs.(ρ_wrm - ρ_exa))
 
-    ρ_000 = real(LinearAlgebra.diag(ρ_0))
-    ρ_exa = real(LinearAlgebra.diag(ρ_exa))
-    ρ_nca = real(LinearAlgebra.diag(ρ_nca))
-    ρ_oca = real(LinearAlgebra.diag(ρ_oca))
-    ρ_tca = real(LinearAlgebra.diag(ρ_tca))
-    ρ_wrm = real(LinearAlgebra.diag(ρ_wrm))
-    
+    ρ_000 = real(diag(ρ_0))
+    ρ_exa = real(diag(ρ_exa))
+    ρ_nca = real(diag(ρ_nca))
+    ρ_oca = real(diag(ρ_oca))
+    ρ_tca = real(diag(ρ_tca))
+    ρ_wrm = real(diag(ρ_wrm))
+
     if inch_print()
-        @show ρ_000        
+        @show ρ_000
         @show ρ_nca
         @show ρ_oca
         @show ρ_tca
@@ -216,17 +216,17 @@ end
 end
 
 @testset "bethe_order1" begin
-    
+
     ntau = 128
     orders = 0:1
     N_samples = 8 * 2^5
     μ_bethe = 0.25
-    
+
     ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
         run_hubbard_dimer(ntau, orders, orders, N_samples, μ_bethe)
 
     @test diffs_nca < 2e-3
-    @test diffs_nca < diffs_oca 
+    @test diffs_nca < diffs_oca
     @test diffs_nca < diffs_tca
     @test diffs_nca < diffs_exa
 
@@ -250,12 +250,12 @@ end
 end
 
 @testset "bethe_order3" begin
-    
+
     ntau = 128
     orders = 0:3
     N_samples = 8 * 2^5
     μ_bethe = 0.25
-    
+
     ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
         run_hubbard_dimer(ntau, orders, orders, N_samples, μ_bethe)
 

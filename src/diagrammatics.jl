@@ -1,7 +1,8 @@
 module diagrammatics
 
-import LinearAlgebra
 using DocStringExtensions
+
+using LinearAlgebra: det
 
 const PairVector = Vector{Pair{Int,Int}}
 
@@ -23,7 +24,7 @@ function parity_slow(x::Vector{Int})
     P[i, j] = 1
   end
 
-  return Int(LinearAlgebra.det(P))
+  return Int(det(P))
 end
 
 """

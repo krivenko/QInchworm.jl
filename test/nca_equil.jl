@@ -1,20 +1,18 @@
-
 using Test
 
-import MPI; MPI.Init()
+using MPI; MPI.Init()
 
-import Keldysh; kd = Keldysh
-import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
+using Keldysh; kd = Keldysh
+using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-import QInchworm.spline_gf: SplineInterpolatedGF, update_interpolants!
+using QInchworm.spline_gf: SplineInterpolatedGF, update_interpolants!
+
+using QInchworm.expansion: Expansion, InteractionPair
+using QInchworm.configuration: Configuration, Node, InchNode, NodePair
+using QInchworm; cfg = QInchworm.configuration;
+using QInchworm.qmc_integrate: qmc_time_ordered_integral_root
+
 import QInchworm.ppgf
-
-import QInchworm; cfg = QInchworm.configuration
-
-import QInchworm.expansion: Expansion, InteractionPair
-import QInchworm.configuration: Configuration, Node, InchNode, NodePair
-
-import QInchworm.qmc_integrate: qmc_time_ordered_integral_root
 
 function ppgf.set_matsubara!(
     g::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, scalar}, T, scalar} where {T, scalar},

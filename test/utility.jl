@@ -1,13 +1,14 @@
 using Test
 
-import Keldysh; kd = Keldysh
+using Keldysh; kd = Keldysh
 
 using Interpolations: interpolate, scale, BSpline, Cubic, OnGrid
 
-import QInchworm.utility: get_ref
-import QInchworm.utility: NeumannBC
-import QInchworm.utility: IncrementalSpline, extend!
+using QInchworm.utility: get_ref # TODO: Remove
+using QInchworm.utility: NeumannBC
+using QInchworm.utility: IncrementalSpline, extend!
 
+# TODO: Remove this test set
 @testset "get_ref()" begin
     tmax = 1.
     β = 5.

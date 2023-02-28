@@ -1,19 +1,17 @@
 module inchworm
 
 using DocStringExtensions
+
 using ProgressBars: ProgressBar
 using MPI: MPI
-using Printf
-using LinearAlgebra
+using LinearAlgebra: tr
 
-import Keldysh; kd = Keldysh
-import KeldyshED; ked = KeldyshED;
+using Keldysh; kd = Keldysh
 
-using QInchworm: SectorBlockMatrix
 using QInchworm.ppgf: partition_function
 
-import QInchworm; teval = QInchworm.topology_eval
-import QInchworm.diagrammatics
+using QInchworm; teval = QInchworm.topology_eval
+using QInchworm.diagrammatics
 
 using QInchworm.utility: SobolSeqWith0, next!
 using QInchworm.utility: inch_print
@@ -23,8 +21,7 @@ using QInchworm.expansion: Expansion, set_bold_ppgf!
 using QInchworm.configuration: Configuration,
                                operator,
                                sector_block_matrix_from_ppgf
-
-import QInchworm.configuration: Node, InchNode, OperatorNode, SectorBlockMatrix
+using QInchworm.configuration: Node, InchNode, OperatorNode
 
 using QInchworm.qmc_integrate: qmc_time_ordered_integral_root,
                                qmc_inchworm_integral_root
@@ -346,7 +343,7 @@ function compute_gf_matsubara_point(expansion::Expansion,
 
     for od in order_data
         if od.order == 0
-            result += LinearAlgebra.tr(teval.eval(
+            result += tr(teval.eval(
                 expansion, [n_f, n_cdag, n_c], kd.BranchPoint[], od.diagrams
             ))
         else
@@ -357,7 +354,7 @@ function compute_gf_matsubara_point(expansion::Expansion,
 
             seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0
-                result += LinearAlgebra.tr(qmc_inchworm_integral_root(
+                result += tr(qmc_inchworm_integral_root(
                     t -> teval.eval(expansion, od.diagrams, od.configurations, t),
                     d_before, d_after,
                     grid.contour, t_i, t_c, t_f,

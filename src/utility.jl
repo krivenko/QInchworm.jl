@@ -2,21 +2,17 @@ module utility
 
 using MPI: MPI
 
-import Keldysh
 import Interpolations
-using Interpolations: BoundaryCondition,
-                      GridType,
-                      inner_system_diags,
-                      Woodbury,
-                      WoodburyMatrices,
-                      lut!
 
-import Sobol: AbstractSobolSeq, SobolSeq, next!, ndims
+using Sobol: AbstractSobolSeq, SobolSeq, ndims
+import Sobol: next!
+
+using Keldysh # TODO: Remove
 
 """
     Inverse of get_point(c::AbstractContour, ref)
 
-    TODO: Ask Joseph to promote it to Keldysh.jl?
+    TODO: Remove, now defined in Keldysh.jl
 """
 function get_ref(c::Keldysh.AbstractContour, t::Keldysh.BranchPoint)
     ref = 0
@@ -47,20 +43,20 @@ function Interpolations.prefiltering_system(::Type{T},
                                             n::Int,
                                             degree::Interpolations.Cubic{BC}) where {
     T, TC, BC<:NeumannBC{Interpolations.OnGrid}}
-    dl,d,du = inner_system_diags(T,n,degree)
+    dl,d,du = Interpolations.inner_system_diags(T,n,degree)
     d[1] = d[end] = -oneunit(T)
     du[1] = dl[end] = zero(T)
 
-    specs = WoodburyMatrices.sparse_factors(T, n,
-                                  (1, 3, oneunit(T)),
-                                  (n, n-2, oneunit(T))
-                                 )
+    specs = Interpolations.WoodburyMatrices.sparse_factors(T, n,
+                                                           (1, 3, oneunit(T)),
+                                                           (n, n-2, oneunit(T))
+                                                           )
 
     b = zeros(TC, n)
     b[1] = 2/(n-3) * degree.bc.left_derivative
     b[end] = -2/(n-3) * degree.bc.right_derivative
 
-    Woodbury(lut!(dl, d, du), specs...), b
+    Interpolations.Woodbury(Interpolations.lut!(dl, d, du), specs...), b
 end
 
 """

@@ -2,13 +2,13 @@ using Test
 
 using MPI; MPI.Init()
 
-import Keldysh; kd = Keldysh
+using Keldysh; kd = Keldysh
 
-import QInchworm.qmc_integrate: qmc_time_ordered_integral,
-                                qmc_time_ordered_integral_n_samples,
-                                qmc_time_ordered_integral_sort,
-                                qmc_time_ordered_integral_root,
-                                qmc_inchworm_integral_root
+using QInchworm.qmc_integrate: qmc_time_ordered_integral,
+                               qmc_time_ordered_integral_n_samples,
+                               qmc_time_ordered_integral_sort,
+                               qmc_time_ordered_integral_root,
+                               qmc_inchworm_integral_root
 
 @testset verbose=true "qmc_integrate" begin
 

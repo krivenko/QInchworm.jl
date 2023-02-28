@@ -1,18 +1,17 @@
 module spline_gf
 
-import Interpolations: BSplineInterpolation,
-                       interpolate,
-                       scale,
-                       BSpline,
-                       Cubic,
-                       Line,
-                       OnGrid
+using Interpolations: BSplineInterpolation,
+                      scale,
+                      BSpline,
+                      Cubic,
+                      Line,
+                      OnGrid
+import Interpolations: interpolate
 
-import Keldysh; kd = Keldysh;
+using Keldysh; kd = Keldysh;
 
-using QInchworm.utility: get_ref
-using QInchworm.utility: IncrementalSpline, extend!
-
+using QInchworm.utility: get_ref # TODO: Remove
+using QInchworm.utility: IncrementalSpline
 import QInchworm.utility: extend!
 
 ########################

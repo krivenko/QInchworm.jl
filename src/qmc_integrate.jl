@@ -2,9 +2,9 @@ module qmc_integrate
 
 using MPI: MPI
 
-import Keldysh; kd = Keldysh
+using Keldysh; kd = Keldysh
 
-using QInchworm.utility: get_ref
+using QInchworm.utility: get_ref # TODO: Remove
 using QInchworm.utility: SobolSeqWith0, arbitrary_skip, next!
 using QInchworm.utility: mpi_N_skip_and_N_samples_on_rank
 

@@ -1,22 +1,16 @@
+using Test
+using Random
 
 using MPI; MPI.Init()
 
-using Test
+using Keldysh; kd = Keldysh
+using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-import Random
-
-import Keldysh; kd = Keldysh
-import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
-
-import QInchworm.ppgf
-
-import QInchworm
+using QInchworm
 cfg = QInchworm.configuration
-diag = QInchworm.diagrammatics
 teval = QInchworm.topology_eval
 
 using QInchworm.expansion: Expansion, InteractionPair
-using QInchworm.configuration: Configuration, Node, InchNode, NodePair
 
 @testset "topology_to_config" begin
 
@@ -31,9 +25,9 @@ using QInchworm.configuration: Configuration, Node, InchNode, NodePair
     tmax = 1.
 
     H = - μ * op.n("0")
-    soi = KeldyshED.Hilbert.SetOfIndices([["0"]])
-    ed = KeldyshED.EDCore(H, soi)
-    ρ = KeldyshED.density_matrix(ed, β)
+    soi = ked.Hilbert.SetOfIndices([["0"]])
+    ed = ked.EDCore(H, soi)
+    ρ = ked.density_matrix(ed, β)
 
     contour = kd.twist(kd.FullContour(tmax=tmax, β=β));
     grid = kd.FullTimeGrid(contour, nt, ntau);

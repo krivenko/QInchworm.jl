@@ -1,22 +1,16 @@
+using Test
 
-import Test.@test
-import Test.@testset
+using LinearAlgebra: Diagonal, ones, tr
 
-import LinearAlgebra: Diagonal, ones, tr, conj
+using Keldysh; kd = Keldysh;
+using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-import Keldysh; kd = Keldysh;
-
-import KeldyshED; ked = KeldyshED;
-import KeldyshED.Hilbert;
-import KeldyshED; op = KeldyshED.Operators;
-
-import QInchworm.ppgf: atomic_ppgf
-import QInchworm.ppgf: operator_product
-import QInchworm.ppgf: operator_matrix_representation
-import QInchworm.ppgf: total_density_operator
-import QInchworm.ppgf: first_order_spgf
-import QInchworm.ppgf: check_ppgf_real_time_symmetries
-
+using QInchworm.ppgf: atomic_ppgf,
+                      operator_product,
+                      operator_matrix_representation,
+                      total_density_operator,
+                      first_order_spgf,
+                      check_ppgf_real_time_symmetries
 
 @testset "atomic ppgf" begin
 
@@ -39,14 +33,14 @@ import QInchworm.ppgf: check_ppgf_real_time_symmetries
 
     # Indices of fermionic states
 
-    u = KeldyshED.Hilbert.IndicesType(["up"])
-    d = KeldyshED.Hilbert.IndicesType(["do"])
+    u = ked.Hilbert.IndicesType(["up"])
+    d = ked.Hilbert.IndicesType(["do"])
 
     # Exact Diagonalization solver
 
-    soi = KeldyshED.Hilbert.SetOfIndices([["up"], ["do"]]);
-    ed = KeldyshED.EDCore(H, soi)
-    ρ = KeldyshED.density_matrix(ed, β)
+    soi = ked.Hilbert.SetOfIndices([["up"], ["do"]]);
+    ed = ked.EDCore(H, soi)
+    ρ = ked.density_matrix(ed, β)
 
     # Check that atomic G0(β, 0) is proportinal to ρ
     function check_consistency_with_density_matrix(G0, ρ)
@@ -61,7 +55,7 @@ import QInchworm.ppgf: check_ppgf_real_time_symmetries
         grid = G0[1].grid
         t_0, t_beta = kd.branch_bounds(grid, kd.imaginary_branch)
 
-        g_ref = KeldyshED.computegf(ed, grid, d, d);
+        g_ref = ked.computegf(ed, grid, d, d);
         n_ref = im * g_ref[t_beta, t_0]
 
         idx1 = d

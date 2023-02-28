@@ -1,22 +1,22 @@
 using Test
 
-import MPI; MPI.Init()
+using MPI; MPI.Init()
 
-import Keldysh; kd = Keldysh
-import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
+using Keldysh; kd = Keldysh
+using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-import QInchworm.spline_gf: SplineInterpolatedGF
+using QInchworm.spline_gf: SplineInterpolatedGF
 
-import QInchworm.expansion: Expansion, InteractionPair
-import QInchworm.topology_eval: get_topologies_at_order,
-                                get_diagrams_at_order,
-                                get_configurations_and_diagrams
+using QInchworm.expansion: Expansion, InteractionPair
+using QInchworm.topology_eval: get_topologies_at_order,
+                               get_diagrams_at_order,
+                               get_configurations_and_diagrams
 
-import QInchworm.inchworm: ExpansionOrderInputData,
-                           inchworm_step,
-                           inchworm_step_bare,
-                           inchworm_matsubara!,
-                           compute_gf_matsubara
+using QInchworm.inchworm: ExpansionOrderInputData,
+                          inchworm_step,
+                          inchworm_step_bare,
+                          inchworm_matsubara!,
+                          compute_gf_matsubara
 
 # -- Single state pseudo particle expansion
 
@@ -29,9 +29,9 @@ ntau = 20
 tmax = 1.
 
 H = - μ * op.n("0")
-soi = KeldyshED.Hilbert.SetOfIndices([["0"]])
-ed = KeldyshED.EDCore(H, soi)
-ρ = KeldyshED.density_matrix(ed, β)
+soi = ked.Hilbert.SetOfIndices([["0"]])
+ed = ked.EDCore(H, soi)
+ρ = ked.density_matrix(ed, β)
 
 @testset "inchworm_step" begin
     contour = kd.twist(kd.FullContour(tmax=tmax, β=β));

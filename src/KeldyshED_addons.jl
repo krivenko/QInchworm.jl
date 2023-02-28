@@ -1,13 +1,12 @@
 module KeldyshED_addons
 
-import LinearAlgebra
+using LinearAlgebra: tr
 
-import Keldysh; kd = Keldysh
-import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
+using Keldysh; kd = Keldysh
+using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-import QInchworm.expansion: AllPPGFTypes
-
-import QInchworm.ppgf
+using QInchworm.expansion: AllPPGFTypes
+using QInchworm.ppgf
 
 """ Projects a FockState form one FullHilbertSpace to another FullHilbertSpace.
 
@@ -150,14 +149,14 @@ function reduced_ppgf(P::T, ed::ked.EDCore, target_ed::ked.EDCore) where {T <: A
     if true
         τ_β = grid[end]
         @show P_red[τ_β, τ_0]
-        Z = im * LinearAlgebra.tr(P_red[τ_β, τ_0])
+        Z = im * tr(P_red[τ_β, τ_0])
         Z = Z / (m - n)
         @show Z
         λ = log(Z) / grid.contour.β
         @show λ
         ppgf.normalize!(P_red, λ)
         @show P_red[τ_β, τ_0]
-        Z = im * LinearAlgebra.tr(P_red[τ_β, τ_0])
+        Z = im * tr(P_red[τ_β, τ_0])
         @show Z
     else
         #ppgf.normalize!([P_red], P[1].grid.contour.β)
@@ -208,7 +207,7 @@ function density_matrix(ρ, ed::ked.EDCore)
 end
 
 function density_matrix(ed::ked.EDCore, β::Float64)
-    ρ = KeldyshED.density_matrix(ed, β)
+    ρ = ked.density_matrix(ed, β)
     return density_matrix(ρ, ed)
 end
 

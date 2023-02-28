@@ -1,8 +1,7 @@
-using Test, Random
+using Test
+using Random
 
-using QInchworm
-
-import QInchworm.diagrammatics
+using QInchworm.diagrammatics
 
 @testset "diagrammatics" begin
   @test diagrammatics.double_factorial.(2:2:10) == [2, 8, 48, 384, 3840]
