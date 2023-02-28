@@ -473,7 +473,7 @@ function compute_gf_matsubara(expansion::Expansion,
         end
 
         # The rest of τ_c values
-        iter = 2:length(grid)-1
+        iter = 2:length(grid)
         iter = inch_print() ? ProgressBar(iter) : iter
 
         for n in iter
