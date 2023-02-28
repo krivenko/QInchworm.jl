@@ -9,6 +9,7 @@ using LinearAlgebra
 import Keldysh; kd = Keldysh
 import KeldyshED; ked = KeldyshED;
 
+using QInchworm: SectorBlockMatrix
 using QInchworm.ppgf: partition_function
 
 import QInchworm; teval = QInchworm.topology_eval
@@ -18,17 +19,15 @@ using QInchworm.utility: SobolSeqWith0, next!
 using QInchworm.utility: inch_print
 using QInchworm.utility: mpi_N_skip_and_N_samples_on_rank, split_count
 
-import QInchworm.configuration: Expansion,
-                                Configurations,
-                                operator,
-                                sector_block_matrix_from_ppgf,
-                                maxabs,
-                                set_bold_ppgf!
+using QInchworm.expansion: Expansion, set_bold_ppgf!
+using QInchworm.configuration: Configuration,
+                               operator,
+                               sector_block_matrix_from_ppgf
 
 import QInchworm.configuration: Node, InchNode, OperatorNode, SectorBlockMatrix
 
-import QInchworm.qmc_integrate: qmc_time_ordered_integral_root,
-                                qmc_inchworm_integral_root
+using QInchworm.qmc_integrate: qmc_time_ordered_integral_root,
+                               qmc_inchworm_integral_root
 
 """
 $(TYPEDEF)
@@ -43,9 +42,9 @@ struct ExpansionOrderInputData
     "Number of points in the after-t_w region"
     n_pts_after::Int64
     "List of diagrams contributing at this expansion order"
-    diagrams::teval.Diagrams
+    diagrams::Vector{teval.Diagram}
     "Precomputed hilbert space paths"
-    configurations::Configurations
+    configurations::Vector{Configuration}
     "Numbers of qMC samples (should be a power of 2)"
     N_samples::Int64
 end

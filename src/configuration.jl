@@ -1,64 +1,16 @@
 module configuration
 
 using DocStringExtensions
-using LinearAlgebra: norm
-import LinearAlgebra
 
-import Keldysh; kd = Keldysh
-import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
+using Keldysh; kd = Keldysh
+using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-import QInchworm.ppgf
-import QInchworm.spline_gf: SplineInterpolatedGF
-import QInchworm.spline_gf: IncSplineImaginaryTimeGF, extend!
-
-import QInchworm.diagrammatics: Diagram, Diagrams
-import QInchworm.diagrammatics; diag = diagrammatics
-
-# -- Exports
-
-#export Expansion
-#export InteractionEnum
-#export InteractionPair, InteractionPairs
-#export InteractionDeterminant, InteractionDeterminants
-
-#export Configuration
-#export InchNode
-#export Node, Nodes
-#export NodePair, NodePairs
-#export Determinant, Determinants
-
-# -- Types
+using QInchworm: SectorBlockMatrix
+using QInchworm.ppgf
+using QInchworm.expansion: Operator, Expansion, operator_to_sector_block_matrix
+using QInchworm.diagrammatics: Diagram, n_crossings
 
 const Time = kd.BranchPoint
-const Times = Vector{Time}
-
-const Operator = op.RealOperatorExpr
-const Operators = Vector{Operator}
-
-""" Representation of local many-body operator in terms of block matrices.
-
-See also: [`operator_to_sector_block_matrix`](@ref) """
-const SectorBlockMatrix = Dict{Int64, Tuple{Int64, Matrix{ComplexF64}}}
-
-const AllPPGFSectorTypes = Union{
-    ppgf.FullTimePPGFSector,
-    ppgf.ImaginaryTimePPGFSector,
-    SplineInterpolatedGF{ppgf.FullTimePPGFSector, ComplexF64, false},
-    SplineInterpolatedGF{ppgf.ImaginaryTimePPGFSector, ComplexF64, false},
-    IncSplineImaginaryTimeGF{ComplexF64, false}
-}
-
-const AllPPGFTypes = Union{
-    Vector{ppgf.FullTimePPGFSector},
-    Vector{ppgf.ImaginaryTimePPGFSector},
-    Vector{SplineInterpolatedGF{ppgf.FullTimePPGFSector, ComplexF64, false}},
-    Vector{SplineInterpolatedGF{ppgf.ImaginaryTimePPGFSector, ComplexF64, false}},
-    Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}
-}
-
-function Base.zero(P::T) where T <: AllPPGFTypes
-    [ zero(p) for p in P ]
-end
 
 """
 Interaction type classification using `@enum`
@@ -72,112 +24,17 @@ $(TYPEDEF)
 """
 $(TYPEDEF)
 
-Data type for pseudo-particle interactions, containing two operators and one scalar propagator.
-
-$(TYPEDFIELDS)
-"""
-struct InteractionPair{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}}
-  "Final time operator"
-  operator_f::Operator
-  "Initial time operator"
-  operator_i::Operator
-  "Scalar propagator"
-  propagator::ScalarGF
-end
-
-function Base.getindex(pair::InteractionPair, idx::Int64)
-    return [pair.operator_i, pair.operator_f][idx]
-end
-
-"""
-$(TYPEDEF)
-"""
-const InteractionPairs = Vector{InteractionPair{ScalarGF}} where ScalarGF
-
-struct InteractionDeterminant{PPGFSector <: AllPPGFSectorTypes}
-  operators_f::Operators
-  operators_i::Operators
-  propagator::PPGFSector
-end
-
-const InteractionDeterminants = Vector{InteractionDeterminant}
-
-"""
-$(TYPEDEF)
-
-The `Expansion` struct contains the components needed to define
-a pseudo-particle expansion problem.
-
-$(TYPEDFIELDS)
-"""
-struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPGFTypes}
-  "Exact diagonalization solver for the local degrees of freedom"
-  ed::ked.EDCore
-  "Non-interacting pseudo-particle Green's function"
-  P0::PPGF
-  "Interacting pseudo-particle Green's function"
-  P::PPGF
-  "Contribution to interacting pseudo-particle Green's function, per diagram order"
-  P_orders::Vector{PPGF}
-  "List of pseudo-particle interactions"
-  pairs::InteractionPairs{ScalarGF}
-  "List of hybridization function determinants (not implemented yet)"
-  determinants::Vector{InteractionDeterminant}
-  "List of operator pairs used in accumulation of two-point correlation functions"
-  corr_operators::Vector{Tuple{Operator, Operator}}
-
-  """
-  $(TYPEDSIGNATURES)
-  """
-  function Expansion(ed::ked.EDCore,
-                     grid::kd.AbstractTimeGrid,
-                     interaction_pairs::InteractionPairs{ScalarGF};
-                     corr_operators::Vector{Tuple{Operator, Operator}} = Tuple{Operator, Operator}[],
-                     interpolate_ppgf = false) where ScalarGF
-    P0 = ppgf.atomic_ppgf(grid, ed)
-    dP0 = ppgf.initial_ppgf_derivative(ed, grid.contour.β)
-    P = deepcopy(P0)
-    P_orders = Vector{typeof(P)}()
-
-    if interpolate_ppgf
-
-        #P0 = [SplineInterpolatedGF(P0_s) for P0_s in P0]
-        #P = [SplineInterpolatedGF(P_s, τ_max=grid[2]) for P_s in P]
-
-        P0_interp = [IncSplineImaginaryTimeGF(P0_s, dP0_s) for (P0_s, dP0_s) in zip(P0, dP0)]
-        P_interp = [IncSplineImaginaryTimeGF(P_s, dP0_s) for (P_s, dP0_s) in zip(P, dP0)]
-
-        # -- Fill up P0 with all values
-        for (s, p0_interp) in enumerate(P0_interp)
-            τ_0 = grid[1]
-            for τ in grid[2:end]
-                extend!(p0_interp, P0[s][τ, τ_0])
-            end
-        end
-
-        P0 = P0_interp
-        P = P_interp
-
-    end
-
-    return new{ScalarGF, typeof(P0)}(ed, P0, P, P_orders, interaction_pairs, [], corr_operators)
-  end
-end
-
-"""
-$(TYPEDEF)
-
 Lightweight reference to an `Expansion` operator.
 
 $(TYPEDFIELDS)
 """
 struct OperatorReference
-  "Interaction type of operator"
-  kind::InteractionEnum
-  "Index for interaction"
-  interaction_index::Int64
-  "Index to operator"
-  operator_index::Int64
+    "Interaction type of operator"
+    kind::InteractionEnum
+    "Index for interaction"
+    interaction_index::Int64
+    "Index to operator"
+    operator_index::Int64
 end
 
 """
@@ -188,10 +45,10 @@ Node in time with associated operator
 $(TYPEDFIELDS)
 """
 struct Node
-  "Contour time point"
-  time::Time
-  "Reference to operator"
-  operator_ref::OperatorReference
+    "Contour time point"
+    time::Time
+    "Reference to operator"
+    operator_ref::OperatorReference
 end
 
 """
@@ -245,56 +102,43 @@ end
 
 """
 $(TYPEDEF)
-"""
-const Nodes = Vector{Node}
-
-"""
-$(TYPEDEF)
 
 Node with pair of times and an associated interaction index.
 
 $(TYPEDFIELDS)
 """
 struct NodePair
-  "Final time"
-  time_f::Time
-  "Initial time"
-  time_i::Time
-  "Index for interaction"
-  index::Int64
+    "Final time"
+    time_f::Time
+    "Initial time"
+    time_i::Time
+    "Index for interaction"
+    index::Int64
 end
-
-"""
-$(TYPEDEF)
-"""
-const NodePairs = Vector{NodePair}
 
 """
 $(TYPEDSIGNATURES)
 
-Returns a list of `Nodes` corresponding to the pair `pair::NodePair`.
+Returns a list of `Node`'s corresponding to the pair `pair::NodePair`.
 """
 function Nodes(pair::NodePair)
     n1 = Node(pair.time_i, OperatorReference(pair_flag, pair.index, 1))
     n2 = Node(pair.time_f, OperatorReference(pair_flag, pair.index, 2))
-    return Nodes([n1, n2])
+    return [n1, n2]
 end
 
 struct Determinant
-  times_f::Times
-  times_i::Times
-  interaction_index::Int64
-  matrix::Array{ComplexF64, 2}
+    times_f::Vector{Time}
+    times_i::Vector{Time}
+    interaction_index::Int64
+    matrix::Matrix{ComplexF64}
 end
 
-const Determinants = Vector{Determinant}
-
-function get_pair_node_idxs(nodes::Nodes)::Vector{Int}
+function get_pair_node_idxs(nodes::Vector{Node})::Vector{Int}
     reverse([idx for (idx, node) in enumerate(nodes) if node.operator_ref.kind == pair_flag])
 end
 
 const Path = Vector{Tuple{Int, Int, Matrix{ComplexF64}}}
-const Paths = Vector{Path}
 
 """
 $(TYPEDEF)
@@ -307,19 +151,19 @@ $(TYPEDFIELDS)
 """
 struct Configuration
     "List of nodes in time with associated operators"
-    nodes::Nodes
+    nodes::Vector{Node}
     "List of pairs of nodes in time associated with a hybridization propagator"
-    pairs::NodePairs
+    pairs::Vector{NodePair}
     "Parity of the diagram p = (-1)^N, with N number of hybridization line crossings"
     parity::Float64
     "List of groups of time nodes associated with expansion determinants"
-    determinants::Determinants
+    determinants::Vector{Determinant}
 
     #"List of node operators"
     #operators::Vector{SectorBlockMatrix}
 
     "List of precomputed trace paths with operator sub matrices"
-    paths::Paths
+    paths::Vector{Path}
     # TODO: Use Union{Int, Nothing} here
     has_inch_node::Bool
     inch_node_idx::Int
@@ -327,8 +171,8 @@ struct Configuration
 
     node_idxs::Vector{Int}
 
-    function Configuration(single_nodes::Nodes, pairs::NodePairs, exp::Expansion)
-        nodes::Nodes = deepcopy(single_nodes)
+    function Configuration(single_nodes::Vector{Node}, pairs::Vector{NodePair}, exp::Expansion)
+        nodes = deepcopy(single_nodes)
 
         for pair in pairs
             append!(nodes, Nodes(pair))
@@ -372,7 +216,7 @@ struct Configuration
 
         pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
                   for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
-        parity = (-1.0)^diag.n_crossings(diagram.topology)
+        parity = (-1.0)^n_crossings(diagram.topology)
 
         #@assert diag.parity(diagram.topology) == (-1.0)^diag.n_crossings(diagram.topology)
         #println("topology = $(diagram.topology), parity = $(parity)") # DEBUG
@@ -416,7 +260,7 @@ struct Configuration
         pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
         for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
         # TODO: Is this parity still correct in the presence of C/C^+?
-        parity = (-1.0)^diag.n_crossings(diagram.topology)
+        parity = (-1.0)^n_crossings(diagram.topology)
 
         n = diagram.topology.order*2
         pairnodes = [ Node(time) for i in 1:n ]
@@ -440,8 +284,6 @@ struct Configuration
     end
 end
 
-const Configurations = Vector{Configuration}
-
 # TODO: Can we use kd.heaviside() instead?
 function Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint)
     if t1.domain > t2.domain
@@ -459,7 +301,7 @@ function Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint)
     end
 end
 
-function eval(exp::Expansion, pairs::NodePairs, parity::Float64)
+function eval(exp::Expansion, pairs::Vector{NodePair}, parity::Float64)
 
     order = length(pairs)
     val::ComplexF64 = parity * (-1)^order
@@ -469,85 +311,6 @@ function eval(exp::Expansion, pairs::NodePairs, parity::Float64)
         val *= im * exp.pairs[pair.index].propagator(pair.time_f, pair.time_i)
     end
     return val
-end
-
-function set_bold_ppgf!(P::PPGF,
-                        t_i::kd.TimeGridPoint,
-                        t_f::kd.TimeGridPoint,
-                        result::SectorBlockMatrix) where PPGF <: AllPPGFTypes
-    for (s_i, (s_f, mat)) in result
-        # Boldification must preserve the block structure
-        @assert s_i == s_f
-        P[s_i][t_f, t_i] = mat
-    end
-end
-
-function set_bold_ppgf!(P::Vector{IncSplineImaginaryTimeGF{ComplexF64, false}},
-                        t_i::kd.TimeGridPoint,
-                        t_f::kd.TimeGridPoint,
-                        result::SectorBlockMatrix)
-    for (s_i, (s_f, mat)) in result
-        # Boldification must preserve the block structure
-        @assert s_i == s_f
-        extend!(P[s_i], mat)
-    end
-end
-
-function set_bold_ppgf!(exp::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},
-                        t_i::kd.TimeGridPoint,
-                        t_f::kd.TimeGridPoint,
-                        result::SectorBlockMatrix) where ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}
-    for (s_i, (s_f, mat)) in result
-        # Boldification must preserve the block structure
-        @assert s_i == s_f
-        extend!(exp.P[s_i], mat)
-    end
-end
-
-function set_bold_ppgf!(exp::Expansion,
-                        t_i::kd.TimeGridPoint,
-                        t_f::kd.TimeGridPoint,
-                        result::SectorBlockMatrix)
-    for (s_i, (s_f, mat)) in result
-        # Boldification must preserve the block structure
-        @assert s_i == s_f
-        exp.P[s_i][t_f, t_i] = mat
-    end
-end
-
-# Specialization for spline-interpolated imaginary time PPGF
-function set_bold_ppgf!(
-    exp::Expansion{ScalarGF, Vector{SplineInterpolatedGF{ppgf.ImaginaryTimePPGFSector, ComplexF64, false}}},
-    τ_i::kd.TimeGridPoint,
-    τ_f::kd.TimeGridPoint,
-    result::SectorBlockMatrix) where {ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}}
-    for (s_i, (s_f, mat)) in result
-        # Boldification must preserve the block structure
-        @assert s_i == s_f
-        exp.P[s_i][τ_f, τ_i, τ_max = τ_f] = mat
-    end
-end
-
-function Base.zeros(::Type{SectorBlockMatrix}, ed::ked.EDCore)
-    Dict(s => (s, zeros(ComplexF64, length(sp), length(sp))) for (s, sp) in enumerate(ed.subspaces))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Returns the [`SectorBlockMatrix`](@ref) representation of the many-body operator `op::Operator`.
-"""
-function operator_to_sector_block_matrix(exp::Expansion, op::Operator)::SectorBlockMatrix
-
-    sbm = SectorBlockMatrix()
-
-    op_blocks = ked.operator_blocks(exp.ed, op)
-
-    for ((s_f, s_i), mat) in op_blocks
-        sbm[s_i] = (s_f, mat)
-    end
-
-    return sbm
 end
 
 """
@@ -571,68 +334,6 @@ function operator(exp::Expansion, node::Node)::SectorBlockMatrix
     return operator_to_sector_block_matrix(exp, op)
 end
 
-function Base.:*(A::SectorBlockMatrix, B::SectorBlockMatrix)
-    C = SectorBlockMatrix()
-    for (s_i, (s, B_mat)) in B
-        if haskey(A, s)
-            s_f, A_mat = A[s]
-            C[s_i] = (s_f, A_mat * B_mat)
-        end
-    end
-    return C
-end
-
-function Base.:*(A::Number, B::SectorBlockMatrix)
-    C = SectorBlockMatrix()
-    for (s_i, (s_f, B_mat)) in B
-        C[s_i] = (s_f, A * B_mat)
-    end
-    return C
-end
-
-function Base.:*(A::SectorBlockMatrix, B::Number)
-    return B * A
-end
-
-function Base.:+(A::SectorBlockMatrix, B::SectorBlockMatrix)
-    return merge((a,b) -> (a[1], a[2] + b[2]), A, B)
-end
-
-function Base.:-(A::SectorBlockMatrix, B::SectorBlockMatrix)
-    return A + (-1) * B
-end
-
-function maxabs(A::SectorBlockMatrix)
-    return mapreduce(x -> maximum(abs.(x[2])), max, values(A), init=-Inf)
-end
-
-function Base.zero(A::SectorBlockMatrix)
-    Z = SectorBlockMatrix()
-    for (s_i, (s_f, A_mat)) in A
-        Z[s_i] = (s_f, zero(A_mat))
-    end
-    return Z
-end
-
-function Base.fill!(A::SectorBlockMatrix, x)
-    for m in A
-        fill!(m.second[2], x)
-    end
-end
-
-function Base.isapprox(A::SectorBlockMatrix, B::SectorBlockMatrix; atol::Real=0)
-    @assert keys(A) == keys(B)
-    for k in keys(A)
-        @assert A[k][1] == B[k][1]
-        !isapprox(A[k][2], B[k][2], norm = mat -> norm(mat, Inf), atol=atol) && return false
-    end
-    return true
-end
-
-function LinearAlgebra.tr(A::SectorBlockMatrix)
-    sum(LinearAlgebra.tr(A_mat) for (s_i, (s_f, A_mat)) in A if s_i == s_f)
-end
-
 """
 $(TYPEDSIGNATURES)
 
@@ -647,7 +348,7 @@ function sector_block_matrix_from_ppgf(z2::Time, z1::Time, P::Vector{MatrixGF}) 
     return M
 end
 
-function eval(exp::Expansion, nodes::Nodes)
+function eval(exp::Expansion, nodes::Vector{Node})
 
     node = first(nodes)
     val = operator(exp, node)
@@ -673,12 +374,12 @@ function eval(exp::Expansion, nodes::Nodes)
     return -im * val
 end
 
-function get_paths(exp::Expansion, nodes::Nodes)::Paths
+function get_paths(exp::Expansion, nodes::Vector{Node})::Vector{Path}
 
     operators = [ operator(exp, node) for node in nodes ]
     N_sectors = length(exp.P)
 
-    paths = Paths()
+    paths = Path[]
     for s_i in 1:N_sectors
         path = Path()
         for operator in operators
@@ -695,7 +396,7 @@ function get_paths(exp::Expansion, nodes::Nodes)::Paths
     return paths
 end
 
-function eval(exp::Expansion, nodes::Nodes, paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}}, has_inch_node::Bool)
+function eval(exp::Expansion, nodes::Vector{Node}, paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}}, has_inch_node::Bool)
 
     start = operator(exp, first(nodes))
     val = SectorBlockMatrix()
@@ -729,7 +430,7 @@ function eval(exp::Expansion, nodes::Nodes, paths::Vector{Vector{Tuple{Int, Int,
 end
 
 function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
-                   exp::Expansion, nodes::Nodes,
+                   exp::Expansion, nodes::Vector{Node},
                    paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}},
                    has_inch_node::Bool)
 

@@ -7,7 +7,7 @@ import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 import QInchworm.spline_gf: SplineInterpolatedGF
 
-import QInchworm.configuration: Expansion, InteractionPair
+import QInchworm.expansion: Expansion, InteractionPair
 import QInchworm.topology_eval: get_topologies_at_order,
                                 get_diagrams_at_order,
                                 get_configurations_and_diagrams

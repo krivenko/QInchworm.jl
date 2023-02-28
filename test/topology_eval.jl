@@ -10,13 +10,13 @@ import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 import QInchworm.ppgf
 
-import QInchworm; cfg = QInchworm.configuration
-import QInchworm; diag = QInchworm.diagrammatics
-import QInchworm; teval = QInchworm.topology_eval
+import QInchworm
+cfg = QInchworm.configuration
+diag = QInchworm.diagrammatics
+teval = QInchworm.topology_eval
 
-import QInchworm.configuration: Expansion, InteractionPair
-import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePairs
-
+using QInchworm.expansion: Expansion, InteractionPair
+using QInchworm.configuration: Configuration, Node, InchNode, NodePair
 
 @testset "topology_to_config" begin
 

@@ -5,13 +5,13 @@ import LinearAlgebra
 import Keldysh; kd = Keldysh
 import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-import QInchworm.configuration: AllPPGFTypes
+import QInchworm.expansion: AllPPGFTypes
 
 import QInchworm.ppgf
 
 """ Projects a FockState form one FullHilbertSpace to another FullHilbertSpace.
 
-The projection is done "inclusive". Parts of the input state `fs` that are in the `to` FullHilbertSpace are retained while any parts of the state `fs` not included in the `to` target space are discarded. 
+The projection is done "inclusive". Parts of the input state `fs` that are in the `to` FullHilbertSpace are retained while any parts of the state `fs` not included in the `to` target space are discarded.
 
 """
 
@@ -75,7 +75,7 @@ function project_trace(
     #@show from
     #@show to
     #@show diff_hs
-    
+
     proj_sv = ked.StateVector{ked.FullHilbertSpace, S}(to)
     for (i, a) in pairs(sv.amplitudes)
         f = sv.hs[i]
@@ -85,7 +85,7 @@ function project_trace(
         #@show f_diff
         f_diff_proj = project_inclusive(f, from, diff_hs)
         #@show f_diff_proj
-        
+
         if f_diff_proj == f_diff
             f_p = project_inclusive(f, from, to)
             #@show f_p
@@ -144,7 +144,7 @@ function reduced_ppgf(P::T, ed::ked.EDCore, target_ed::ked.EDCore) where {T <: A
         ρ = [ P_s[τ_i, τ_0] for P_s in P ]
         ρ_red = reduced_density_matrix(ρ, ed, target_ed)
         #P_red[τ_i, τ_0] = ρ_red / (m - n)
-        P_red[τ_i, τ_0] = ρ_red 
+        P_red[τ_i, τ_0] = ρ_red
     end
 
     if true
@@ -167,10 +167,10 @@ function reduced_ppgf(P::T, ed::ked.EDCore, target_ed::ked.EDCore) where {T <: A
     for τ_i in grid
         P_red[τ_i, τ_0] = P_red[τ_i, τ_0] / (m - n)
     end
-    
+
     #P_red[τ_β, τ_0]
     #ρ_red = reduced_density_matrix(ed, target_ed, grid.contour.β)
-    
+
     return P_red
 end
 
@@ -200,7 +200,7 @@ function density_matrix(ρ, ed::ked.EDCore)
             state = ked.StateVector(hss, vec)
             p_state = ked.project(state, ed.full_hs)
             vec = p_state.amplitudes
-            
+
             ρ_out += ρ_ii * (vec * vec')
         end
     end

@@ -2,17 +2,17 @@ module topology_eval
 
 using DocStringExtensions
 
-import Keldysh; kd = Keldysh
+using Keldysh; kd = Keldysh
 
-import QInchworm; cfg = QInchworm.configuration
-import QInchworm; diag = QInchworm.diagrammatics
+import QInchworm
+cfg = QInchworm.configuration
 
-import QInchworm.configuration: Expansion, Configuration
-import QInchworm.configuration: Node, InchNode, NodePair, NodePairs
+using QInchworm: SectorBlockMatrix
+using QInchworm.expansion: Expansion
+using QInchworm.configuration: Configuration, Time, Node, InchNode, NodePair
+using QInchworm.diagrammatics: Topology, Diagram, pair_partitions, is_doubly_k_connected
 
-import QInchworm.diagrammatics: Diagram, Diagrams
-
-""" Get configuration.Nodes defining the inch-worm interval [τ_f, τ_w, τ_0]
+""" Get a list of `configuration.Node`'s defining the inchworm interval [τ_f, τ_w, τ_0]
 
 Parameters
 ----------
@@ -22,10 +22,10 @@ widx : Worm time in the current inching setup (usually widx = fidx - 1)
 
 Returns
 -------
-worm_nodes : QInchworm.configuration.Nodes with the three times as configuration.Node
+worm_nodes : A list of the three times as `configuration.Node`'s
 
 """
-function get_imaginary_time_worm_nodes(grid::kd.FullTimeGrid, fidx::Int64, widx::Int64)::cfg.Nodes
+function get_imaginary_time_worm_nodes(grid::kd.FullTimeGrid, fidx::Int64, widx::Int64)::Vector{Node}
 
     @assert fidx >= widx
 
@@ -54,7 +54,7 @@ end
 Parameters
 ----------
 
-worm_nodes : QInchworm.configuration.Nodes containing [n_f, n_w, n_0] where
+worm_nodes : A list of `configuration.Node`'s containing [n_f, n_w, n_0] where
              - n_f is the final time node
              - n_w is the worm time node
              - n_0 is the initial time node (τ=0)
@@ -69,8 +69,8 @@ Returns
 
 """
 function timeordered_unit_interval_points_to_imaginary_branch_inch_worm_times(
-    contour::kd.AbstractContour, worm_nodes::cfg.Nodes, x1::Float64, xs::Vector{Float64}
-    )::Vector{kd.BranchPoint}
+    contour::kd.AbstractContour, worm_nodes::Vector{Node}, x1::Float64, xs::Vector{Float64}
+    )::Vector{Time}
 
     x_f, x_w, x_0 = [ node.time.ref for node in worm_nodes ]
 
@@ -89,13 +89,13 @@ function timeordered_unit_interval_points_to_imaginary_branch_inch_worm_times(
     return τs
 end
 
-function get_topologies_at_order(order::Int64, k = nothing)::Vector{diag.Topology}
+function get_topologies_at_order(order::Int64, k = nothing)::Vector{Topology}
 
-    topologies = diag.Topology.(diag.pair_partitions(order))
+    topologies = Topology.(pair_partitions(order))
     k === nothing && return topologies
 
     filter!(topologies) do top
-        diag.is_doubly_k_connected(top, k)
+        is_doubly_k_connected(top, k)
     end
 
     return topologies
@@ -117,8 +117,8 @@ diagrams : Vector with tuples of topologies and pseudo particle interaction indi
 
 """
 function get_diagrams_at_order(
-    expansion::cfg.Expansion, topologies::Vector{diag.Topology}, order::Int64
-    )::Diagrams
+    expansion::Expansion, topologies::Vector{Topology}, order::Int64
+    )::Vector{Diagram}
 
     # -- Generate all `order` lenght vector of combinations of pseudo particle interaction pair indices
     pair_idx_range = range(1, length(expansion.pairs)) # range of allowed pp interaction pair indices
@@ -149,8 +149,8 @@ accumulated_value : Of all diagrams
 
 """
 function eval(
-    expansion::cfg.Expansion, worm_nodes::cfg.Nodes, τs::Vector{kd.BranchPoint}, diagrams::Diagrams
-    )::cfg.SectorBlockMatrix
+    expansion::Expansion, worm_nodes::Vector{Node}, τs::Vector{kd.BranchPoint}, diagrams::Vector{Diagram}
+    )::SectorBlockMatrix
 
     accumulated_value = 0 * cfg.operator(expansion, first(worm_nodes))
 
@@ -165,12 +165,12 @@ function eval(
     return accumulated_value
 end
 
-function get_configurations_and_diagrams(expansion::cfg.Expansion,
-                                         diagrams::Diagrams,
+function get_configurations_and_diagrams(expansion::Expansion,
+                                         diagrams::Vector{Diagram},
                                          d_before::Int;
-                                         op_pair_idx::Union{Int, Nothing} = nothing)::Tuple{cfg.Configurations, Diagrams}
-    diagrams_out = Diagrams()
-    configurations = cfg.Configurations()
+                                         op_pair_idx::Union{Int, Nothing} = nothing)::Tuple{Vector{Configuration}, Vector{Diagram}}
+    diagrams_out = Diagram[]
+    configurations = Configuration[]
     for (didx, diagram) in enumerate(diagrams)
         configuration = op_pair_idx === nothing ? Configuration(diagram, expansion, d_before) :
                                                   Configuration(diagram, expansion, d_before, op_pair_idx)
@@ -182,7 +182,7 @@ function get_configurations_and_diagrams(expansion::cfg.Expansion,
     return configurations, diagrams_out
 end
 
-function update_inch_times!(configuration::cfg.Configuration, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint)
+function update_inch_times!(configuration::Configuration, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint)
     if configuration.has_inch_node
         @inbounds begin
             configuration.nodes[1] = Node(τ_i)
@@ -197,26 +197,27 @@ function update_inch_times!(configuration::cfg.Configuration, τ_i::kd.BranchPoi
     end
 end
 
-function update_inch_times!(configurations::cfg.Configurations, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint)
+# TODO: Use broadcasting instead
+function update_inch_times!(configurations::Vector{Configuration}, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint)
     for configuration in configurations
         update_inch_times!(configuration, τ_i, τ_w, τ_f)
     end
 end
 
-function update_times!(configuration::cfg.Configuration, diagram::Diagram, times::cfg.Times)
+function update_times!(configuration::Configuration, diagram::Diagram, times::Vector{Time})
     for (t_idx, n_idx) in enumerate(configuration.node_idxs)
         op_ref = configuration.nodes[n_idx].operator_ref
-        configuration.nodes[n_idx] = cfg.Node(times[t_idx], op_ref)
+        configuration.nodes[n_idx] = Node(times[t_idx], op_ref)
     end
 
     for (p_idx, (idx_tf, idx_ti)) in enumerate(diagram.topology.pairs)
         int_idx = configuration.pairs[p_idx].index
-        configuration.pairs[p_idx] = cfg.NodePair(times[idx_tf], times[idx_ti], int_idx)
+        configuration.pairs[p_idx] = NodePair(times[idx_tf], times[idx_ti], int_idx)
     end
 end
 
 # TODO: Should this function be merged with update_inch_times!() ?
-function update_corr_times!(configuration::cfg.Configuration,
+function update_corr_times!(configuration::Configuration,
     τ_1::kd.BranchPoint,
     τ_2::kd.BranchPoint,
     τ_f::kd.BranchPoint)
@@ -229,7 +230,7 @@ function update_corr_times!(configuration::cfg.Configuration,
     configuration.nodes[end] = Node(τ_f)
 end
 
-function update_corr_times!(configurations::cfg.Configurations,
+function update_corr_times!(configurations::Vector{Configuration},
                             τ_1::kd.BranchPoint,
                             τ_2::kd.BranchPoint,
                             τ_f::kd.BranchPoint)
@@ -238,9 +239,11 @@ function update_corr_times!(configurations::cfg.Configurations,
     end
 end
 
-function eval(
-    expansion::cfg.Expansion, diagrams::Diagrams, configurations::cfg.Configurations, times::Vector{kd.BranchPoint},
-    )::cfg.SectorBlockMatrix
+function eval(expansion::Expansion,
+              diagrams::Vector{Diagram},
+              configurations::Vector{Configuration},
+              times::Vector{kd.BranchPoint},
+    )::SectorBlockMatrix
 
     value = 0 * cfg.operator(expansion, first(first(configurations).nodes))
 

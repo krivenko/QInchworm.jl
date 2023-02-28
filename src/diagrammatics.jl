@@ -293,8 +293,4 @@ struct Diagram
   pair_idxs::Tuple{Vararg{Int64}}
 end
 
-"""
-"""
-const Diagrams = Vector{Diagram}
-
 end # module diagrammatics

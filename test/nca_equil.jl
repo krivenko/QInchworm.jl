@@ -11,8 +11,8 @@ import QInchworm.ppgf
 
 import QInchworm; cfg = QInchworm.configuration
 
-import QInchworm.configuration: Expansion, InteractionPair
-import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePairs
+import QInchworm.expansion: Expansion, InteractionPair
+import QInchworm.configuration: Configuration, Node, InchNode, NodePair
 
 import QInchworm.qmc_integrate: qmc_time_ordered_integral_root
 
@@ -105,7 +105,7 @@ end
             n_w = InchNode(τ_w.bpoint)
             nodes = [n_f, n_w, n_0]
 
-            conf_0 = Configuration(nodes, NodePairs(), ppsc_exp)
+            conf_0 = Configuration(nodes, NodePair[], ppsc_exp)
 
             val = cfg.eval(ppsc_exp, conf_0)
 
@@ -186,7 +186,7 @@ end
             n_w = InchNode(τ_w.bpoint)
             nodes = [n_f, n_w, n_0]
 
-            conf_0 = Configuration(nodes, NodePairs(), ppsc_exp)
+            conf_0 = Configuration(nodes, NodePair[], ppsc_exp)
 
             val = cfg.eval(ppsc_exp, conf_0)
 
@@ -239,11 +239,11 @@ end
 
         run_nca_equil_tests_riemann(contour, grid, Δ, false)
         run_nca_equil_tests_qmc(contour, grid, Δ, false)
-        
+
         # #############################################################
         # NOT WORKING! Fix me, when going to higher order interpolants.
         # #############################################################
-        
+
         #run_nca_equil_tests_riemann(contour, grid, SplineInterpolatedGF(Δ), true)
         #run_nca_equil_tests_qmc(contour, grid, SplineInterpolatedGF(Δ), true)
     end
@@ -251,7 +251,7 @@ end
     # ####################################################
     # NOT WORKING! Fix me, when generalizing to real time.
     # ####################################################
-    
+
     @testset "Twisted Kadanoff-Baym-Keldysh contour" begin
         contour = kd.twist(kd.FullContour(tmax=tmax, β=β))
         grid = kd.FullTimeGrid(contour, nt, ntau)

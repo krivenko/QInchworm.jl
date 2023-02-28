@@ -6,7 +6,7 @@ import QInchworm.ppgf
 import QInchworm; cfg = QInchworm.configuration
 
 import QInchworm.configuration: Expansion, InteractionPair
-import QInchworm.configuration: Configuration, Node, InchNode, NodePair, NodePairs
+import QInchworm.configuration: Configuration, Node, InchNode, NodePair
 
 import QInchworm.qmc_integrate: qmc_time_ordered_integral,
                                 qmc_time_ordered_integral_n_samples,
@@ -90,7 +90,7 @@ function make_second_order_diag(; nt, nτ, tmax, τ_w_pos, verbose = false)
     n_f = Node(τ_f.bpoint)
 
     nodes = [n_f, n_w, n_i]
-    conf_0 = Configuration(nodes, NodePairs());
+    conf_0 = Configuration(nodes, NodePair[]);
     init_0 = zero(cfg.eval(ppsc_exp, conf_0));
 
     diagram = τ -> begin
