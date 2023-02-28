@@ -363,9 +363,9 @@ end
 
 function partition_function(G::Vector{<:kd.AbstractTimeGF})
     sum(G, init = 0im) do G_s
-        g_s = G_s[kd.imaginary_branch, kd.imaginary_branch]
-        g_s = vcat(g_s[:, 1]...)
-        im * tr(g_s[end])
+        tau_grid = G_s.grid[kd.imaginary_branch]
+        τ0, β = tau_grid[1], tau_grid[end]
+        im * tr(G_s[β, τ0])
     end
 end
 
