@@ -349,6 +349,11 @@ struct Configuration
         sort!(nodes, by = n -> twisted_contour_relative_order(n.time))
 
         has_inch_node = any([ is_inch_node(node) for node in nodes ])
+
+        # DEBUG Trigger bold propagator in zeroth order operator diagram
+        has_operator_node = any([ is_operator_node(node) for node in nodes ])
+        has_inch_node = has_inch_node || has_operator_node
+
         paths = get_paths(exp, nodes)
         n_idxs = get_pair_node_idxs(nodes)
 

@@ -348,7 +348,7 @@ function compute_gf_matsubara_point(expansion::Expansion,
     for od in order_data
         if od.order == 0
             result += LinearAlgebra.tr(teval.eval(
-                expansion, [n_f, n_c, n_cdag], kd.BranchPoint[], od.diagrams
+                expansion, [n_f, n_cdag, n_c], kd.BranchPoint[], od.diagrams
             ))
         else
             d_bare = od.k_attached
