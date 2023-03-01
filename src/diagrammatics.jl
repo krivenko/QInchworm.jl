@@ -111,6 +111,24 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Returns the parity of the permutation matrix of the topolgy.
+
+"""
+function parity_slow(top::Topology)::Int
+    n = top.order
+    P = zeros(Int, 2n, 2n)
+    for i in 1:n
+        j1, j2 = top.pairs[i]
+        P[2i-1, j1] = 1
+        P[2i-0, j2] = 1
+    end
+    parity = LinearAlgebra.det(P)
+    return parity
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Given a vector of 'connected' arcs and a vector of 'disconnected' arcs
 recursively add disconnected to connected if they cross with any connected.
 This is done by traversing the crossing graph using depth first search.

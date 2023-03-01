@@ -216,10 +216,10 @@ struct Configuration
 
         pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
                   for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
-        parity = (-1.0)^n_crossings(diagram.topology)
+        parity = diagram.topology.parity
 
-        #@assert diag.parity(diagram.topology) == (-1.0)^diag.n_crossings(diagram.topology)
-        #println("topology = $(diagram.topology), parity = $(parity)") # DEBUG
+        #@assert diagram.topology.parity == (-1.0)^diag.n_crossings(diagram.topology)
+        #@assert diagram.topology.parity == diag.parity_slow(diagram.topology)
 
         n = diagram.topology.order*2
         pairnodes = [ Node(time) for i in 1:n ]
