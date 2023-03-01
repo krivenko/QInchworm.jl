@@ -402,8 +402,7 @@ function normalize!(g::kd.AbstractTimeGF, λ)
     tau_grid = g.grid[kd.imaginary_branch]
     τ_0 = tau_grid[1]
     for τ in tau_grid
-        val = g[τ, τ_0] .* exp(-1im * τ.bpoint.val * λ)
-        set_matsubara!(g, τ, val)
+        g[τ, τ_0] = g[τ, τ_0] .* exp(-1im * τ.bpoint.val * λ)
     end
 end
 
