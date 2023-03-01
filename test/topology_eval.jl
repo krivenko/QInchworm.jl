@@ -6,9 +6,8 @@ using MPI; MPI.Init()
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-using QInchworm
-cfg = QInchworm.configuration
-teval = QInchworm.topology_eval
+using QInchworm; cfg = QInchworm.configuration; teval = QInchworm.topology_eval
+using QInchworm: SectorBlockMatrix
 
 using QInchworm.expansion: Expansion, InteractionPair
 
@@ -71,7 +70,7 @@ using QInchworm.expansion: Expansion, InteractionPair
         println(diagram)
     end
 
-    accumulated_value = 0 * cfg.operator(expansion, first(worm_nodes))
+    accumulated_value = zeros(SectorBlockMatrix, expansion.ed)
 
     n_samples = 100
 

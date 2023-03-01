@@ -97,7 +97,7 @@ end
     soi = ked.Hilbert.SetOfIndices([[1], [2]])
     ed = ked.EDCore(H, soi)
 
-    H_small = 0 * op.n(1)
+    H_small = op.RealOperatorExpr()
     soi_small = ked.Hilbert.SetOfIndices([[1]])
     ed_small = ked.EDCore(H_small, soi_small)
 

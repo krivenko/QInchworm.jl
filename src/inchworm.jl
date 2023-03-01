@@ -8,6 +8,7 @@ using LinearAlgebra: tr
 
 using Keldysh; kd = Keldysh
 
+using QInchworm: SectorBlockMatrix
 using QInchworm.ppgf: partition_function
 
 using QInchworm; teval = QInchworm.topology_eval
@@ -87,7 +88,7 @@ function inchworm_step(expansion::Expansion,
     n_i, n_w, n_f = Node(t_i), InchNode(t_w), Node(t_f)
     @assert n_f.time.ref >= n_w.time.ref >= n_i.time.ref
 
-    zero_sector_block_matrix = 0 * operator(expansion, n_i)
+    zero_sector_block_matrix = zeros(SectorBlockMatrix, expansion.ed)
 
     result = deepcopy(zero_sector_block_matrix)
 
@@ -148,7 +149,7 @@ function inchworm_step_bare(expansion::Expansion,
     n_i, n_f = Node(t_i), Node(t_f)
     @assert n_f.time.ref >= n_i.time.ref
 
-    zero_sector_block_matrix = 0 * operator(expansion, n_i)
+    zero_sector_block_matrix = zeros(SectorBlockMatrix, expansion.ed)
     result = deepcopy(zero_sector_block_matrix)
 
     for od in order_data
@@ -339,7 +340,7 @@ function compute_gf_matsubara_point(expansion::Expansion,
 
     result::ComplexF64 = 0
 
-    zero_sector_block_matrix = 0 * operator(expansion, n_i)
+    zero_sector_block_matrix = zeros(SectorBlockMatrix, expansion.ed)
 
     for od in order_data
         if od.order == 0

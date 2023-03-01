@@ -151,7 +151,7 @@ function eval(
     expansion::Expansion, worm_nodes::Vector{Node}, τs::Vector{kd.BranchPoint}, diagrams::Vector{Diagram}
     )::SectorBlockMatrix
 
-    accumulated_value = 0 * cfg.operator(expansion, first(worm_nodes))
+    accumulated_value = zeros(SectorBlockMatrix, expansion.ed)
 
     for (didx, diagram) in enumerate(diagrams)
         nodepairs = [ NodePair(τs[f], τs[i], diagram.pair_idxs[idx])
@@ -228,7 +228,7 @@ function eval(expansion::Expansion,
               times::Vector{kd.BranchPoint},
     )::SectorBlockMatrix
 
-    value = 0 * cfg.operator(expansion, first(first(configurations).nodes))
+    value = zeros(SectorBlockMatrix, expansion.ed)
 
     for (diagram, configuration) in zip(diagrams, configurations)
         update_times!(configuration, diagram, times)

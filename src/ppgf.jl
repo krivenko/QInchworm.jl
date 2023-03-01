@@ -127,7 +127,7 @@ function operator_product(ed::ked.EDCore, G, s_i::Integer, z_i, z_f, vertices)
         matrix = c_a > 0 ? ked.cdag_matrix : ked.c_matrix
 
         s_b = connection(ed, o_a, s_a)
-        s_b === nothing && return 0 * prod0, -1
+        s_b === nothing && return zero(prod0), -1
 
         m_ba = matrix(ed, o_a, s_a)
 
