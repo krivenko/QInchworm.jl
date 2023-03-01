@@ -99,7 +99,7 @@ function inchworm_step(expansion::Expansion,
         else
             d_after = od.n_pts_after
             d_before = 2 * od.order - od.n_pts_after
-            teval.update_inch_times!(od.configurations, t_i, t_w, t_f)
+            teval.update_inch_times!.(od.configurations, Ref(t_i), Ref(t_w), Ref(t_f))
             seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0
                 order_contrib = qmc_inchworm_integral_root(
@@ -156,7 +156,7 @@ function inchworm_step_bare(expansion::Expansion,
         if od.order == 0
             order_contrib = teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
         else
-            teval.update_inch_times!(od.configurations, t_i, t_i, t_f)
+            teval.update_inch_times!.(od.configurations, Ref(t_i), Ref(t_i), Ref(t_f))
             d = 2 * od.order
             seq = SobolSeqWith0(d)
             if od.N_samples > 0
@@ -350,7 +350,7 @@ function compute_gf_matsubara_point(expansion::Expansion,
             d_after = od.n_pts_after
             d_before = 2 * od.order - od.n_pts_after
 
-            teval.update_corr_times!(od.configurations, t_cdag, t_c, t_f)
+            teval.update_corr_times!.(od.configurations, Ref(t_cdag), Ref(t_c), Ref(t_f))
 
             seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0

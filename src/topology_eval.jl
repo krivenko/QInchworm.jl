@@ -196,13 +196,6 @@ function update_inch_times!(configuration::Configuration, τ_i::kd.BranchPoint, 
     end
 end
 
-# TODO: Use broadcasting instead
-function update_inch_times!(configurations::Vector{Configuration}, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint)
-    for configuration in configurations
-        update_inch_times!(configuration, τ_i, τ_w, τ_f)
-    end
-end
-
 function update_times!(configuration::Configuration, diagram::Diagram, times::Vector{Time})
     for (t_idx, n_idx) in enumerate(configuration.node_idxs)
         op_ref = configuration.nodes[n_idx].operator_ref
@@ -227,15 +220,6 @@ function update_corr_times!(configuration::Configuration,
     op_ref = configuration.nodes[configuration.op_node_idx[2]].operator_ref
     configuration.nodes[configuration.op_node_idx[2]] = Node(τ_2, op_ref)
     configuration.nodes[end] = Node(τ_f)
-end
-
-function update_corr_times!(configurations::Vector{Configuration},
-                            τ_1::kd.BranchPoint,
-                            τ_2::kd.BranchPoint,
-                            τ_f::kd.BranchPoint)
-    for configuration in configurations
-        update_corr_times!(configuration, τ_1, τ_2, τ_f)
-    end
 end
 
 function eval(expansion::Expansion,
