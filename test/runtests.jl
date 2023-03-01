@@ -9,5 +9,6 @@ include("diagrammatics.jl")
 include("topology_eval.jl")
 include("inchworm.jl")
 include("bethe.jl")
+include("bethe_gf.jl")
 
 include("KeldyshED_addons.jl")
