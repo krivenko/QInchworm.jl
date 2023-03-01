@@ -1,7 +1,7 @@
 using Test
 using Printf
 
-using LinearAlgebra: tr
+using LinearAlgebra: tr, diagm
 
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
@@ -94,12 +94,12 @@ end
     V = 1.0
 
     H = V * ( op.c_dag(1) * op.c(2) + op.c_dag(2) * op.c(1) )
-    soi = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
-    ed = KeldyshED.EDCore(H, soi)
+    soi = ked.Hilbert.SetOfIndices([[1], [2]])
+    ed = ked.EDCore(H, soi)
 
     H_small = 0 * op.n(1)
-    soi_small = KeldyshED.Hilbert.SetOfIndices([[1]])
-    ed_small = KeldyshED.EDCore(H_small, soi_small)
+    soi_small = ked.Hilbert.SetOfIndices([[1]])
+    ed_small = ked.EDCore(H_small, soi_small)
 
     ρ_small = density_matrix(ed_small, β)
     ρ_reduced = reduced_density_matrix(ed, ed_small, β)
@@ -117,8 +117,8 @@ end
     β = 13.37
 
     H = V * ( op.c_dag(1) * op.c(2) + op.c_dag(2) * op.c(1) )
-    soi = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
-    ed = KeldyshED.EDCore(H, soi)
+    soi = ked.Hilbert.SetOfIndices([[1], [2]])
+    ed = ked.EDCore(H, soi)
     ρ = ked.density_matrix(ed, β)
 
     contour = kd.ImaginaryContour(β=β);
@@ -188,9 +188,6 @@ end
 
 
 @testset "reduced density matrix (hybridized hubbard dimer)" begin
-    import LinearAlgebra; diag = LinearAlgebra.diag
-    import LinearAlgebra; diagm = LinearAlgebra.diagm
-
     β = 1.0
     U = 0.0
     ϵ_1, ϵ_2 = 0.0, 2.0

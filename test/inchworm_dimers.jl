@@ -1,32 +1,26 @@
-# TODO: What do we do with this file?
+# TODO: What do we do with this file? Is it sill used?
 
 using MPI
-
 using Test
 using Printf
 
-import LinearAlgebra; trace = LinearAlgebra.tr
+using Keldysh; kd = Keldysh
+using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-import Keldysh; kd = Keldysh
-import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
+using QInchworm.expansion: Expansion, InteractionPair
+using QInchworm.topology_eval: get_topologies_at_order,
+                               get_diagrams_at_order
 
-import QInchworm.configuration: Expansion, InteractionPair
+using QInchworm.inchworm: inchworm_matsubara!
+using QInchworm.ppgf
+using QInchworm.KeldyshED_addons: reduced_density_matrix,
+                                  density_matrix,
+                                  reduced_ppgf,
+                                  occupation_number_basis_ppgf
 
-import QInchworm.topology_eval: get_topologies_at_order,
-                                get_diagrams_at_order
+                                  using QInchworm.spline_gf: SplineInterpolatedGF
 
-import QInchworm.inchworm: inchworm_matsubara!
-
-import QInchworm.ppgf
-
-import QInchworm.KeldyshED_addons: reduced_density_matrix,
-    density_matrix, reduced_ppgf, occupation_number_basis_ppgf
-
-import QInchworm.spline_gf: SplineInterpolatedGF
-
-
-import PyPlot as plt # DEBUG
-
+using PyPlot; plt = PyPlot # DEBUG
 
 MPI.Init()
 

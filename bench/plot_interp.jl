@@ -1,22 +1,18 @@
+using PyPlot; plt = PyPlot
 
-import PyPlot as plt
-
-import Interpolations: BSplineInterpolation,
-                       interpolate,
-                       scale,
-                       BSpline,
-                       Cubic,
-    Quadratic,
-    Linear,
-    Line,
-    Natural,
-    Free,
-    Flat,
-    FlatTest,
-                       OnGrid
-
-
-
+using Interpolations: BSplineInterpolation,
+                      interpolate,
+                      scale,
+                      BSpline,
+                      Cubic,
+                      Quadratic,
+                      Linear,
+                      Line,
+                      Natural,
+                      Free,
+                      Flat,
+                      FlatTest,
+                      OnGrid
 
 β = 1.0
 ϵ = 2.0
@@ -34,7 +30,7 @@ get_cubic = knots -> scale(interpolate(g(knots), BSpline(Cubic(FlatTest(OnGrid()
 linear = get_linear(knots)
 quadr = get_quadr(knots)
 cubic = get_cubic(knots)
-                  
+
 τ = 0.0:β/100000:β
 
 @show knots
@@ -73,7 +69,7 @@ for e in 3:12
     n = 2^e
     @show n
     knots = LinRange(0, β, n)
-    
+
     linear = get_linear(knots)
     err = maximum(abs.(g(τ) - linear(τ)))
     push!(linear_err, err)
@@ -81,14 +77,14 @@ for e in 3:12
     quard = get_quadr(knots)
     err = maximum(abs.(g(τ) - quard(τ)))
     push!(quadr_err, err)
-    
+
     cubic = get_cubic(knots)
     err = maximum(abs.(g(τ) - cubic(τ)))
     push!(cubic_err, err)
-    
+
 
     push!(n_vec, n)
-    
+
 end
 @show n_vec
 @show linear_err

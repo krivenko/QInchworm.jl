@@ -1,28 +1,24 @@
 using MPI
 
-import MD5
-import HDF5; h5 = HDF5
+using MD5
+using HDF5; h5 = HDF5
 
-using Test
 using Printf
-#import PyPlot as plt
 
-import LinearAlgebra; trace = LinearAlgebra.tr
+using Keldysh; kd = Keldysh
+using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-import Keldysh; kd = Keldysh
-import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
+using QInchworm.ppgf
+using QInchworm.expansion: Expansion, InteractionPair
 
-import QInchworm.ppgf
-import QInchworm.configuration: Expansion, InteractionPair
+using QInchworm.topology_eval: get_topologies_at_order,
+                               get_diagrams_at_order
 
-import QInchworm.topology_eval: get_topologies_at_order,
-                                get_diagrams_at_order
+using QInchworm.inchworm: inchworm_matsubara!
 
-import QInchworm.inchworm: inchworm_matsubara!
-
-import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
-import QInchworm.spline_gf: SplineInterpolatedGF
-using  QInchworm.utility: inch_print
+using QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
+using QInchworm.spline_gf: SplineInterpolatedGF
+using QInchworm.utility: inch_print
 
 
 function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
@@ -36,8 +32,8 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     # -- ED solution
 
     H_dimer = ϵ_1 * op.n(1) + ϵ_2 * op.n(2) + V * ( op.c_dag(1) * op.c(2) + op.c_dag(2) * op.c(1) )
-    soi_dimer = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
-    ed_dimer = KeldyshED.EDCore(H_dimer, soi_dimer)
+    soi_dimer = ked.Hilbert.SetOfIndices([[1], [2]])
+    ed_dimer = ked.EDCore(H_dimer, soi_dimer)
 
     # -- Impurity problem
 
@@ -45,8 +41,8 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     grid = kd.ImaginaryTimeGrid(contour, ntau);
 
     H = ϵ_1 * op.n(1)
-    soi = KeldyshED.Hilbert.SetOfIndices([[1]])
-    ed = KeldyshED.EDCore(H, soi)
+    soi = ked.Hilbert.SetOfIndices([[1]])
+    ed = ked.EDCore(H, soi)
 
     ρ_ref = Array{ComplexF64}( reduced_density_matrix(ed_dimer, ed, β) )
 
@@ -170,7 +166,7 @@ if inch_print()
     @show orderss
 end
 
-exit()
+# exit()
 
 for orders in orderss
     for ntau in ntaus

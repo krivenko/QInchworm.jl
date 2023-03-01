@@ -3,7 +3,7 @@ module DelaunaySimplex
 export triangulate
 export integrate_t3
 
-import PyCall as py
+using PyCall; py = PyCall
 
 function nested_for_loop(f, d::Int, first::Int, last::Int, indices = Int[])
     if d == 0

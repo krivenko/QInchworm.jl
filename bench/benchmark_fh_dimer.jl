@@ -1,23 +1,20 @@
 using MPI
 
-import MD5
-import HDF5; h5 = HDF5
+using MD5
+using HDF5; h5 = HDF5
 
-using Test
 using Printf
 
-import LinearAlgebra; trace = LinearAlgebra.tr
+using Keldysh; kd = Keldysh
+using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-import Keldysh; kd = Keldysh
-import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
-
-import QInchworm.ppgf
-import QInchworm.configuration: Expansion, InteractionPair
-import QInchworm.topology_eval: get_topologies_at_order,
-                                get_diagrams_at_order
-import QInchworm.inchworm: inchworm_matsubara!
-import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
-using  QInchworm.utility: inch_print
+using QInchworm.ppgf
+using QInchworm.expansion: Expansion, InteractionPair
+using QInchworm.topology_eval: get_topologies_at_order,
+                               get_diagrams_at_order
+using QInchworm.inchworm: inchworm_matsubara!
+using QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
+using QInchworm.utility: inch_print
 
 
 function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
@@ -36,16 +33,16 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
         V_1 * ( op.c_dag(1) * op.c(3) + op.c_dag(3) * op.c(1) ) +
         V_2 * ( op.c_dag(2) * op.c(4) + op.c_dag(4) * op.c(2) )
 
-    soi_dimer = KeldyshED.Hilbert.SetOfIndices([[1], [2], [3], [4]])
-    ed_dimer = KeldyshED.EDCore(H_dimer, soi_dimer)
+    soi_dimer = ked.Hilbert.SetOfIndices([[1], [2], [3], [4]])
+    ed_dimer = ked.EDCore(H_dimer, soi_dimer)
 
     # -- Impurity problem
 
     contour = kd.ImaginaryContour(β=β);
     grid = kd.ImaginaryTimeGrid(contour, ntau);
 
-    soi = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
-    ed = KeldyshED.EDCore(H_imp, soi)
+    soi = ked.Hilbert.SetOfIndices([[1], [2]])
+    ed = ked.EDCore(H_imp, soi)
 
     ρ_ref = Array{ComplexF64}( reduced_density_matrix(ed_dimer, ed, β) )
 
@@ -166,7 +163,7 @@ if inch_print()
     @show orderss
 end
 
-#exit()
+# exit()
 
 for ntau in ntaus
     for orders in orderss

@@ -1,12 +1,11 @@
 
-import PyPlot as plt
-import HDF5; h5 = HDF5
-
+using PyPlot; plt = PyPlot
+using HDF5; h5 = HDF5
 
 function read_group(group)
     return merge(
         Dict( key => h5.read(group, key) for key in keys(group)),
-        Dict( key => h5.read_attribute(group, key) for key in keys(h5.attributes(group)) ) )  
+        Dict( key => h5.read_attribute(group, key) for key in keys(h5.attributes(group)) ) )
 end
 
 
@@ -17,7 +16,7 @@ filenames = filter( f -> occursin("data_ntau", f), readdir(".", join=true) )
 
 data = []
 for filename in filenames
-    @show filename    
+    @show filename
     fid = h5.h5open(filename, "r")
     g = fid["data"]
     d = read_group(g)
@@ -84,7 +83,7 @@ for key in sort(collect(keys(merged_data)))
     d = merged_data[key]
     ntau = d["ntau"]
     order_max = maximum(d["orders"])
-    
+
     N = d["N_sampless"]
     rel_diffs = d["diffs"] ./ d["diff_0"]
 
@@ -94,12 +93,12 @@ for key in sort(collect(keys(merged_data)))
     if color == nothing
         #label= raw"$N_{\tau}$" * " = $ntau, max(order) = $order_max"
         label= raw"$N_{\tau}$" * " = $ntau"
-        
+
         l = plt.plot([], [], label=label)
         color = l[1].get_color()
         @show color
     end
-    
+
     plt.loglog(N, rel_diffs, style * "-", color=color,
                    #label=raw"$N_{\tau}$" * " = $ntau, max(order) = $order_max",
                    alpha=0.75, markersize=4, lw=0.5)

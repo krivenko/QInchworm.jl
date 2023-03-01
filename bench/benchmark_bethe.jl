@@ -1,30 +1,26 @@
 using MPI
 
-import MD5
-import HDF5; h5 = HDF5
-
-import PyCall
-
-using Test
 using Printf
-#import PyPlot as plt
+using LinearAlgebra
+using MD5
+using HDF5; h5 = HDF5
 
-import LinearAlgebra; trace = LinearAlgebra.tr
+using PyCall
 
-import Keldysh; kd = Keldysh
-import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
+using Keldysh; kd = Keldysh
+using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-import QInchworm.ppgf
-import QInchworm.configuration: Expansion, InteractionPair
+using QInchworm.ppgf
+using QInchworm.expansion: Expansion, InteractionPair
 
-import QInchworm.topology_eval: get_topologies_at_order,
-                                get_diagrams_at_order
+using QInchworm.topology_eval: get_topologies_at_order,
+                               get_diagrams_at_order
 
-import QInchworm.inchworm: inchworm_matsubara!
+using QInchworm.inchworm: inchworm_matsubara!
 
-import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
-import QInchworm.spline_gf: SplineInterpolatedGF
-using  QInchworm.utility: inch_print
+using QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
+using QInchworm.spline_gf: SplineInterpolatedGF
+using QInchworm.utility: inch_print
 
 
 function semi_circular_g_tau(times, t, h, β)
@@ -71,8 +67,8 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     grid = kd.ImaginaryTimeGrid(contour, ntau);
 
     H = μ * op.n(1)
-    soi = KeldyshED.Hilbert.SetOfIndices([[1]])
-    ed = KeldyshED.EDCore(H, soi)
+    soi = ked.Hilbert.SetOfIndices([[1]])
+    ed = ked.EDCore(H, soi)
 
     # -- Hybridization propagator
 
@@ -121,7 +117,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
         ρ_wrm = density_matrix(expansion.P, ed)
 
         ρ_wrm_orders = [ density_matrix(p, ed) for p in expansion.P_orders ]
-        ρ_wrm_orders = [ real(LinearAlgebra.diag(r)) for r in ρ_wrm_orders ]
+        ρ_wrm_orders = [ real(diag(r)) for r in ρ_wrm_orders ]
         norm = sum(sum(ρ_wrm_orders))
         ρ_wrm_orders /= norm
         pto_hist = Array{Float64}([ sum(r) for r in ρ_wrm_orders ])

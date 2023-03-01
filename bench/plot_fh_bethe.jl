@@ -1,14 +1,12 @@
 
-import PyPlot as plt
-import HDF5; h5 = HDF5
-
+using PyPlot; plt = PyPlot
+using HDF5; h5 = HDF5
 
 function read_group(group)
     return merge(
         Dict( key => h5.read(group, key) for key in keys(group)),
-        Dict( key => h5.read_attribute(group, key) for key in keys(h5.attributes(group)) ) )  
+        Dict( key => h5.read_attribute(group, key) for key in keys(h5.attributes(group)) ) )
 end
-
 
 filenames = filter( f -> occursin("data_FH_dimer", f), readdir(".", join=true) )
 @show filenames
@@ -17,7 +15,7 @@ filenames = filter( f -> occursin("data_FH_dimer", f), readdir(".", join=true) )
 
 data = []
 for filename in filenames
-    @show filename    
+    @show filename
     fid = h5.h5open(filename, "r")
     g = fid["data"]
     d = read_group(g)
@@ -114,7 +112,7 @@ styles = Dict(
 
 
 for key in sort(collect(keys(merged_data)))
-    
+
     d = merged_data[key]
     ntau = d["ntau"]
     order_max = maximum(d["orders"])
@@ -124,12 +122,12 @@ for key in sort(collect(keys(merged_data)))
     else
         idx = order_max - 2
     end
-    
+
     plt.subplot(gs[idx, 1])
 
     plt.plot([1e2, 1e4], [1e-1, 1e-3], "-k", lw=0.5, alpha=1.)
     plt.plot([1e1, 1e4], [1e-1, 1e-4], "-k", lw=0.5, alpha=1.)
-    
+
     #N = d["N_chunkss"] .* d["ntau"] .* d["N_per_chunk"]
     N = d["N_sampless"]
 
@@ -146,12 +144,12 @@ for key in sort(collect(keys(merged_data)))
     if color == nothing
         #label= raw"$N_{\tau}$" * " = $ntau, max(order) = $order_max"
         label= raw"$N_{\tau}$" * " = $ntau"
-        
+
         l = plt.plot([], [], label=label)
         color = l[1].get_color()
         @show color
     end
-    
+
     #plt.loglog(N, rel_diffs, style * "-", color=color,
     plt.loglog(N, diffs, style * "-", color=color,
                    #label=raw"$N_{\tau}$" * " = $ntau, max(order) = $order_max",

@@ -1,24 +1,21 @@
 using MPI
 
-import MD5
-import HDF5; h5 = HDF5
-
-import PyCall
-
-using Test
 using Printf
+using LinearAlgebra
+using MD5
+using HDF5; h5 = HDF5
 
-import LinearAlgebra; trace = LinearAlgebra.tr
+using PyCall
 
-import Keldysh; kd = Keldysh
-import KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
+using Keldysh; kd = Keldysh
+using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-import QInchworm.ppgf
-import QInchworm.configuration: Expansion, InteractionPair
-import QInchworm.topology_eval: get_topologies_at_order,
-                                get_diagrams_at_order
-import QInchworm.inchworm: inchworm_matsubara!
-import QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
+using QInchworm.ppgf
+using QInchworm.expansion: Expansion, InteractionPair
+using QInchworm.topology_eval: get_topologies_at_order,
+                               get_diagrams_at_order
+using QInchworm.inchworm: inchworm_matsubara!
+using QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
 using  QInchworm.utility: inch_print
 
 function semi_circular_g_tau(times, t, h, β)
@@ -98,8 +95,8 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
     contour = kd.ImaginaryContour(β=β);
     grid = kd.ImaginaryTimeGrid(contour, ntau);
 
-    soi = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
-    ed = KeldyshED.EDCore(H_imp, soi)
+    soi = ked.Hilbert.SetOfIndices([[1], [2]])
+    ed = ked.EDCore(H_imp, soi)
 
     # -- Hybridization propagator
 
@@ -151,12 +148,12 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
     diff_tca = maximum(abs.(ρ_wrm - ρ_tca))
     diff_exa = maximum(abs.(ρ_wrm - ρ_exa))
 
-    ρ_000 = real(LinearAlgebra.diag(ρ_0))
-    ρ_exa = real(LinearAlgebra.diag(ρ_exa))
-    ρ_nca = real(LinearAlgebra.diag(ρ_nca))
-    ρ_oca = real(LinearAlgebra.diag(ρ_oca))
-    ρ_tca = real(LinearAlgebra.diag(ρ_tca))
-    ρ_wrm = real(LinearAlgebra.diag(ρ_wrm))
+    ρ_000 = real(diag(ρ_0))
+    ρ_exa = real(diag(ρ_exa))
+    ρ_nca = real(diag(ρ_nca))
+    ρ_oca = real(diag(ρ_oca))
+    ρ_tca = real(diag(ρ_tca))
+    ρ_wrm = real(diag(ρ_wrm))
 
     if inch_print()
         @show ρ_000
@@ -244,7 +241,7 @@ if inch_print()
     @show orderss
 end
 
-#exit()
+# exit()
 
 for ntau in ntaus
     for orders in orderss
