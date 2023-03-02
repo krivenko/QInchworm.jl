@@ -10,7 +10,6 @@ import Interpolations: interpolate
 
 using Keldysh; kd = Keldysh;
 
-using QInchworm.utility: get_ref # TODO: Remove
 using QInchworm.utility: IncrementalSpline
 import QInchworm.utility: extend!
 
@@ -125,7 +124,7 @@ function make_interpolant(GF::kd.ImaginaryTimeGF{T, scalar},
                           τ_max::kd.TimeGridPoint) where {T <: Number, scalar}
     grid = GF.grid
     Δτ = -imag(step(grid, kd.imaginary_branch))
-    knots = LinRange(0, get_ref(grid.contour, τ_max.bpoint), τ_max.cidx)
+    knots = LinRange(0, kd.get_ref(grid.contour, τ_max.bpoint), τ_max.cidx)
     scale(interpolate(GF.mat.data[k,l,1:length(knots)], BSpline(Cubic(Line(OnGrid())))), knots)
 end
 
@@ -133,8 +132,8 @@ function interpolate(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, true}, T,
                      t1::kd.BranchPoint, t2::kd.BranchPoint) where T
     grid = G_int.GF.grid
     β = grid.contour.β
-    ref1 = get_ref(grid.contour, t1)
-    ref2 = get_ref(grid.contour, t2)
+    ref1 = kd.get_ref(grid.contour, t1)
+    ref2 = kd.get_ref(grid.contour, t2)
 
     ref1 >= ref2 ? G_int.interpolants[1, 1](ref1 - ref2) :
                    Int(G_int.GF.ξ) * G_int.interpolants[1, 1](β + ref1 - ref2)
@@ -144,8 +143,8 @@ function interpolate(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, false}, T
     t1::kd.BranchPoint, t2::kd.BranchPoint) where T
     grid = G_int.GF.grid
     β = grid.contour.β
-    ref1 = get_ref(grid.contour, t1)
-    ref2 = get_ref(grid.contour, t2)
+    ref1 = kd.get_ref(grid.contour, t1)
+    ref2 = kd.get_ref(grid.contour, t2)
 
     norb = kd.norbitals(G_int.GF)
     if ref1 >= ref2
@@ -187,7 +186,7 @@ function make_inc_interpolant(GF::kd.ImaginaryTimeGF{T, scalar}, k, l, derivativ
     T <: Number, scalar}
     grid = GF.grid
     Δτ = -imag(step(grid, kd.imaginary_branch))
-    knots = LinRange(0, get_ref(grid.contour, grid[end].bpoint), grid[end].cidx)
+    knots = LinRange(0, kd.get_ref(grid.contour, grid[end].bpoint), grid[end].cidx)
     IncrementalSpline(knots, GF.mat.data[k,l,1], derivative_at_0)
 end
 
@@ -242,8 +241,8 @@ function interpolate(G_int::IncSplineImaginaryTimeGF{T, true},
                      t1::kd.BranchPoint, t2::kd.BranchPoint) where T
     grid = G_int.GF.grid
     β = grid.contour.β
-    ref1 = get_ref(grid.contour, t1)
-    ref2 = get_ref(grid.contour, t2)
+    ref1 = kd.get_ref(grid.contour, t1)
+    ref2 = kd.get_ref(grid.contour, t2)
 
     ref1 >= ref2 ? G_int.interpolants[1, 1](ref1 - ref2) :
         Int(G_int.GF.ξ) * G_int.interpolants[1, 1](β + ref1 - ref2)
@@ -253,8 +252,8 @@ function interpolate(G_int::IncSplineImaginaryTimeGF{T, false},
                      t1::kd.BranchPoint, t2::kd.BranchPoint) where T
     grid = G_int.GF.grid
     β = grid.contour.β
-    ref1 = get_ref(grid.contour, t1)
-    ref2 = get_ref(grid.contour, t2)
+    ref1 = kd.get_ref(grid.contour, t1)
+    ref2 = kd.get_ref(grid.contour, t2)
 
     norb = kd.norbitals(G_int.GF)
     if ref1 >= ref2

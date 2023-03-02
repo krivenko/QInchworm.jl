@@ -4,7 +4,6 @@ using MPI: MPI
 
 using Keldysh; kd = Keldysh
 
-using QInchworm.utility: get_ref # TODO: Remove
 using QInchworm.utility: SobolSeqWith0, arbitrary_skip, next!
 using QInchworm.utility: mpi_N_skip_and_N_samples_on_rank
 
@@ -18,7 +17,7 @@ using QInchworm.utility: mpi_N_skip_and_N_samples_on_rank
 function make_model_function(c::kd.AbstractContour,
                              t_f::kd.BranchPoint,
                              h::Vector)
-    u_f = get_ref(c, t_f)
+    u_f = kd.get_ref(c, t_f)
     # Eq. (6)
     u::Vector{Float64} -> begin
         # Transformation u -> v
@@ -43,7 +42,7 @@ function make_exp_model_function(c::kd.AbstractContour,
     # FIXME
     #make_model_function(c, t_f, repeat([v -> exp(-v/τ)], d))
 
-    u_f = get_ref(c, t_f)
+    u_f = kd.get_ref(c, t_f)
     # Eq. (6)
     u::Vector{Float64} -> begin
         # Transformation u -> v
@@ -63,7 +62,7 @@ raw"""
         u_f > u_1 > u_2 > \ldots > u_{d-1} > u_d > -\infty.
 """
 function make_exp_trans(c::kd.AbstractContour, t_f::kd.BranchPoint, τ::Real)
-    u_f = get_ref(c, t_f)
+    u_f = kd.get_ref(c, t_f)
     x -> begin
         u = Vector{Float64}(undef, length(x))
         u[1] = u_f + τ*log(1 - x[1])
@@ -222,7 +221,7 @@ function qmc_time_ordered_integral(f,
     p_d_norm = exp_p_norm(τ, d)
     trans = make_exp_trans(c, t_f, τ)
 
-    u_i = get_ref(c, t_i)
+    u_i = kd.get_ref(c, t_i)
 
     N_samples::Int = 0
 
@@ -277,7 +276,7 @@ function qmc_time_ordered_integral_n_samples(
     p_d_norm = exp_p_norm(τ, d)
     trans = make_exp_trans(c, t_f, τ)
 
-    u_i = get_ref(c, t_i)
+    u_i = kd.get_ref(c, t_i)
 
     N::Int = 0
 
@@ -323,8 +322,8 @@ function qmc_time_ordered_integral_sort(f,
     @assert kd.heaviside(c, t_f, t_i)
 
     # x -> u transformation
-    u_i = get_ref(c, t_i)
-    u_f = get_ref(c, t_f)
+    u_i = kd.get_ref(c, t_i)
+    u_f = kd.get_ref(c, t_f)
     ref_diff = u_f - u_i
     trans = x -> u_i .+ sort(x, rev=true) * ref_diff
 
@@ -368,8 +367,8 @@ function qmc_time_ordered_integral_root(f,
     @assert kd.heaviside(c, t_f, t_i)
 
     # x -> u transformation
-    u_i = get_ref(c, t_i)
-    u_f = get_ref(c, t_f)
+    u_i = kd.get_ref(c, t_i)
+    u_f = kd.get_ref(c, t_f)
     ref_diff = u_f - u_i
 
     trans = x -> begin
@@ -443,9 +442,9 @@ function qmc_inchworm_integral_root(f,
     @assert d_before >= 0
     @assert d_after >= 1
 
-    u_i = get_ref(c, t_i)
-    u_w = get_ref(c, t_w)
-    u_f = get_ref(c, t_f)
+    u_i = kd.get_ref(c, t_i)
+    u_w = kd.get_ref(c, t_w)
+    u_f = kd.get_ref(c, t_f)
 
     ref_diff_wi = u_w - u_i
     ref_diff_fw = u_f - u_w

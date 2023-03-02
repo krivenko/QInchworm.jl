@@ -7,26 +7,6 @@ import Interpolations
 using Sobol: AbstractSobolSeq, SobolSeq, ndims
 import Sobol: next!
 
-using Keldysh # TODO: Remove
-
-"""
-    Inverse of get_point(c::AbstractContour, ref)
-
-    TODO: Remove, now defined in Keldysh.jl
-"""
-function get_ref(c::Keldysh.AbstractContour, t::Keldysh.BranchPoint)
-    ref = 0
-    for b in c.branches
-        lb = length(b)
-        if t.domain == b.domain
-            return ref + (t.ref * lb)
-        else
-            ref += lb
-        end
-    end
-    @assert false
-end
-
 #
 # Interpolations.jl addon: Implementation of the Neumann boundary
 # conditions for the cubic spline.

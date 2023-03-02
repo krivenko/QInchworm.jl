@@ -4,21 +4,8 @@ using Keldysh; kd = Keldysh
 
 using Interpolations: interpolate, scale, BSpline, Cubic, OnGrid
 
-using QInchworm.utility: get_ref # TODO: Remove
 using QInchworm.utility: NeumannBC
 using QInchworm.utility: IncrementalSpline, extend!
-
-# TODO: Remove this test set
-@testset "get_ref()" begin
-    tmax = 1.
-    β = 5.
-
-    contour = kd.twist(kd.FullContour(tmax=tmax, β=β));
-
-    for ref in [0.0, 0.5, 2.0, 5.0, 5.5, 6.5]
-        @test get_ref(contour, contour(ref)) == ref
-    end
-end
 
 @testset "NeumannBC" begin
     f(x) = exp(2*x)
