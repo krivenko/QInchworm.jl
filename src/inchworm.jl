@@ -417,6 +417,7 @@ function compute_gf_matsubara(expansion::Expansion,
     # Pre-compute topologies and diagrams: These are common for all
     # pairs of operators in expansion.corr_operators. Some of the diagrams
     # computed here will be excluded for a specific choice of C/C^+.
+    if inch_print(); println("= Response Function Diagrams ========"); end
     common_order_data = ExpansionOrderInputData[]
     for order in orders
         for n_pts_after = 1:max(1, 2*order-1)
@@ -425,6 +426,10 @@ function compute_gf_matsubara(expansion::Expansion,
             all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
             push!(common_order_data, ExpansionOrderInputData(
                 order, n_pts_after, all_diagrams, [], N_samples))
+
+            if inch_print()
+                println("order $(order), n_pts_after $(n_pts_after), N_diag $(length(all_diagrams))")
+            end
         end
     end
 
