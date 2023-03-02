@@ -153,39 +153,27 @@ function set_bold_ppgf!(exp::Expansion,
     end
 end
 
-# Specialization for spline-interpolated imaginary time PPGF
-function set_bold_ppgf!(
-    exp::Expansion{ScalarGF, Vector{SplineInterpolatedGF{ppgf.ImaginaryTimePPGFSector, ComplexF64, false}}},
-    τ_i::kd.TimeGridPoint,
-    τ_f::kd.TimeGridPoint,
-    result::SectorBlockMatrix) where {ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}}
+function set_bold_ppgf_at_order!(exp::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},
+                                 order,
+                                 t_i::kd.TimeGridPoint,
+                                 t_f::kd.TimeGridPoint,
+                                 result::SectorBlockMatrix) where ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}
     for (s_i, (s_f, mat)) in result
         # Boldification must preserve the block structure
         @assert s_i == s_f
-        exp.P[s_i][τ_f, τ_i, τ_max = τ_f] = mat
+        extend!(exp.P_orders[order+1][s_i], mat)
     end
 end
 
-function set_bold_ppgf!(P::PPGF,
-    t_i::kd.TimeGridPoint,
-    t_f::kd.TimeGridPoint,
-    result::SectorBlockMatrix) where PPGF <: AllPPGFTypes
+function set_bold_ppgf_at_order!(exp::Expansion,
+                                 order,
+                                 t_i::kd.TimeGridPoint,
+                                 t_f::kd.TimeGridPoint,
+                                 result::SectorBlockMatrix)
     for (s_i, (s_f, mat)) in result
         # Boldification must preserve the block structure
         @assert s_i == s_f
-        P[s_i][t_f, t_i] = mat
-    end
-end
-
-# TODO: These should probably be removed
-function set_bold_ppgf!(P::Vector{IncSplineImaginaryTimeGF{ComplexF64, false}},
-    t_i::kd.TimeGridPoint,
-    t_f::kd.TimeGridPoint,
-    result::SectorBlockMatrix)
-    for (s_i, (s_f, mat)) in result
-        # Boldification must preserve the block structure
-        @assert s_i == s_f
-        extend!(P[s_i], mat)
+        exp.P_orders[order+1][s_i][t_f, t_i] = mat
     end
 end
 

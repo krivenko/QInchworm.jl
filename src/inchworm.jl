@@ -18,7 +18,7 @@ using QInchworm.utility: SobolSeqWith0, next!
 using QInchworm.utility: inch_print
 using QInchworm.utility: mpi_N_skip_and_N_samples_on_rank, split_count
 
-using QInchworm.expansion: Expansion, set_bold_ppgf!
+using QInchworm.expansion: Expansion, set_bold_ppgf!, set_bold_ppgf_at_order!
 using QInchworm.configuration: Configuration,
                                operator,
                                sector_block_matrix_from_ppgf
@@ -113,7 +113,7 @@ function inchworm_step(expansion::Expansion,
                 )
             end
         end
-        set_bold_ppgf!(expansion.P_orders[1+od.order], τ_i, τ_f, order_contrib)
+        set_bold_ppgf_at_order!(expansion, od.order, τ_i, τ_f, order_contrib)
         result += order_contrib
     end
     result
@@ -171,7 +171,7 @@ function inchworm_step_bare(expansion::Expansion,
                 )
             end
         end
-        set_bold_ppgf!(expansion.P_orders[1+od.order], τ_i, τ_f, order_contrib)
+        set_bold_ppgf_at_order!(expansion, od.order, τ_i, τ_f, order_contrib)
         result += order_contrib
     end
     result
