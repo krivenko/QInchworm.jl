@@ -23,7 +23,7 @@ using MPI; MPI.Init()
 
 using Test
 
-import PyPlot; plt = PyPlot
+#import PyPlot; plt = PyPlot
 
 using LinearAlgebra: diag
 using QuadGK: quadgk
@@ -31,11 +31,9 @@ using QuadGK: quadgk
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-using QInchworm.ppgf: normalize!
+using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.inchworm: inchworm_matsubara!, compute_gf_matsubara
-
-using QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
 using QInchworm.utility: inch_print
 
 function semi_circular_g_tau(times, t, h, β)
@@ -204,7 +202,7 @@ G3_j = [-1.        , -0.94948098, -0.90327107, -0.86091699, -0.82202156,
         -0.29414327, -0.29656716, -0.29910843]
     return G0_j, G1_j, G2_j, G3_j
 end
-    
+
 function get_G_oca()
     G0_j = [-1.        , -0.95201873, -0.90728941, -0.86554819, -0.82655597,
        -0.79009574, -0.75597032, -0.72400027, -0.69402216, -0.66588687,
@@ -312,7 +310,7 @@ function get_G_oca()
         -0.29876302, -0.30073363, -0.30280698]
     return G0_j, G1_j, G2_j, G3_j
 end
-    
+
 
 function get_G_nca()
     G0_j = [
@@ -567,12 +565,12 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples, μ_b
     ip_2_bwd = InteractionPair(op.c(2), op.c_dag(2), reverse(Δ))
     expansion = Expansion(ed, grid, [ip_1_fwd, ip_1_bwd, ip_2_fwd, ip_2_bwd])
 
-    ρ_0 = density_matrix(expansion.P0, ed)
+    ρ_0 = full_hs_matrix(tofockbasis(density_matrix(expansion.P0), ed), ed)
 
     inchworm_matsubara!(expansion, grid, orders, orders_bare, N_samples)
 
     normalize!(expansion.P, β)
-    ρ_wrm = density_matrix(expansion.P, ed)
+    ρ_wrm = full_hs_matrix(tofockbasis(density_matrix(expansion.P), ed), ed)
 
     ρ_exa = get_ρ_exact(ρ_wrm)
     ρ_nca = get_ρ_nca(ρ_wrm)
@@ -625,7 +623,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples, μ_b
     end
     end
 
-    if true
+    if false
 
     τ = kd.imagtimes(g[1].grid)
     τ_ref = collect(LinRange(0, β, 128))
@@ -646,7 +644,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples, μ_b
     for s in 1:4
         plt.plot(τ_ref, get_G_tca()[s], "k-.", label="TCA $s ref", alpha=0.25)
     end
-        
+
     plt.ylabel(raw"$P_\Gamma(\tau)$")
     plt.xlabel(raw"$\tau$")
     plt.legend(loc="best")

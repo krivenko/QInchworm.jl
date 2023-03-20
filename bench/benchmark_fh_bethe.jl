@@ -15,8 +15,7 @@ using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.topology_eval: get_topologies_at_order,
                                get_diagrams_at_order
 using QInchworm.inchworm: inchworm_matsubara!
-using QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
-using  QInchworm.utility: inch_print
+using QInchworm.utility: inch_print
 
 function semi_circular_g_tau(times, t, h, β)
 
@@ -127,7 +126,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
     ip_2_bwd = InteractionPair(op.c(2), op.c_dag(2), reverse(Δ))
     expansion = Expansion(ed, grid, [ip_1_fwd, ip_1_bwd, ip_2_fwd, ip_2_bwd])
 
-    ρ_0 = density_matrix(expansion.P0, ed)
+    ρ_0 = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P0), ed), ed)
 
     inchworm_matsubara!(expansion,
                         grid,
@@ -136,7 +135,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
                         N_samples)
 
     ppgf.normalize!(expansion.P, β)
-    ρ_wrm = density_matrix(expansion.P, ed)
+    ρ_wrm = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P), ed), ed)
 
     ρ_exa = get_ρ_exact(ρ_wrm)
     ρ_nca = get_ρ_nca(ρ_wrm)

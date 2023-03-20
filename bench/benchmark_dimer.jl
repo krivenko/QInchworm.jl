@@ -15,8 +15,6 @@ using QInchworm.topology_eval: get_topologies_at_order,
                                get_diagrams_at_order
 
 using QInchworm.inchworm: inchworm_matsubara!
-
-using QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
 using QInchworm.spline_gf: SplineInterpolatedGF
 using QInchworm.utility: inch_print
 
@@ -44,7 +42,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     soi = ked.Hilbert.SetOfIndices([[1]])
     ed = ked.EDCore(H, soi)
 
-    ρ_ref = Array{ComplexF64}( reduced_density_matrix(ed_dimer, ed, β) )
+    ρ_ref = Array{ComplexF64}( reduced_density_matrix(ed_dimer, soi, β) )
 
     # -- Hybridization propagator
 
@@ -75,7 +73,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
         expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
     end
 
-    ρ_0 = density_matrix(expansion.P0, ed)
+    ρ_0 = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P0), ed), ed)
 
     inchworm_matsubara!(expansion,
                         grid,
@@ -86,10 +84,10 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     if interpolate_gfs
         P = [ p.GF for p in expansion.P ]
         ppgf.normalize!(P, β) # DEBUG fixme!
-        ρ_wrm = density_matrix(P, ed)
+        ρ_wrm = full_hs_matrix(tofockbasis(ppgf.density_matrix(P), ed), ed)
     else
         ppgf.normalize!(expansion.P, β) # DEBUG fixme!
-        ρ_wrm = density_matrix(expansion.P, ed)
+        ρ_wrm = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P), ed), ed)
     end
 
     #ppgf.normalize!(expansion.P, β)

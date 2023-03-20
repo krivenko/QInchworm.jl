@@ -7,7 +7,7 @@ using KeldyshED; ked = KeldyshED;
 import KeldyshED: partition_function
 
 using QInchworm.spline_gf: SplineInterpolatedGF
-using  QInchworm.utility: inch_print
+using QInchworm.utility: inch_print
 
 export FullTimePPGF, ImaginaryTimePPGF
 export atomic_ppgf
@@ -98,7 +98,6 @@ function atomic_ppgf!(G::Vector, ed::ked.EDCore)
         end
     end
 end
-
 
 """
     operator_product(...)
@@ -421,6 +420,18 @@ function initial_ppgf_derivative(ed::ked.EDCore, β::Float64)
         push!(dP, dP_s)
     end
     return dP
+end
+
+function density_matrix(P::Vector{<:kd.AbstractTimeGF})
+    @assert !isempty(P)
+    τ_0, τ_β = kd.branch_bounds(P[1].grid, kd.imaginary_branch)
+    return [1im * P_s[τ_β, τ_0] for P_s in P]
+end
+
+function reduced_ppgf(P::Vector{<:kd.AbstractTimeGF},
+                      ed::ked.EDCore,
+                      target_soi::ked.SetOfIndices)
+    ked.partial_trace(ked.tofockbasis(P, ed), ed, target_soi)
 end
 
 end # module ppgf

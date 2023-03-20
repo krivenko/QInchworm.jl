@@ -11,14 +11,9 @@ using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.topology_eval: get_topologies_at_order,
                                get_diagrams_at_order
 
-using QInchworm.inchworm: inchworm_matsubara!
 using QInchworm.ppgf
-using QInchworm.KeldyshED_addons: reduced_density_matrix,
-                                  density_matrix,
-                                  reduced_ppgf,
-                                  occupation_number_basis_ppgf
-
-                                  using QInchworm.spline_gf: SplineInterpolatedGF
+using QInchworm.spline_gf: SplineInterpolatedGF
+using QInchworm.inchworm: inchworm_matsubara!
 
 using PyPlot; plt = PyPlot # DEBUG
 
@@ -46,10 +41,10 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
     soi = KeldyshED.Hilbert.SetOfIndices([[1]])
     ed = KeldyshED.EDCore(H, soi)
 
-    ρ_ref = Array{ComplexF64}( reduced_density_matrix(ed_dimer, ed, β) )
+    ρ_ref = Array{ComplexF64}( reduced_density_matrix(ed_dimer, soi, β) )
 
     P0_dimer = ppgf.atomic_ppgf(grid, ed_dimer)
-    P_red = reduced_ppgf(P0_dimer, ed_dimer, ed)
+    P_red = ppgf.reduced_ppgf(P0_dimer, ed_dimer, soi)
 
     # -- Hybridization propagator
 
@@ -124,7 +119,7 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
     exit()
     end
 
-    ρ_0 = density_matrix(expansion.P0, ed)
+    ρ_0 = ppgf.density_matrix(expansion.P0)
 
     inchworm_matsubara!(expansion,
                         grid,
@@ -137,10 +132,10 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
     if interpolate_gfs
         P = [ p.GF for p in expansion.P ]
         ppgf.normalize!(P, β) # DEBUG fixme!
-        ρ_wrm = density_matrix(P, ed)
+        ρ_wrm = ppgf.density_matrix(P)
     else
         ppgf.normalize!(expansion.P, β) # DEBUG fixme!
-        ρ_wrm = density_matrix(expansion.P, ed)
+        ρ_wrm = ppgf.density_matrix(expansion.P)
     end
 
     @printf "ρ_0   = %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2])
@@ -152,11 +147,11 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
 
     if false
 
-    P0 = occupation_number_basis_ppgf(expansion.P0, ed)
+    P0 = tofockbasis(expansion.P0, ed)
     if interpolate_gfs
-        P = occupation_number_basis_ppgf(P, ed)
+        P = tofockbasis(P, ed)
     else
-        P = occupation_number_basis_ppgf(expansion.P, ed)
+        P = tofockbasis(expansion.P, ed)
     end
 
     # -- Rip out initial derivative for P0 and P
@@ -270,7 +265,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
     soi = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
     ed = KeldyshED.EDCore(H_imp, soi)
 
-    ρ_ref = Array{ComplexF64}( reduced_density_matrix(ed_dimer, ed, β) )
+    ρ_ref = Array{ComplexF64}( reduced_density_matrix(ed_dimer, soi, β) )
 
     # -- Hybridization propagator
 
@@ -303,7 +298,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
     ip_2_bwd = InteractionPair(op.c(2), op.c_dag(2), reverse(Δ_2))
     expansion = Expansion(ed, grid, [ip_1_fwd, ip_1_bwd, ip_2_fwd, ip_2_bwd])
 
-    ρ_0 = density_matrix(expansion.P0, ed)
+    ρ_0 = tofockbasis(density_matrix(expansion.P0), ed)
 
     inchworm_matsubara!(expansion,
                         grid,
@@ -314,7 +309,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
                         qmc_convergence_atol)
 
     ppgf.normalize!(expansion.P, β)
-    ρ_wrm = density_matrix(expansion.P, ed)
+    ρ_wrm = tofockbasis(density_matrix(expansion.P), ed)
 
     @printf "ρ_0   = %16.16f %16.16f %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2]) real(ρ_0[3, 3]) real(ρ_0[4, 4])
     @printf "ρ_ref = %16.16f %16.16f %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2]) real(ρ_ref[3, 3]) real(ρ_ref[4, 4])

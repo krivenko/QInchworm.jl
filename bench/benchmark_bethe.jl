@@ -17,8 +17,6 @@ using QInchworm.topology_eval: get_topologies_at_order,
                                get_diagrams_at_order
 
 using QInchworm.inchworm: inchworm_matsubara!
-
-using QInchworm.KeldyshED_addons: reduced_density_matrix, density_matrix
 using QInchworm.spline_gf: SplineInterpolatedGF
 using QInchworm.utility: inch_print
 
@@ -100,7 +98,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
         expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
     end
 
-    ρ_0 = density_matrix(expansion.P0, ed)
+    ρ_0 = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P0), ed), ed)
 
     inchworm_matsubara!(expansion,
                         grid,
@@ -111,12 +109,13 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     if interpolate_gfs
         P = [ p.GF for p in expansion.P ]
         ppgf.normalize!(P, β) # DEBUG fixme!
-        ρ_wrm = density_matrix(P, ed)
+        ρ_wrm = full_hs_matrix(tofockbasis(ppgf.density_matrix(P), ed), ed)
     else
         ppgf.normalize!(expansion.P, β) # DEBUG fixme!
-        ρ_wrm = density_matrix(expansion.P, ed)
+        ρ_wrm = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P), ed), ed)
 
-        ρ_wrm_orders = [ density_matrix(p, ed) for p in expansion.P_orders ]
+        ρ_wrm_orders = [ full_hs_matrix(tofockbasis(ppgf.density_matrix(p), ed), ed)
+                         for p in expansion.P_orders ]
         ρ_wrm_orders = [ real(diag(r)) for r in ρ_wrm_orders ]
         norm = sum(sum(ρ_wrm_orders))
         ρ_wrm_orders /= norm
@@ -126,9 +125,6 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
         #@show norm
         #@show ρ_wrm_orders
     end
-
-    #ppgf.normalize!(expansion.P, β)
-    #ρ_wrm = density_matrix(expansion.P, ed)
 
     ρ_ref = zero(ρ_wrm)
 
