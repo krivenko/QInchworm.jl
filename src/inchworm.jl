@@ -422,7 +422,7 @@ function compute_gf_matsubara(expansion::Expansion,
     for order in orders
         for n_pts_after = 1:max(1, 2*order-1)
             d_before = 2 * order - n_pts_after
-            topologies = teval.get_topologies_at_order(order, n_pts_after)
+            topologies = teval.get_topologies_at_order(order, n_pts_after, with_1k_arc=true)
             all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
             push!(common_order_data, ExpansionOrderInputData(
                 order, n_pts_after, all_diagrams, [], N_samples))

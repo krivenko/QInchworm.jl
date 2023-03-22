@@ -49,11 +49,13 @@ struct Topology
 
 end
 
-function Topology(pairs::PairVector)
+function Topology(pairs::PairVector; k = nothing)
   p = parity_slow(collect(Iterators.flatten(pairs)))
+  if k !== nothing
+    p *= (-1) ^ count_doubly_k_connected(pairs, k)
+  end
   return Topology(pairs, p)
 end
-
 
 function Base.isvalid(t::Topology)
   perm = collect(Iterators.flatten(t.pairs))
@@ -64,6 +66,14 @@ function sortpair(p::Pair{T,T}) where {T}
   return p.first > p.second ? p.second => p.first : p
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Returns true if a given pair has one index <= `k` and the other index > `k`.
+"""
+function is_doubly_k_connected(p::Pair{Int,Int}, k::Int)
+  return (p.first <= k && p.second > k) || (p.second <= k && p.first > k)
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -170,6 +180,15 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Given a vector of pairs, count the doubly k-connected ones.
+"""
+function count_doubly_k_connected(pairs::PairVector, k::Int)
+  return count(p -> is_doubly_k_connected(p, k), pairs)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Given a vector of pairs, split it into a 'connected' set containing pairs with
 one index <= `k` and the other index > `k` and a disconnected set containing the rest
 """
@@ -178,7 +197,7 @@ function split_doubly_k_connected(pairs::PairVector, k::Int)
   disconnected = PairVector()
 
   for p in pairs
-    if (p.first <= k && p.second > k) || (p.first > k && p.second <= k)
+    if is_doubly_k_connected(p, k)
       push!(connected, p)
     else
       push!(disconnected, p)

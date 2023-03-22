@@ -9,7 +9,11 @@ using QInchworm; cfg = QInchworm.configuration
 using QInchworm: SectorBlockMatrix
 using QInchworm.expansion: Expansion
 using QInchworm.configuration: Configuration, Time, Node, InchNode, NodePair
-using QInchworm.diagrammatics: Topology, Diagram, pair_partitions, is_doubly_k_connected
+using QInchworm.diagrammatics: Topology,
+                               Diagram,
+                               pair_partitions,
+                               count_doubly_k_connected,
+                               is_doubly_k_connected
 
 """ Get a list of `configuration.Node`'s defining the inchworm interval [τ_f, τ_w, τ_0]
 
@@ -88,9 +92,13 @@ function timeordered_unit_interval_points_to_imaginary_branch_inch_worm_times(
     return τs
 end
 
-function get_topologies_at_order(order::Int64, k = nothing)::Vector{Topology}
+function get_topologies_at_order(order::Int64, k = nothing; with_1k_arc = false)::Vector{Topology}
 
-    topologies = Topology.(pair_partitions(order))
+    if with_1k_arc
+        topologies = Topology.(pair_partitions(order), k = k)
+    else
+        topologies = Topology.(pair_partitions(order))
+    end
     k === nothing && return topologies
 
     filter!(topologies) do top
@@ -99,7 +107,6 @@ function get_topologies_at_order(order::Int64, k = nothing)::Vector{Topology}
 
     return topologies
 end
-
 
 """ Get all diagrams as combinations of a `Topology` and a list of pseudo particle interaction indicies
 
