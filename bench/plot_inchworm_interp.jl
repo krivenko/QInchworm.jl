@@ -21,10 +21,10 @@ for g in data_g
     plt.figure()
     cmap = plt.get_cmap("tab10")
     for (i, name) in enumerate(["NCA", "OCA", "2CA", "exact"])
-        plt.semilogx(nτ_list, diffs_non_interp[:, i], base=2,
+        plt.loglog(nτ_list, diffs_non_interp[:, i], base=2,
             lw = 0.5, ls="--", color=cmap(i),
             label = "diff(\$ρ_{$name}\$), non-interpolated")
-        plt.semilogx(nτ_list, diffs_interp[:, i], base=2,
+        plt.loglog(nτ_list, diffs_interp[:, i], base=2,
             lw = 0.5, color=cmap(i),
             label = "diff(\$ρ_{$name}\$), interpolated")
     end

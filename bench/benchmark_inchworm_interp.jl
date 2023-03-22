@@ -207,8 +207,8 @@ comm_size = MPI.Comm_size(comm)
 comm_rank = MPI.Comm_rank(comm)
 
 μ_bethe = 0.25
-N_samples = 2^8
-nτ_list = 2 .^ range(3, 12)
+N_samples = 2^12
+nτ_list = 2 .^ range(3, 10)
 
 if comm_rank == 0
     fid = h5.h5open("data_inchworm_interp.h5", "w")
