@@ -207,7 +207,7 @@ comm_size = MPI.Comm_size(comm)
 comm_rank = MPI.Comm_rank(comm)
 
 μ_bethe = 0.25
-N_samples = 2^12
+N_samples = 2^16
 nτ_list = 2 .^ (3:10)
 
 if comm_rank == 0

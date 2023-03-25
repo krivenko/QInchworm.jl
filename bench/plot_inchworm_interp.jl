@@ -23,11 +23,13 @@ for g in data_g
     for (i, name) in enumerate(["NCA", "OCA", "2CA", "exact"])
         plt.loglog(nτ_list, diffs_non_interp[:, i], base=2,
             lw = 0.5, ls="--", color=cmap(i),
-            label = "diff(\$ρ_{$name}\$), non-interpolated")
+            label = "diff(\$ρ_{$name}\$), linear interp.")
         plt.loglog(nτ_list, diffs_interp[:, i], base=2,
             lw = 0.5, color=cmap(i),
-            label = "diff(\$ρ_{$name}\$), interpolated")
+            label = "diff(\$ρ_{$name}\$), quadratic interp.")
     end
+    plt.xscale("log", base = 2)
+    plt.yscale("log", base = 10)
     plt.xlabel(raw"$N_\tau$")
     plt.title("Expansion orders " * join(orders, ", "))
     plt.legend(prop=Dict("size" => 8))
