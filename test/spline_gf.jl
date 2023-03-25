@@ -1,5 +1,3 @@
-using Test
-
 using Keldysh; kd = Keldysh
 
 using QInchworm.spline_gf: SplineInterpolatedGF,

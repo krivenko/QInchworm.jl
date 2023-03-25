@@ -19,8 +19,6 @@ Author: Hugo U. R. Strand (2023)
 
 """
 
-using Test
-
 using MPI; MPI.Init()
 
 using LinearAlgebra: diag

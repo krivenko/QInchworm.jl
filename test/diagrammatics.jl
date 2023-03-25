@@ -1,6 +1,3 @@
-using Test
-using Random
-
 using QInchworm.diagrammatics
 
 @testset "diagrammatics" begin

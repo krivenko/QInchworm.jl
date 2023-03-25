@@ -1,4 +1,3 @@
-using Test
 using Random
 
 using MPI; MPI.Init()

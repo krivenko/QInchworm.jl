@@ -21,8 +21,6 @@ Author: Hugo U. R. Strand (2023)
 
 using MPI; MPI.Init()
 
-using Test
-
 #import PyPlot; plt = PyPlot
 
 using LinearAlgebra: diag
