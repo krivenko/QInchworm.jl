@@ -84,18 +84,32 @@ function atomic_ppgf!(G::Vector, ed::ked.EDCore)
     for (G_s, s, E, n) in zip(G, ed.subspaces, ked.energies(ed), N)
         ξ = (-1)^n[1,1] # Statistics sign
         grid = G_s.grid
-        z_β = grid[kd.imaginary_branch][end]
-        Threads.@threads for z1 in grid
-	        for z2 in grid[1:z1.cidx]
-                Δz = z1.bpoint.val - z2.bpoint.val
-                if z1.bpoint.domain == kd.forward_branch &&
-                    z2.bpoint.domain != kd.forward_branch
-                    Δz += -im*β
-                end
-                sign = ξ^(z1.cidx > z_β.cidx && z_β.cidx >= z2.cidx)
-                G_s[z1, z2] = -im * sign * Diagonal(exp.(-im * Δz * (E .+ λ)))
-	        end
-        end
+        atomic_ppgf_fill_G!(G_s, grid, E, λ, ξ)
+    end
+end
+
+function atomic_ppgf_fill_G!(G_s::kd.AbstractTimeGF{T, scalar} where {T, scalar}, grid::kd.AbstractTimeGrid, E, λ, ξ)
+    z_β = grid[kd.imaginary_branch][end]
+    Threads.@threads for z1 in grid
+	for z2 in grid[1:z1.cidx]
+            Δz = z1.bpoint.val - z2.bpoint.val
+            if z1.bpoint.domain == kd.forward_branch &&
+                z2.bpoint.domain != kd.forward_branch
+                Δz += -im*β
+            end
+            sign = ξ^(z1.cidx > z_β.cidx && z_β.cidx >= z2.cidx)
+            G_s[z1, z2] = -im * sign * Diagonal(exp.(-im * Δz * (E .+ λ)))
+	end
+    end
+end
+
+function atomic_ppgf_fill_G!(G_s::kd.ImaginaryTimeGF{T, scalar} where {T, scalar}, grid::kd.ImaginaryTimeGrid, E, λ, ξ)
+    z2 = grid[kd.imaginary_branch][1]
+    z_β = grid[kd.imaginary_branch][end]
+    for z1 in grid
+        Δz = z1.bpoint.val - z2.bpoint.val
+        sign = ξ^(z1.cidx > z_β.cidx && z_β.cidx >= z2.cidx)
+        G_s[z1, z2] = -im * sign * Diagonal(exp.(-im * Δz * (E .+ λ)))
     end
 end
 
