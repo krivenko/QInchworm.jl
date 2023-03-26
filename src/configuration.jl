@@ -436,9 +436,11 @@ function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
 
     start = operator(exp, first(nodes))
 
+    bold_P = has_inch_node
+    P = bold_P ? exp.P : exp.P0
+    
     @inbounds for path in paths
 
-        bold_P = has_inch_node
         prev_node = first(nodes)
         S_i, S_f, mat = first(path)
 
@@ -453,10 +455,15 @@ function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
             #@assert !(node.time < prev_node.time)
             #@assert node.time >= prev_node.time # BROKEN FIXME ?
 
-            P_interp = bold_P ?
-                exp.P[s_i](node.time, prev_node.time) :
-                exp.P0[s_i](node.time, prev_node.time)
-
+            if node.time.ref >= prev_node.time.ref
+                P_interp = P[s_i](node.time, prev_node.time)
+            else
+                # Fix for equal time nodes where order is flipped
+                # from float roundoff
+                #@assert (node.time.ref - prev_node.time.ref) > -1e-10
+                P_interp = P[s_i](prev_node.time, node.time) # reversed node order
+            end
+                        
             mat = im * op_mat * P_interp * mat
 
             prev_node = node
