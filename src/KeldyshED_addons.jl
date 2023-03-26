@@ -1,6 +1,6 @@
 module KeldyshED_addons
 
-using LinearAlgebra: tr
+using LinearAlgebra: tr, diagm
 
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
@@ -221,6 +221,63 @@ end
 function density_matrix(P::AllPPGFTypes, ed::ked.EDCore)
     ρ = eigenstate_density_matrix(P)
     return density_matrix(ρ, ed)
+end
+
+# -- KeldyshED routines specialized to 1D ImaginaryTimeGrid
+
+function evolution_operator_imtime(ed::EDCore,
+                            grid::ImaginaryTimeGrid)::Vector{ImaginaryTimeGF{ComplexF64, false}}
+  [ImaginaryTimeGF(grid, length(es.eigenvalues)) do t1, t2
+      diagm(exp.(-im * es.eigenvalues * (t1.bpoint.val - t2.bpoint.val)))
+   end
+   for es in ed.eigensystems]
+end
+
+function tofockbasis_imtime(S::Vector{GF}, ed::EDCore) where {GF <: ImaginaryTimeGF}
+  S_fock = GF[]
+  for (s, es) in zip(S, ed.eigensystems)
+    U = es.unitary_matrix
+    push!(S_fock, similar(s))
+    t2 = S_fock[end].grid[1]  
+    #for t1 in S_fock[end].grid, t2 in S_fock[end].grid
+    for t1 in S_fock[end].grid
+      S_fock[end][t1, t2] = U * s[t1, t2] * adjoint(U)
+    end
+  end
+  return S_fock
+end
+
+function partial_trace_imtime(S::Vector{GF},
+                       ed::EDCore,
+                       target_soi::ked.SetOfIndices) where {GF <: ImaginaryTimeGF}
+  target_hs = ked.FullHilbertSpace(target_soi)
+  fmap = ked.factorized_basis_map(ed.full_hs, target_hs)
+
+  S_target = similar(S[1], length(target_hs))
+
+  for (Sss, hss) in zip(S, ed.subspaces)
+    for (i1, fs1) in pairs(hss), (i2, fs2) in pairs(hss)
+      i_target1, i_env1 = fmap[ked.getstateindex(ed.full_hs, fs1)]
+      i_target2, i_env2 = fmap[ked.getstateindex(ed.full_hs, fs2)]
+
+      i_env1 != i_env2 && continue
+
+      t2 = S_target.grid[1]  
+      #for t1 in S_target.grid, t2 in S_target.grid
+      for t1 in S_target.grid
+        S_target[i_target1, i_target2, t1, t2] += Sss[i1, i2, t1, t2]
+      end
+    end
+  end
+
+  S_target
+end
+
+function reduced_evolution_operator_imtime(ed::EDCore,
+                                    target_soi::ked.SetOfIndices,
+                                    grid::ImaginaryTimeGrid)
+  S = tofockbasis_imtime(evolution_operator_imtime(ed, grid), ed)
+  return partial_trace_imtime(S, ed, target_soi)
 end
 
 end # module KeldyshED_addons
