@@ -5,6 +5,20 @@ from h5 import HDFArchive
 import triqs.operators as op
 import triqs.utility.mpi as mpi
 
+import matplotlib.pyplot as plt
+
+SMALL_SIZE = 7
+MEDIUM_SIZE = 8
+BIGGER_SIZE = 8
+
+plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+
 from matplotlib.gridspec import GridSpec
 
 from triqs_cthyb import Solver
@@ -27,8 +41,8 @@ if __name__ == "__main__":
     
     #filename = 'data_bethe_ntau_1024_maxorder_1_md5_68e17e11280c9c0cb659042ff7a8ef7d.h5'
     #filename = 'data_bethe_ntau_2048_maxorder_1_md5_1bcc2a4d808c1b5e5e924af06a0afb72.h5'
-    filename = 'data_bethe_ntau_4096_maxorder_1_md5_d3e0ae1f4957e91a05861c96af3f3162.h5'
-
+    #filename = 'data_bethe_ntau_4096_maxorder_1_md5_d3e0ae1f4957e91a05861c96af3f3162.h5'
+    filename = 'data_bethe_ntau_8192_maxorder_4_md5_05bd87e98134cebe65b400aac70dba3a.h5'
     print(f'--> Loading: {filename}')
     with HDFArchive(filename, 'r') as a:
         d = a['data']
@@ -100,37 +114,36 @@ if __name__ == "__main__":
     res = minimize(target_function, 0.1)
     print(res)
 
-    res_qmc = minimize(target_function_qmc, 0.1)
+    res_qmc = minimize(target_function_qmc, 0.01)
     print(res_qmc)
     
     import matplotlib.pyplot as plt
 
-    plt.figure(figsize=(3.25, 4))
+    plt.figure(figsize=(3.25, 2.5))
 
     gs = GridSpec(
         2, 1,
         width_ratios=[1],
-        height_ratios=[1, 0.5],
-        wspace=0.0, hspace=0.35,
-        bottom=0.10, top=0.97,
-        left=0.25, right=0.98,
+        height_ratios=[1, 0.3],
+        wspace=0.0, hspace=0.45,
+        bottom=0.14, top=0.99,
+        left=0.18, right=0.98,
         )
     
     #subp = [2, 1, 1]
     #plt.subplot(*subp); subp[-1] += 1
     plt.subplot(gs[0, 0])
 
-    delta = np.logspace(-5, 0, num=10)
-    C = res_qmc.x
-    plt.plot(C/delta, delta, ':k', lw=0.5,
+    N = np.logspace(0.2, 6.5, num=10)
+    plt.plot(N, res_qmc.x / N, ':k', lw=0.5,
              #label=r'$1/N$'
              )
 
     #x = np.logspace(0, 8, num=10)
     #plt.plot(x, res.x/np.sqrt(x), '--k', lw=0.5, label=r'$\sim 1/\sqrt{N}$')
 
-    delta = np.logspace(-4.5, 0, num=10)
-    plt.plot(res.x**2 / delta**2, delta, '--k', lw=0.5,
+    N = np.logspace(0.2, 14, num=10)
+    plt.plot(N, res.x / np.sqrt(N), '--k', lw=0.5,
              #label=r'$1/\sqrt{N}$',
              )
     
@@ -141,21 +154,27 @@ if __name__ == "__main__":
     plt.plot(n_samples, err_avgs, '-', color=color, alpha=0.75)
     plt.plot([], [], '.-', color=color, alpha=0.75, label='Monte Carlo')
 
-    plt.plot(2e9, 1e-3, 'o', color='white')
-    plt.plot(2e9, 1e2, 'o', color='white')
-    plt.text(1e7, 2e-5, r'$\sim 1/\sqrt{N}$', ha='left', va='top')
-    plt.text(2e5, 7e-6, r'$\sim 1/N$', ha='center', va='top')
+    #plt.plot(2e9, 1e-3, 'o', color='white')
+    #plt.plot(2e9, 1e2, 'o', color='white')
+    #plt.plot(2e7, 1e-8, 'o', color='red')
+    #plt.plot(1, 1e-8, 'o', color='red')
+    #plt.plot(1e13, 1e-8, 'o', color='red')
+    plt.text(1e8, 2e-4, r'$\propto 1/\sqrt{N}$', ha='left', va='top')
+    plt.text(2e7, 5e-8, r'$\propto 1/N$', ha='center', va='top')
     
     plt.loglog([],[])
     #plt.semilogx([], [])
     #plt.grid(True)
     plt.xlabel(r'Samples $N$')
     plt.ylabel(r'Error in  $\rho$')
-    plt.legend(loc='upper center')
+    plt.legend(loc='best')
     #plt.ylim([1e-4, 1e1])
     #plt.xlim([1e-2, 1e9])
-    plt.axis('equal')
+
+    #plt.axis('equal')
     #plt.ylim([1e-5, 1e0])
+    plt.xlim(left=1, right=1e15)
+    plt.ylim(bottom=1e-8)
 
     #plt.subplot(*subp); subp[-1] += 1
     plt.subplot(gs[1, 0])
@@ -196,8 +215,9 @@ if __name__ == "__main__":
     plt.xlabel('Perturbation order')
     plt.ylabel('Probabilbity')
     plt.xticks(np.arange(0, pto_max), labels=[f'{i:d}' for i in range(0, pto_max)])
-    plt.ylim(bottom=5e-8)
+    plt.ylim(bottom=5e-8, top=10)
+    plt.yticks([1e-6, 1e-3, 1e0])
     
     plt.tight_layout()
     plt.savefig('figure_mc_convergence.pdf')
-    plt.show()
+    #plt.show()

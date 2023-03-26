@@ -4,6 +4,10 @@
 /docs/build/
 *.code-workspace
 *.ipynb_checkpoints
+/bench/*/data_*
+/bench/*/bak*
+/bench/*/*.pdf
+/bench/*/*.h5
 /experiments/*.pdf
 /experiments/*/*.pdf
 /experiments/*.h5

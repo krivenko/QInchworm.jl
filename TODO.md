@@ -10,3 +10,9 @@ TODO list for QInchworm
   information is superfluous as we always generate a whole
   list of time points independently from the previously generated
   lists.
+
+* Compute the partition function Z and the Gibbs free energy \Omega
+  of the expansion (relative to the atomic system) before normalizing.
+
+* One performance bottleneck is the generation of the operator matrices
+  consider storing the matrix representations in each configuration.
