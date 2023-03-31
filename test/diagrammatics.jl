@@ -21,6 +21,15 @@ using QInchworm.diagrammatics
     end
   end
 
+  for n = 1:7
+    topologies = diagrammatics.generate_topologies(n)
+    for top in topologies
+      for k in 1:n
+        @test (-1)^k == (-1)^(diagrammatics.count_doubly_k_connected(top.pairs, k))
+      end
+    end
+  end
+
   top = diagrammatics.Topology([1 => 2, 3 => 4])
   @test isvalid(top)
 
