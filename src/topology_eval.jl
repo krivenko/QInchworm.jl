@@ -13,7 +13,8 @@ using QInchworm.diagrammatics: Topology,
                                Diagram,
                                pair_partitions,
                                count_doubly_k_connected,
-                               is_doubly_k_connected
+                               is_doubly_k_connected,
+                               generate_topologies
 
 """ Get a list of `configuration.Node`'s defining the inchworm interval [τ_f, τ_w, τ_0]
 
@@ -93,11 +94,10 @@ function timeordered_unit_interval_points_to_imaginary_branch_inch_worm_times(
 end
 
 function get_topologies_at_order(order::Int64, k = nothing; with_1k_arc = false)::Vector{Topology}
+    topologies = generate_topologies(order)
 
     if with_1k_arc
-        topologies = Topology.(pair_partitions(order), k = k)
-    else
-        topologies = Topology.(pair_partitions(order))
+      topologies = [Topology(top.pairs, (-1)^k * top.parity) for top in topologies]
     end
     k === nothing && return topologies
 
