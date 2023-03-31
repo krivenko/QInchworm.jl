@@ -13,7 +13,8 @@ using QInchworm.diagrammatics: Topology,
                                Diagram,
                                pair_partitions,
                                count_doubly_k_connected,
-                               is_doubly_k_connected
+                               is_doubly_k_connected,
+                               generate_topologies
 
 """ Get a list of `configuration.Node`'s defining the inchworm interval [τ_f, τ_w, τ_0]
 
@@ -97,7 +98,8 @@ function get_topologies_at_order(order::Int64, k = nothing; with_1k_arc = false)
     if with_1k_arc
         topologies = Topology.(pair_partitions(order), k = k)
     else
-        topologies = Topology.(pair_partitions(order))
+      topologies = generate_topologies(order)
+#        topologies = Topology.(pair_partitions(order))
     end
     k === nothing && return topologies
 
