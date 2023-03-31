@@ -49,11 +49,8 @@ struct Topology
 
 end
 
-function Topology(pairs::PairVector; k = nothing)
+function Topology(pairs::PairVector)
   p = parity_slow(collect(Iterators.flatten(pairs)))
-  if k !== nothing
-    p *= (-1) ^ count_doubly_k_connected(pairs, k)
-  end
   return Topology(pairs, p)
 end
 
@@ -125,15 +122,15 @@ Returns the parity of the permutation matrix of the topolgy.
 
 """
 function parity_slow(top::Topology)::Int
-    n = top.order
-    P = zeros(Int, 2n, 2n)
-    for i in 1:n
-        j1, j2 = top.pairs[i]
-        P[2i-1, j1] = 1
-        P[2i-0, j2] = 1
-    end
-    parity = LinearAlgebra.det(P)
-    return parity
+  n = top.order
+  P = zeros(Int, 2n, 2n)
+  for i = 1:n
+    j1, j2 = top.pairs[i]
+    P[2i-1, j1] = 1
+    P[2i-0, j2] = 1
+  end
+  parity = LinearAlgebra.det(P)
+  return parity
 end
 
 """
