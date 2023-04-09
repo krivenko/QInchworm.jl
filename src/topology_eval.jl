@@ -16,82 +16,6 @@ using QInchworm.diagrammatics: Topology,
                                is_doubly_k_connected,
                                generate_topologies
 
-""" Get a list of `configuration.Node`'s defining the inchworm interval [τ_f, τ_w, τ_0]
-
-Parameters
-----------
-grid : Keldysh.FullTimeGrid
-fidx : Final imaginary time discretization index for the current inching setup
-widx : Worm time in the current inching setup (usually widx = fidx - 1)
-
-Returns
--------
-worm_nodes : A list of the three times as `configuration.Node`'s
-
-"""
-function get_imaginary_time_worm_nodes(grid::kd.FullTimeGrid, fidx::Int64, widx::Int64)::Vector{Node}
-
-    @assert fidx >= widx
-
-    τ_grid = grid[kd.imaginary_branch]
-
-    @assert fidx <= length(τ_grid)
-
-    τ_0 = τ_grid[1]
-    τ_f = τ_grid[fidx]
-    τ_w = τ_grid[widx]
-
-    n_f = Node(τ_f.bpoint)
-    n_w = InchNode(τ_w.bpoint)
-    n_0 = Node(τ_0.bpoint)
-
-    @assert n_f.time.ref >= n_w.time.ref >= n_0.time.ref
-
-    worm_nodes = [n_f, n_w, n_0]
-
-    return worm_nodes
-end
-
-
-"""Helper function for mapping random unit-inteval random numbers to inch-worm imaginary contour times
-
-Parameters
-----------
-
-worm_nodes : A list of `configuration.Node`'s containing [n_f, n_w, n_0] where
-             - n_f is the final time node
-             - n_w is the worm time node
-             - n_0 is the initial time node (τ=0)
-             NB! Can be generated with `get_imaginary_time_worm_nodes`
-x1    : unit interval number x1 ∈ [0, 1] mapped to τ_1 ∈ [τ_f, τ_w]
-xs    : *reverse* sorted list of unit-interval numbers
-         xs[i] ∈ [0, 1] mapped to τ[i] ∈ [τ_w, τ_0]
-
-Returns
--------
-τs : Vector of contour times with τ_1 as first element
-
-"""
-function timeordered_unit_interval_points_to_imaginary_branch_inch_worm_times(
-    contour::kd.AbstractContour, worm_nodes::Vector{Node}, x1::Float64, xs::Vector{Float64}
-    )::Vector{Time}
-
-    x_f, x_w, x_0 = [ node.time.ref for node in worm_nodes ]
-
-    # -- Scale first time x1 to the range [x_w, x_f]
-    x1 = x_w .+ (x_f - x_w) * x1
-
-    # -- Scale the other times to the range [x_w, x_0]
-    xs = x_0 .+ (x_w - x_0) * xs
-
-    xs = vcat([x1], xs) # append x1 first in the list
-
-    # -- Transform xs to contour Keldysh.BranchPoint's
-    τ_branch = contour[kd.imaginary_branch]
-    τs = [ kd.get_point(τ_branch, x) for x in xs ]
-
-    return τs
-end
 
 function get_topologies_at_order(order::Int64, k = nothing; with_1k_arc = false)::Vector{Topology}
     topologies = generate_topologies(order)
@@ -143,7 +67,7 @@ Parameters
 ----------
 
 expansion  : Pseudo particle expansion
-worm_nodes : Generated with `get_imaginary_time_worm_nodes`
+worm_nodes : List of nodes defining the inchworm interval [τ_0, τ_w, τ_f]
 τs         : Internal diagram times generated with
              `timeordered_unit_interval_points_to_imaginary_branch_inch_worm_times`
 diagrams   : All diagrams as combinations of one Topology and a tuple of pseudo particle interaction indices

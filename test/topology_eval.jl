@@ -46,10 +46,16 @@ using QInchworm.expansion: Expansion, InteractionPair
 
     # -- Inch-worm node configuration, fixing the final-time and worm-time
 
+    τ_grid = grid[kd.imaginary_branch]
+
     fidx = 8
     widx = fidx - 1
 
-    worm_nodes = teval.get_imaginary_time_worm_nodes(grid, fidx, widx)
+    n_0 = Node(τ_grid[1].bpoint)
+    n_w = InchNode(τ_grid[widx].bpoint)
+    n_f = Node(τ_grid[fidx].bpoint)
+
+    worm_nodes = [n_0, n_w, n_f]
 
     # -- Generate all topologies and diagrams at `order`
 
@@ -83,11 +89,16 @@ using QInchworm.expansion: Expansion, InteractionPair
         sort!(xs, rev=true)
 
         # -- Map unit-interval points to contour times on the imaginary time branch
-        τs = teval.timeordered_unit_interval_points_to_imaginary_branch_inch_worm_times(
-            contour, worm_nodes, x1, xs)
+        x_0, x_w, x_f = [ node.time.ref for node in worm_nodes ]
+
+        x1 = x_w .+ (x_f - x_w) * x1
+        xs = x_0 .+ (x_w - x_0) * xs
+        xs = vcat([x1], xs)
+
+        τs = [ kd.get_point(contour[kd.imaginary_branch], x) for x in xs ]
 
         # -- Sanity checks for the time points `τs`
-        τ_f, τ_w, τ_0 = [ node.time for node in worm_nodes ]
+        τ_0, τ_w, τ_f = [ node.time for node in worm_nodes ]
 
         # First time τs[1] is between the final- and worm-time
         @test τ_w <= τs[1] <= τ_f
