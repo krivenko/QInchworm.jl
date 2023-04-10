@@ -190,7 +190,7 @@ struct Configuration
             end
         end
 
-        sort!(nodes, by = n -> twisted_contour_relative_order(n.time))
+        sort!(nodes, by = n -> twisted_contour_relative_order(n.time), alg=MergeSort)
 
         has_inch_node = any([ is_inch_node(node) for node in nodes ])
 
@@ -212,7 +212,7 @@ struct Configuration
 
         has_inch_node = d_before > 0
         inch_node_idx = d_before + 2
-        single_nodes = has_inch_node ? [n_f, n_w, n_i] : [n_f, n_i]
+        single_nodes = has_inch_node ? [n_i, n_w, n_f] : [n_i, n_f]
 
         pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
                   for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
@@ -255,7 +255,7 @@ struct Configuration
         n_c = OperatorNode(time, op_pair_index, 1)
         n_cdag = OperatorNode(time, op_pair_index, 2)
 
-        single_nodes = [n_f, n_c, n_cdag]
+        single_nodes = [n_cdag, n_c, n_f]
 
         pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
         for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]

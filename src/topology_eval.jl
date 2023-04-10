@@ -142,15 +142,13 @@ end
 # TODO: Should this function be merged with update_inch_times!() ?
 function update_corr_times!(configuration::Configuration,
     τ_1::kd.BranchPoint,
-    τ_2::kd.BranchPoint,
-    τ_f::kd.BranchPoint)
+    τ_2::kd.BranchPoint)
     @assert configuration.op_node_idx !== nothing
 
     op_ref = configuration.nodes[configuration.op_node_idx[1]].operator_ref
     configuration.nodes[configuration.op_node_idx[1]] = Node(τ_1, op_ref)
     op_ref = configuration.nodes[configuration.op_node_idx[2]].operator_ref
     configuration.nodes[configuration.op_node_idx[2]] = Node(τ_2, op_ref)
-    configuration.nodes[end] = Node(τ_f)
 end
 
 function eval(expansion::Expansion,

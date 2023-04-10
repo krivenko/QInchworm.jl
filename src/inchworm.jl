@@ -96,7 +96,7 @@ function inchworm_step(expansion::Expansion,
         order_contrib = deepcopy(zero_sector_block_matrix)
         if od.order == 0
             order_contrib = teval.eval(
-                expansion, [n_f, n_w, n_i], kd.BranchPoint[], od.diagrams)
+                expansion, [n_i, n_w, n_f], kd.BranchPoint[], od.diagrams)
         else
             d_after = od.n_pts_after
             d_before = 2 * od.order - od.n_pts_after
@@ -155,7 +155,7 @@ function inchworm_step_bare(expansion::Expansion,
     for od in order_data
         order_contrib = deepcopy(zero_sector_block_matrix)
         if od.order == 0
-            order_contrib = teval.eval(expansion, [n_f, n_i], kd.BranchPoint[], od.diagrams)
+            order_contrib = teval.eval(expansion, [n_i, n_f], kd.BranchPoint[], od.diagrams)
         else
             teval.update_inch_times!.(od.configurations, Ref(t_i), Ref(t_i), Ref(t_f))
             d = 2 * od.order
@@ -327,12 +327,10 @@ function compute_gf_matsubara_point(expansion::Expansion,
                                     c_cdag_pair_idx::Int64,
                                     τ_c::kd.TimeGridPoint,
                                     order_data::Vector{ExpansionOrderInputData})::ComplexF64
-    t_i, t_cdag, t_c, t_f = grid[1].bpoint,
-                            grid[1].bpoint, # C^+ is always placed at τ=0
-                            τ_c.bpoint,
-                            grid[end].bpoint
+    t_cdag = grid[1].bpoint # C^+ is always placed at τ=0
+    t_c = τ_c.bpoint
+    t_f = grid[end].bpoint
 
-    n_i = Node(t_i)
     n_cdag = OperatorNode(t_cdag, c_cdag_pair_idx, 2)
     n_c = OperatorNode(t_c, c_cdag_pair_idx, 1)
     n_f = Node(t_f)
@@ -345,20 +343,20 @@ function compute_gf_matsubara_point(expansion::Expansion,
     for od in order_data
         if od.order == 0
             result += tr(teval.eval(
-                expansion, [n_f, n_cdag, n_c], kd.BranchPoint[], od.diagrams
+                expansion, [n_cdag, n_c, n_f], kd.BranchPoint[], od.diagrams
             ))
         else
             d_after = od.n_pts_after
             d_before = 2 * od.order - od.n_pts_after
 
-            teval.update_corr_times!.(od.configurations, Ref(t_cdag), Ref(t_c), Ref(t_f))
+            teval.update_corr_times!.(od.configurations, Ref(t_cdag), Ref(t_c))
 
             seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0
                 result += tr(qmc_inchworm_integral_root(
                     t -> teval.eval(expansion, od.diagrams, od.configurations, t),
                     d_before, d_after,
-                    grid.contour, t_i, t_c, t_f,
+                    grid.contour, t_cdag, t_c, t_f,
                     init = deepcopy(zero_sector_block_matrix),
                     seq = seq,
                     N = od.N_samples
