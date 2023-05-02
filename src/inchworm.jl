@@ -338,8 +338,6 @@ function compute_gf_matsubara_point(expansion::Expansion,
 
     result::ComplexF64 = 0
 
-    zero_sector_block_matrix = zeros(SectorBlockMatrix, expansion.ed)
-
     for od in order_data
         if od.order == 0
             result += tr(teval.eval(
@@ -353,14 +351,13 @@ function compute_gf_matsubara_point(expansion::Expansion,
 
             seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0
-                result += tr(qmc_inchworm_integral_root(
-                    t -> teval.eval(expansion, od.diagrams, od.configurations, t),
+                result += qmc_inchworm_integral_root(
+                    t -> tr(teval.eval(expansion, od.diagrams, od.configurations, t)),
                     d_before, d_after,
                     grid.contour, t_cdag, t_c, t_f,
-                    init = deepcopy(zero_sector_block_matrix),
+                    init = ComplexF64(0),
                     seq = seq,
                     N = od.N_samples
-                   )
                 )
             end
         end

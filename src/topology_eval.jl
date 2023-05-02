@@ -82,14 +82,13 @@ function eval(
     expansion::Expansion, worm_nodes::Vector{Node}, τs::Vector{kd.BranchPoint}, diagrams::Vector{Diagram}
     )::SectorBlockMatrix
 
-    accumulated_value = zeros(SectorBlockMatrix, expansion.ed)
+    accumulated_value = SectorBlockMatrix()
 
     for (didx, diagram) in enumerate(diagrams)
         nodepairs = [ NodePair(τs[f], τs[i], diagram.pair_idxs[idx])
                       for (idx, (f, i)) in enumerate(diagram.topology.pairs) ]
         configuration = Configuration(worm_nodes, nodepairs, expansion)
-        value = cfg.eval(expansion, configuration)
-        accumulated_value += value
+        accumulated_value += cfg.eval(expansion, configuration)
     end
 
     return accumulated_value

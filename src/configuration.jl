@@ -482,7 +482,6 @@ Evaluate the configuration `conf` in the pseud-particle expansion `exp`.
 """
 function eval(exp::Expansion, conf::Configuration)::SectorBlockMatrix
     return eval(exp, conf.pairs, conf.parity) * eval(exp, conf.nodes, conf.paths, conf.has_inch_node)
-    #return eval(exp, conf.pairs) * eval(exp, conf.nodes)
 end
 
 

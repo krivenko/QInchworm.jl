@@ -60,7 +60,10 @@ end
 Base.:*(A::SectorBlockMatrix, B::Number) = B * A
 
 function Base.:+(A::SectorBlockMatrix, B::SectorBlockMatrix)
-    return merge((a,b) -> (a[1], a[2] + b[2]), A, B)
+    return merge(A, B) do a, b
+        @assert a[1] == b[1]
+        return (a[1], a[2] + b[2])
+    end
 end
 
 Base.:-(A::SectorBlockMatrix, B::SectorBlockMatrix) = A + (-1) * B
