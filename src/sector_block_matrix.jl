@@ -66,7 +66,8 @@ end
 Base.:-(A::SectorBlockMatrix, B::SectorBlockMatrix) = A + (-1) * B
 
 function LinearAlgebra.tr(A::SectorBlockMatrix)
-    sum(LinearAlgebra.tr(A_mat) for (s_i, (s_f, A_mat)) in A if s_i == s_f)
+    sum(LinearAlgebra.tr(A_mat) for (s_i, (s_f, A_mat)) in A if s_i == s_f;
+        init=ComplexF64(0))
 end
 
 function Base.isapprox(A::SectorBlockMatrix, B::SectorBlockMatrix; atol::Real=0)
