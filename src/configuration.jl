@@ -405,7 +405,7 @@ function eval(exp::Expansion, nodes::Vector{Node}, paths::Vector{Vector{Tuple{In
 
         bold_P = has_inch_node
         prev_node = first(nodes)
-        S_i, S_f, mat = first(path)
+        first_s_i, s_f, mat = first(path)
 
         for (nidx, node) in enumerate(nodes[2:end])
 
@@ -423,7 +423,7 @@ function eval(exp::Expansion, nodes::Vector{Node}, paths::Vector{Vector{Tuple{In
 
             prev_node = node
         end
-        val[S_i] = (S_f, -im * mat)
+        val[first_s_i] = (s_f, -im * mat)
     end
 
     return val
