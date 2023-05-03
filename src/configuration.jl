@@ -164,10 +164,10 @@ struct Configuration
 
     "List of precomputed trace paths with operator sub matrices"
     paths::Vector{Path}
-    # TODO: Rename to `split_node_idx` as the worm node is replaced with an operator node
-    # during GF calculation.
-    has_inch_node::Bool  # TODO: Use Union{Int, Nothing} here
-    inch_node_idx::Int   # TODO: Remove
+
+    "Position of the node that splits the integration domain into two simplices"
+    split_node_idx::Union{Int, Nothing}
+
     op_node_idx::Union{Tuple{Int, Int}, Nothing}
 
     node_idxs::Vector{Int}
@@ -194,17 +194,16 @@ struct Configuration
 
         sort!(nodes, by = n -> twisted_contour_relative_order(n.time), alg=MergeSort)
 
-        has_inch_node = any([ is_inch_node(node) for node in nodes ])
+        has_inch_node = any(is_inch_node.(nodes))
+        has_operator_node = any(is_operator_node.(nodes))
 
-        # DEBUG Trigger bold propagator in zeroth order operator diagram
-        has_operator_node = any([ is_operator_node(node) for node in nodes ])
-        has_inch_node = has_inch_node || has_operator_node
+        split_node_idx = (has_inch_node || has_operator_node) ? 3 : nothing
 
         paths = get_paths(exp, nodes)
         n_idxs = get_pair_node_idxs(nodes)
 
         parity = 1.0
-        return new(nodes, pairs, parity, [], paths, has_inch_node, 3, nothing, n_idxs)
+        return new(nodes, pairs, parity, [], paths, split_node_idx, nothing, n_idxs)
     end
     function Configuration(diagram::Diagram, exp::Expansion, d_before::Int)
 
@@ -212,16 +211,12 @@ struct Configuration
         time = contour(0.0)
         n_f, n_w, n_i = Node(time), InchNode(time), Node(time)
 
-        has_inch_node = d_before > 0
-        inch_node_idx = d_before + 2
-        single_nodes = has_inch_node ? [n_i, n_w, n_f] : [n_i, n_f]
+        split_node_idx = (d_before > 0) ? (d_before + 2) : nothing
+        single_nodes = (split_node_idx !== nothing) ? [n_i, n_w, n_f] : [n_i, n_f]
 
         pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
                   for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
         parity = diagram.topology.parity
-
-        #@assert diagram.topology.parity == (-1.0)^diag.n_crossings(diagram.topology)
-        #@assert diagram.topology.parity == diag.parity_slow(diagram.topology)
 
         n = diagram.topology.order*2
         pairnodes = [ Node(time) for i in 1:n ]
@@ -235,7 +230,7 @@ struct Configuration
         reverse!(pairnodes)
 
         if length(pairnodes) > 0
-            if has_inch_node
+            if split_node_idx !== nothing
                 nodes = vcat([n_i], pairnodes[1:d_before], [n_w], pairnodes[d_before+1:end], [n_f])
             else
                 nodes = vcat([n_i], pairnodes, [n_f])
@@ -247,7 +242,7 @@ struct Configuration
         paths = get_paths(exp, nodes)
         n_idxs = get_pair_node_idxs(nodes)
 
-        return new(nodes, pairs, parity, [], paths, has_inch_node, inch_node_idx, nothing, n_idxs)
+        return new(nodes, pairs, parity, [], paths, split_node_idx, nothing, n_idxs)
     end
     function Configuration(diagram::Diagram, exp::Expansion, d_before::Int, op_pair_index::Int)
         contour = first(exp.P).grid.contour
@@ -278,10 +273,12 @@ struct Configuration
             nodes = single_nodes
         end
 
+        split_node_idx = d_before + 2
+
         paths = get_paths(exp, nodes)
         n_idxs = get_pair_node_idxs(nodes)
 
-        return new(nodes, pairs, parity, [], paths, true, 0, (1, d_before + 2), n_idxs)
+        return new(nodes, pairs, parity, [], paths, split_node_idx, (1, d_before + 2), n_idxs)
     end
 end
 
@@ -360,10 +357,6 @@ function eval(exp::Expansion, nodes::Vector{Node})
 
     for (nidx, node) in enumerate(nodes[2:end])
 
-        #if is_inch_node(prev_node)
-        #    P = exp.P0 # Inch with bare ppsc propagator after inch time node
-        #end
-
         op = operator(exp, node)
         P_interp = sector_block_matrix_from_ppgf(node.time, prev_node.time, P)
 
@@ -397,28 +390,23 @@ function get_paths(exp::Expansion, nodes::Vector{Node})::Vector{Path}
     return paths
 end
 
-function eval(exp::Expansion, nodes::Vector{Node}, paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}}, has_inch_node::Bool)
+function eval(exp::Expansion, nodes::Vector{Node}, paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}}, has_split_node::Bool)
 
     start = operator(exp, first(nodes))
     val = SectorBlockMatrix()
 
     for path in paths
 
-        bold_P = has_inch_node
         prev_node = first(nodes)
         first_s_i, s_f, mat = first(path)
 
         for (nidx, node) in enumerate(nodes[2:end])
 
-            #if is_inch_node(prev_node)
-            #    bold_P = false
-            #end
-
             s_i, s_f, op_mat = path[nidx + 1]
 
             #@assert node.time >= prev_node.time
 
-            P_interp = bold_P ? exp.P[s_i](node.time, prev_node.time) : exp.P0[s_i](node.time, prev_node.time)
+            P_interp = has_split_node ? exp.P[s_i](node.time, prev_node.time) : exp.P0[s_i](node.time, prev_node.time)
 
             mat = im * op_mat * P_interp * mat
 
@@ -433,12 +421,11 @@ end
 function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
                    exp::Expansion, nodes::Vector{Node},
                    paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}},
-                   has_inch_node::Bool)
+                   has_split_node::Bool)
 
     start = operator(exp, first(nodes))
 
-    bold_P = has_inch_node
-    P = bold_P ? exp.P : exp.P0
+    P = has_split_node ? exp.P : exp.P0
 
     @inbounds for path in paths
 
@@ -446,10 +433,6 @@ function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
         S_i, S_f, mat = first(path)
 
         for (nidx, node) in enumerate(nodes[2:end])
-
-            #if is_inch_node(prev_node)
-            #    bold_P = false
-            #end
 
             s_i, s_f, op_mat = path[nidx + 1]
 
@@ -482,13 +465,14 @@ $(TYPEDSIGNATURES)
 Evaluate the configuration `conf` in the pseud-particle expansion `exp`.
 """
 function eval(exp::Expansion, conf::Configuration)::SectorBlockMatrix
-    return eval(exp, conf.pairs, conf.parity) * eval(exp, conf.nodes, conf.paths, conf.has_inch_node)
+    return eval(exp, conf.pairs, conf.parity) *
+           eval(exp, conf.nodes, conf.paths, conf.split_node_idx !== nothing)
 end
 
 
 function eval_acc!(value::SectorBlockMatrix, exp::Expansion, conf::Configuration)
     scalar::ComplexF64 = eval(exp, conf.pairs, conf.parity)
-    eval_acc!(value, scalar, exp, conf.nodes, conf.paths, conf.has_inch_node)
+    eval_acc!(value, scalar, exp, conf.nodes, conf.paths, conf.split_node_idx !== nothing)
     return
 end
 

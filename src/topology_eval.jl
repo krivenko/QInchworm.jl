@@ -112,10 +112,10 @@ function get_configurations_and_diagrams(expansion::Expansion,
 end
 
 function update_inch_times!(configuration::Configuration, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint)
-    if configuration.has_inch_node
+    if configuration.split_node_idx !== nothing
         @inbounds begin
             configuration.nodes[1] = Node(τ_i)
-            configuration.nodes[configuration.inch_node_idx] = InchNode(τ_w)
+            configuration.nodes[configuration.split_node_idx] = InchNode(τ_w)
             configuration.nodes[end] = Node(τ_f)
         end
     else
