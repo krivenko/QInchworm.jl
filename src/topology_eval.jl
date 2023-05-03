@@ -127,7 +127,7 @@ function update_inch_times!(configuration::Configuration, τ_i::kd.BranchPoint, 
 end
 
 function update_times!(configuration::Configuration, diagram::Diagram, times::Vector{Time})
-    for (t_idx, n_idx) in enumerate(configuration.node_idxs)
+    for (t_idx, n_idx) in enumerate(configuration.pair_node_idxs)
         op_ref = configuration.nodes[n_idx].operator_ref
         configuration.nodes[n_idx] = Node(times[t_idx], op_ref)
     end

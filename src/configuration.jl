@@ -159,18 +159,15 @@ struct Configuration
     "List of groups of time nodes associated with expansion determinants"
     determinants::Vector{Determinant}
 
-    #"List of node operators"
-    #operators::Vector{SectorBlockMatrix}
-
     "List of precomputed trace paths with operator sub matrices"
     paths::Vector{Path}
 
     "Position of the node that splits the integration domain into two simplices"
     split_node_idx::Union{Int, Nothing}
-
+    "Positions of two operator nodes used to measure correlation functions"
     op_node_idx::Union{Tuple{Int, Int}, Nothing}
-
-    node_idxs::Vector{Int}
+    "Positions of nodes coupled by pair interactions"
+    pair_node_idxs::Vector{Int}
 
     # TODO: Refactor and document these constructors. Also, do we really need 3 of these?
     function Configuration(single_nodes::Vector{Node}, pairs::Vector{NodePair}, exp::Expansion)
@@ -200,10 +197,10 @@ struct Configuration
         split_node_idx = (has_inch_node || has_operator_node) ? 3 : nothing
 
         paths = get_paths(exp, nodes)
-        n_idxs = get_pair_node_idxs(nodes)
+        pair_node_idxs = get_pair_node_idxs(nodes)
 
         parity = 1.0
-        return new(nodes, pairs, parity, [], paths, split_node_idx, nothing, n_idxs)
+        return new(nodes, pairs, parity, [], paths, split_node_idx, nothing, pair_node_idxs)
     end
     function Configuration(diagram::Diagram, exp::Expansion, d_before::Int)
 
@@ -240,9 +237,9 @@ struct Configuration
         end
 
         paths = get_paths(exp, nodes)
-        n_idxs = get_pair_node_idxs(nodes)
+        pair_node_idxs = get_pair_node_idxs(nodes)
 
-        return new(nodes, pairs, parity, [], paths, split_node_idx, nothing, n_idxs)
+        return new(nodes, pairs, parity, [], paths, split_node_idx, nothing, pair_node_idxs)
     end
     function Configuration(diagram::Diagram, exp::Expansion, d_before::Int, op_pair_index::Int)
         contour = first(exp.P).grid.contour
@@ -276,9 +273,9 @@ struct Configuration
         split_node_idx = d_before + 2
 
         paths = get_paths(exp, nodes)
-        n_idxs = get_pair_node_idxs(nodes)
+        pair_node_idxs = get_pair_node_idxs(nodes)
 
-        return new(nodes, pairs, parity, [], paths, split_node_idx, (1, d_before + 2), n_idxs)
+        return new(nodes, pairs, parity, [], paths, split_node_idx, (1, d_before + 2), pair_node_idxs)
     end
 end
 
