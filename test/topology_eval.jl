@@ -51,9 +51,9 @@ using QInchworm.expansion: Expansion, InteractionPair
     fidx = 8
     widx = fidx - 1
 
-    n_0 = Node(τ_grid[1].bpoint)
-    n_w = InchNode(τ_grid[widx].bpoint)
-    n_f = Node(τ_grid[fidx].bpoint)
+    n_0 = cfg.Node(τ_grid[1].bpoint)
+    n_w = cfg.InchNode(τ_grid[widx].bpoint)
+    n_f = cfg.Node(τ_grid[fidx].bpoint)
 
     worm_nodes = [n_0, n_w, n_f]
 

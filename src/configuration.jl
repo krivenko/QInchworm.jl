@@ -282,22 +282,12 @@ struct Configuration
     end
 end
 
-# TODO: Can we use kd.heaviside() instead?
-function Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint)
-    if t1.domain > t2.domain
-        return true
-    elseif t2.domain < t2.domain
-        return false
-    else # same domain
-        if t1.domain == kd.forward_branch
-            return real(t1.val) < real(t2.val)
-        elseif t1.domain == kd.backward_branch
-            return real(t1.val) > real(t2.val)
-        else
-            return imag(t1.val) > imag(t2.val)
-        end
-    end
-end
+"""
+$(TYPEDSIGNATURES)
+
+Order on the standard keldysh contour.
+"""
+Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint) = !kd.heaviside(t1, t2)
 
 function eval(exp::Expansion, pairs::Vector{NodePair}, parity::Float64)
 
