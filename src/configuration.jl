@@ -164,13 +164,15 @@ struct Configuration
 
     "List of precomputed trace paths with operator sub matrices"
     paths::Vector{Path}
-    # TODO: Use Union{Int, Nothing} here
-    has_inch_node::Bool
-    inch_node_idx::Int
+    # TODO: Rename to `split_node_idx` as the worm node is replaced with an operator node
+    # during GF calculation.
+    has_inch_node::Bool  # TODO: Use Union{Int, Nothing} here
+    inch_node_idx::Int   # TODO: Remove
     op_node_idx::Union{Tuple{Int, Int}, Nothing}
 
     node_idxs::Vector{Int}
 
+    # TODO: Refactor and document these constructors. Also, do we really need 3 of these?
     function Configuration(single_nodes::Vector{Node}, pairs::Vector{NodePair}, exp::Expansion)
         nodes = deepcopy(single_nodes)
 
@@ -259,8 +261,7 @@ struct Configuration
 
         pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
         for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
-        # TODO: Is this parity still correct in the presence of C/C^+?
-        parity = (-1.0)^n_crossings(diagram.topology)
+        parity = diagram.topology.parity
 
         n = diagram.topology.order*2
         pairnodes = [ Node(time) for i in 1:n ]
@@ -280,7 +281,7 @@ struct Configuration
         paths = get_paths(exp, nodes)
         n_idxs = get_pair_node_idxs(nodes)
 
-        return new(nodes, pairs, parity, [], paths, false, 0, (1, d_before + 2), n_idxs)
+        return new(nodes, pairs, parity, [], paths, true, 0, (1, d_before + 2), n_idxs)
     end
 end
 

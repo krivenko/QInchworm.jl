@@ -259,8 +259,7 @@ function inchworm_matsubara!(expansion::Expansion,
     # The rest of inching
     empty!(order_data)
     for order in orders
-        #for n_pts_after = 1:max(1, 2*order-1)
-        for n_pts_after = 1:1
+        for n_pts_after = 1:max(1, 2*order-1)
             d_before = 2 * order - n_pts_after
             topologies = teval.get_topologies_at_order(order, n_pts_after)
             all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
@@ -347,7 +346,7 @@ function compute_gf_matsubara_point(expansion::Expansion,
             d_after = od.n_pts_after
             d_before = 2 * od.order - od.n_pts_after
 
-            teval.update_corr_times!.(od.configurations, Ref(t_cdag), Ref(t_c))
+            teval.update_corr_times!.(od.configurations, Ref(t_cdag), Ref(t_c), Ref(t_f))
 
             seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0

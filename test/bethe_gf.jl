@@ -671,7 +671,6 @@ end
     orders = 0:1
     orders_gf = 0:0
     N_samples = 8 * 2^5
-    #N_samples = 8 * 2^8
     μ_bethe = 0.25
 
     ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca, diff_g_nca, diff_g_oca =
@@ -684,5 +683,26 @@ end
 
     @test diff_g_nca < 4e-3
     @test diff_g_nca < diff_g_oca
+
+end
+
+@testset "bethe_order2" begin
+
+    ntau = 128
+    orders = 0:2
+    orders_gf = 0:1
+    N_samples = 8 * 2^6
+    μ_bethe = 0.25
+
+    ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca, diff_g_nca, diff_g_oca =
+        run_hubbard_dimer(ntau, orders, orders, orders_gf, N_samples, μ_bethe)
+
+    @test diffs_oca < 2e-3
+    @test diffs_oca < diffs_nca
+    @test diffs_oca < diffs_tca
+    @test diffs_oca < diffs_exa
+
+    @test diff_g_oca < 4e-3
+    @test diff_g_oca < diff_g_nca
 
 end
