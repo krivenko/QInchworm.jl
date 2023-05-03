@@ -89,6 +89,7 @@ function atomic_ppgf!(G::Vector, ed::ked.EDCore)
 end
 
 function atomic_ppgf_fill_G!(G_s::kd.AbstractTimeGF{T, scalar} where {T, scalar}, grid::kd.AbstractTimeGrid, E, λ, ξ)
+    β = G_s.grid.contour.β
     z_β = grid[kd.imaginary_branch][end]
     Threads.@threads for z1 in grid
 	for z2 in grid[1:z1.cidx]
