@@ -43,7 +43,7 @@ function integrate_t3(integrand, points, simplices, order)
     calc = qp.t3.get_good_scheme(order)
 
     val = 0
-    for i = 1:size(simplices, 1)
+    for i in axes(simplices, 1)
         vidx = simplices[i, :]
         tetra = Array{Float64}(Base.undef, 3, 0)
         for j = vidx

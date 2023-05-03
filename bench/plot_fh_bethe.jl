@@ -141,7 +141,7 @@ for key in sort(collect(keys(merged_data)))
     style = styles[order_max]
     color = haskey(colors, ntau) ? colors[ntau] : nothing
 
-    if color == nothing
+    if color === nothing
         #label= raw"$N_{\tau}$" * " = $ntau, max(order) = $order_max"
         label= raw"$N_{\tau}$" * " = $ntau"
 
@@ -179,7 +179,7 @@ end
 
 plt.subplot(gs[4, 1])
 
-for order_max in 1:length(styles)
+for order_max in eachindex(styles)
     style = styles[order_max]
     plt.plot([], [], style, color="gray", label="Order = $order_max")
 end
@@ -193,7 +193,7 @@ for (order_max, style) in styles
     plt.loglog(ntaus_o, diffs_o, "-", color="gray")
 end
 
-for i in 1:length(data_keys)
+for i in eachindex(data_keys)
     ntau, order_max = data_keys[i]
     color = colors[ntau]
     #style = Dict(1=>".-", 2=>"x-", 3=>"+-")[order_max]

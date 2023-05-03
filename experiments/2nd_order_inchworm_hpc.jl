@@ -128,7 +128,7 @@ function make_ref_value(diagram, contour, τ_grid, τ_w_pos, order_min, order_ma
     for order = orders
         val = [
             DelaunaySimplex.integrate_t3(points, simplices, order) do x
-                [scalar_integrand(x[:, i], sector) for i = 1:size(x, 2)]
+                [scalar_integrand(x[:, i], sector) for i in eachindex(x, 2)]
             end
             for sector = 1:4
         ]
