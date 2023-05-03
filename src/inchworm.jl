@@ -92,10 +92,13 @@ function inchworm_step(expansion::Expansion,
 
     result = deepcopy(zero_sector_block_matrix)
 
+    orders = unique(map(od -> od.order, order_data))
+    order_contribs = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
+
     for od in order_data
         order_contrib = deepcopy(zero_sector_block_matrix)
         if od.order == 0
-            order_contrib = teval.eval(
+            order_contribs[od.order] = teval.eval(
                 expansion, [n_i, n_w, n_f], kd.BranchPoint[], od.diagrams)
         else
             d_after = od.n_pts_after
@@ -103,7 +106,7 @@ function inchworm_step(expansion::Expansion,
             teval.update_inch_times!.(od.configurations, Ref(t_i), Ref(t_w), Ref(t_f))
             seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0
-                order_contrib = qmc_inchworm_integral_root(
+                order_contribs[od.order] += qmc_inchworm_integral_root(
                     t -> teval.eval(expansion, od.diagrams, od.configurations, t),
                     d_before, d_after,
                     c, t_i, t_w, t_f,
@@ -113,10 +116,13 @@ function inchworm_step(expansion::Expansion,
                 )
             end
         end
-        set_bold_ppgf_at_order!(expansion, od.order, τ_i, τ_f, order_contrib)
-        result += order_contrib
     end
-    result
+
+    for order in orders
+        set_bold_ppgf_at_order!(expansion, order, τ_i, τ_f, order_contribs[order])
+    end
+
+    sum(values(order_contribs))
 end
 
 raw"""

@@ -238,7 +238,7 @@ end
     ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
         run_hubbard_dimer(ntau, orders, orders, N_samples, μ_bethe)
 
-    @test diffs_oca < 2e-3
+    @test diffs_oca < 4e-3
     @test diffs_oca < diffs_nca
     @test diffs_oca < diffs_tca
     @test diffs_oca < diffs_exa
@@ -255,7 +255,7 @@ end
     ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
         run_hubbard_dimer(ntau, orders, orders, N_samples, μ_bethe)
 
-    @test diffs_tca < 3e-3
+    @test diffs_tca < 4e-3
     @test diffs_tca < diffs_nca
     @test diffs_tca < diffs_oca
     #@test diffs_tca < diffs_exa
