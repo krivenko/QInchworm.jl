@@ -665,7 +665,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples, μ_b
     return ρ_wrm, diff_exa, diff_nca, diff_oca, diff_tca, diff_g_nca, diff_g_oca
 end
 
-@testset "bethe_order1" begin
+@testset "bethe_gf_order1" begin
 
     ntau = 128
     orders = 0:1
@@ -686,7 +686,7 @@ end
 
 end
 
-@testset "bethe_order2" begin
+@testset "bethe_gf_order2" begin
 
     ntau = 128
     orders = 0:2

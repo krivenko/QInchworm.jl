@@ -62,6 +62,11 @@ using QInchworm.expansion: Expansion, InteractionPair
     order = 3
     topologies = teval.get_topologies_at_order(order, 1)
     diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
+    configurations = cfg.Configuration.(diagrams, Ref(expansion), 2 * order - 1)
+
+    cfg.set_initial_node_time!.(configurations, Ref(n_0.time))
+    cfg.set_inchworm_node_time!.(configurations, Ref(n_w.time))
+    cfg.set_final_node_time!.(configurations, Ref(n_f.time))
 
     @test length(diagrams) == length(topologies) * length(expansion.pairs)^order
 
@@ -108,7 +113,7 @@ using QInchworm.expansion: Expansion, InteractionPair
         @test all([τ_i >= τ_0 for τ_i in τs[2:end]])
 
         # -- Evaluate all diagrams at `order`
-        value = teval.eval(expansion, worm_nodes, τs, diagrams)
+        value = teval.eval(expansion, diagrams, configurations, τs)
         println("value = $value")
 
         accumulated_value += value

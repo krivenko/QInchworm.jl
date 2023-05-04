@@ -100,17 +100,18 @@ function inchworm_step(expansion::Expansion,
     order_contribs = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
 
     for od in order_data
+        set_initial_node_time!.(od.configurations, Ref(t_i))
+        set_inchworm_node_time!.(od.configurations, Ref(t_w))
+        set_final_node_time!.(od.configurations, Ref(t_f))
+
         order_contrib = deepcopy(zero_sector_block_matrix)
+
         if od.order == 0
             order_contribs[od.order] = teval.eval(
-                expansion, [n_i, n_w, n_f], kd.BranchPoint[], od.diagrams)
+                expansion, od.diagrams, od.configurations, kd.BranchPoint[])
         else
             d_after = od.n_pts_after
             d_before = 2 * od.order - od.n_pts_after
-
-            set_initial_node_time!.(od.configurations, Ref(t_i))
-            set_inchworm_node_time!.(od.configurations, Ref(t_w))
-            set_final_node_time!.(od.configurations, Ref(t_f))
 
             seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0
@@ -167,13 +168,15 @@ function inchworm_step_bare(expansion::Expansion,
     result = deepcopy(zero_sector_block_matrix)
 
     for od in order_data
-        order_contrib = deepcopy(zero_sector_block_matrix)
-        if od.order == 0
-            order_contrib = teval.eval(expansion, [n_i, n_f], kd.BranchPoint[], od.diagrams)
-        else
-            set_initial_node_time!.(od.configurations, Ref(t_i))
-            set_final_node_time!.(od.configurations, Ref(t_f))
+        set_initial_node_time!.(od.configurations, Ref(t_i))
+        set_final_node_time!.(od.configurations, Ref(t_f))
 
+        order_contrib = deepcopy(zero_sector_block_matrix)
+
+        if od.order == 0
+            order_contrib = teval.eval(
+                expansion, od.diagrams, od.configurations, kd.BranchPoint[])
+        else
             d = 2 * od.order
             seq = SobolSeqWith0(d)
             if od.N_samples > 0
@@ -244,8 +247,7 @@ function inchworm_matsubara!(expansion::Expansion,
         topologies = teval.get_topologies_at_order(order)
         all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
         configurations, diagrams =
-            teval.get_configurations_and_diagrams(
-                expansion, all_diagrams, 0)
+            teval.get_configurations_and_diagrams(expansion, all_diagrams, nothing)
 
         if inch_print()
             println("order $(order), N_diag $(length(diagrams))")
@@ -275,7 +277,9 @@ function inchworm_matsubara!(expansion::Expansion,
     # The rest of inching
     empty!(order_data)
     for order in orders
-        for n_pts_after = 1:max(1, 2*order-1)
+        n_pts_after_range = (order == 0) ? (0:0) : (1:(2 * order - 1))
+
+        for n_pts_after in n_pts_after_range
             d_before = 2 * order - n_pts_after
             topologies = teval.get_topologies_at_order(order, n_pts_after)
             all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
@@ -354,17 +358,16 @@ function compute_gf_matsubara_point(expansion::Expansion,
     result::ComplexF64 = 0
 
     for od in order_data
+        set_operator_node_time!.(od.configurations, 1, Ref(t_cdag))
+        set_operator_node_time!.(od.configurations, 2, Ref(t_c))
+        set_final_node_time!.(od.configurations, Ref(t_f))
+
         if od.order == 0
             result += tr(teval.eval(
-                expansion, [n_cdag, n_c, n_f], kd.BranchPoint[], od.diagrams
-            ))
+                expansion, od.diagrams, od.configurations, kd.BranchPoint[]))
         else
             d_after = od.n_pts_after
             d_before = 2 * od.order - od.n_pts_after
-
-            set_operator_node_time!.(od.configurations, 1, Ref(t_cdag))
-            set_operator_node_time!.(od.configurations, 2, Ref(t_c))
-            set_final_node_time!.(od.configurations, Ref(t_f))
 
             seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0
@@ -432,7 +435,8 @@ function compute_gf_matsubara(expansion::Expansion,
     if inch_print(); println("= Response Function Diagrams ========"); end
     common_order_data = ExpansionOrderInputData[]
     for order in orders
-        for n_pts_after = 1:max(1, 2*order-1)
+        n_pts_after_range = (order == 0) ? (0:0) : (1:(2 * order - 1))
+        for n_pts_after in n_pts_after_range
             d_before = 2 * order - n_pts_after
             topologies = teval.get_topologies_at_order(order, n_pts_after, with_1k_arc=true)
             all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)

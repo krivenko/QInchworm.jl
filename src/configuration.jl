@@ -169,40 +169,6 @@ struct Configuration
     "Positions of nodes coupled by pair interactions"
     pair_node_idxs::Vector{Int}
 
-    # TODO: Refactor and document these constructors. Also, do we really need 3 of these?
-    function Configuration(single_nodes::Vector{Node}, pairs::Vector{NodePair}, exp::Expansion)
-        nodes = deepcopy(single_nodes)
-
-        for pair in pairs
-            append!(nodes, Nodes(pair))
-        end
-
-        function twisted_contour_relative_order(time::kd.BranchPoint)
-            if time.domain == kd.backward_branch
-                return 1. - time.ref
-            elseif time.domain == kd.forward_branch
-                return 2. + time.ref
-            elseif time.domain == kd.imaginary_branch
-                return 1. + time.ref
-            else
-                throw(BoundsError())
-            end
-        end
-
-        sort!(nodes, by = n -> twisted_contour_relative_order(n.time), alg=MergeSort)
-
-        has_inch_node = any(is_inch_node.(nodes))
-        has_operator_node = any(is_operator_node.(nodes))
-
-        split_node_idx = (has_inch_node || has_operator_node) ? 3 : nothing
-
-        paths = get_paths(exp, nodes)
-        pair_node_idxs = get_pair_node_idxs(nodes)
-
-        parity = 1.0
-        return new(nodes, pairs, parity, [], paths, split_node_idx, nothing, pair_node_idxs)
-    end
-
     """
     $(TYPEDSIGNATURES)
 
@@ -213,15 +179,18 @@ struct Configuration
 
     diagram :  Diagram to derive the configuration from.
     exp :      Pseudo-particle expansion problem.
-    d_before : Number of pair nodes before the split node.
+    d_before : Number of pair nodes before the inchworm node. When omitted, no inchworm node
+               will be present in the configuration.
     """
-    function Configuration(diagram::Diagram, exp::Expansion, d_before::Int)
+    function Configuration(diagram::Diagram,
+                           exp::Expansion,
+                           d_before::Union{Int, Nothing} = nothing)
         # All nodes are initially placed at the start of the contour
         t_0 = first(exp.P).grid.contour(0.0)
 
         n_i, n_w, n_f = Node(t_0), InchNode(t_0), Node(t_0)
 
-        split_node_idx = (d_before > 0) ? (d_before + 2) : nothing
+        inch_node_idx = (d_before === nothing) ? nothing : (d_before + 2)
 
         pairs = [ NodePair(t_0, t_0, diagram.pair_idxs[idx])
                   for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
@@ -239,19 +208,23 @@ struct Configuration
         reverse!(pairnodes)
 
         if length(pairnodes) > 0
-            if split_node_idx !== nothing
-                nodes = vcat([n_i], pairnodes[1:d_before], [n_w], pairnodes[d_before+1:end], [n_f])
+            if inch_node_idx !== nothing
+                nodes = vcat([n_i],
+                             pairnodes[1:d_before],
+                             [n_w],
+                             pairnodes[d_before+1:end],
+                             [n_f])
             else
                 nodes = vcat([n_i], pairnodes, [n_f])
             end
         else
-            nodes = (split_node_idx !== nothing) ? [n_i, n_w, n_f] : [n_i, n_f]
+            nodes = (inch_node_idx !== nothing) ? [n_i, n_w, n_f] : [n_i, n_f]
         end
 
         paths = get_paths(exp, nodes)
         pair_node_idxs = get_pair_node_idxs(nodes)
 
-        return new(nodes, pairs, parity, [], paths, split_node_idx, nothing, pair_node_idxs)
+        return new(nodes, pairs, parity, [], paths, inch_node_idx, nothing, pair_node_idxs)
     end
 
     """

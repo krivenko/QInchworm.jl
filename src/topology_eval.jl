@@ -66,49 +66,21 @@ function get_diagrams_at_order(
     return diagrams
 end
 
+function get_configurations_and_diagrams(
+    expansion::Expansion,
+    diagrams::Vector{Diagram},
+    d_before::Union{Int, Nothing};
+    op_pair_idx::Union{Int, Nothing} = nothing)::Tuple{Vector{Configuration}, Vector{Diagram}}
 
-"""Evaluate all diagrams for a given set of internal times `τs` and external `worm_nodes` (worm times)
-
-Parameters
-----------
-
-expansion  : Pseudo particle expansion
-worm_nodes : List of nodes defining the inchworm interval [τ_0, τ_w, τ_f]
-τs         : Internal diagram times generated with
-             `timeordered_unit_interval_points_to_imaginary_branch_inch_worm_times`
-diagrams   : All diagrams as combinations of one Topology and a tuple of pseudo particle interaction indices
-
-Returns
--------
-
-accumulated_value : Of all diagrams
-
-"""
-function eval(
-    expansion::Expansion, worm_nodes::Vector{Node}, τs::Vector{kd.BranchPoint}, diagrams::Vector{Diagram}
-    )::SectorBlockMatrix
-
-    accumulated_value = SectorBlockMatrix()
-
-    for (didx, diagram) in enumerate(diagrams)
-        nodepairs = [ NodePair(τs[f], τs[i], diagram.pair_idxs[idx])
-                      for (idx, (f, i)) in enumerate(diagram.topology.pairs) ]
-        configuration = Configuration(worm_nodes, nodepairs, expansion)
-        accumulated_value += cfg.eval(expansion, configuration)
-    end
-
-    return accumulated_value
-end
-
-function get_configurations_and_diagrams(expansion::Expansion,
-                                         diagrams::Vector{Diagram},
-                                         d_before::Int;
-                                         op_pair_idx::Union{Int, Nothing} = nothing)::Tuple{Vector{Configuration}, Vector{Diagram}}
     diagrams_out = Diagram[]
     configurations = Configuration[]
     for (didx, diagram) in enumerate(diagrams)
-        configuration = op_pair_idx === nothing ? Configuration(diagram, expansion, d_before) :
-                                                  Configuration(diagram, expansion, d_before, op_pair_idx)
+        if op_pair_idx === nothing
+            configuration = Configuration(diagram, expansion, d_before)
+        else
+            configuration = Configuration(diagram, expansion, d_before, op_pair_idx)
+        end
+
         if length(configuration.paths) > 0
             push!(configurations, configuration)
             push!(diagrams_out, diagram)

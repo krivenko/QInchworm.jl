@@ -7,7 +7,9 @@ using QInchworm.spline_gf: SplineInterpolatedGF, update_interpolants!
 
 using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.configuration: Configuration, Node, InchNode, NodePair
-using QInchworm; cfg = QInchworm.configuration;
+using QInchworm.diagrammatics: generate_topologies
+using QInchworm; cfg = QInchworm.configuration
+using QInchworm; teval = QInchworm.topology_eval
 using QInchworm.qmc_integrate: qmc_time_ordered_integral_root
 
 import QInchworm.ppgf
@@ -91,29 +93,34 @@ end
         τ_0, τ_beta = tau_grid[1], tau_grid[end]
         Δτ = -imag(step(grid, kd.imaginary_branch))
 
-        n_0 = Node(τ_0.bpoint)
+        # 0-order configuration
+        diag_0 = teval.get_diagrams_at_order(ppsc_exp, generate_topologies(0), 0)[1]
+        conf_0 = Configuration(diag_0, ppsc_exp, 0)
+        cfg.set_initial_node_time!(conf_0, τ_0.bpoint)
+
+        # 1-st order configurations
+        diags_1 = teval.get_diagrams_at_order(ppsc_exp, generate_topologies(1), 1)
+        confs_1 = Configuration.(diags_1, Ref(ppsc_exp), 1)
+        cfg.set_initial_node_time!.(confs_1, Ref(τ_0.bpoint))
 
         for (fidx, τ_f) in enumerate(tau_grid[2:end])
 
             τ_w = tau_grid[fidx]
 
-            n_f = Node(τ_f.bpoint)
-            n_w = InchNode(τ_w.bpoint)
-            nodes = [n_f, n_w, n_0]
-
-            conf_0 = Configuration(nodes, NodePair[], ppsc_exp)
+            cfg.set_inchworm_node_time!(conf_0, τ_w.bpoint)
+            cfg.set_final_node_time!(conf_0, τ_f.bpoint)
 
             val = cfg.eval(ppsc_exp, conf_0)
 
+            cfg.set_inchworm_node_time!.(confs_1, Ref(τ_w.bpoint))
+            cfg.set_final_node_time!.(confs_1, Ref(τ_f.bpoint))
+
             for τ_1 in tau_grid[1:fidx]
 
-                p_fwd = NodePair(n_f.time, τ_1.bpoint, 1)
-                conf_1_fwd = Configuration(nodes, [p_fwd], ppsc_exp)
-                val -= Δτ^2 * cfg.eval(ppsc_exp, conf_1_fwd)
-
-                p_bwd = NodePair(n_f.time, τ_1.bpoint, 2)
-                conf_1_bwd = Configuration(nodes, [p_bwd], ppsc_exp)
-                val -= Δτ^2 * cfg.eval(ppsc_exp, conf_1_bwd)
+                pair_node_times = [τ_f.bpoint, τ_1.bpoint]
+                teval.update_pair_node_times!.(confs_1, diags_1, Ref(pair_node_times))
+                val -= Δτ^2 * cfg.eval(ppsc_exp, confs_1[1])
+                val -= Δτ^2 * cfg.eval(ppsc_exp, confs_1[2])
 
             end
 
@@ -172,19 +179,27 @@ end
         tau_grid = grid[kd.imaginary_branch]
         τ_0, τ_beta = tau_grid[1], tau_grid[end]
 
-        n_0 = Node(τ_0.bpoint)
+        # 0-order configuration
+        diag_0 = teval.get_diagrams_at_order(ppsc_exp, generate_topologies(0), 0)[1]
+        conf_0 = Configuration(diag_0, ppsc_exp, 0)
+        cfg.set_initial_node_time!(conf_0, τ_0.bpoint)
+
+        # 1-st order configurations
+        diags_1 = teval.get_diagrams_at_order(ppsc_exp, generate_topologies(1), 1)
+        confs_1 = Configuration.(diags_1, Ref(ppsc_exp), 1)
+        cfg.set_initial_node_time!.(confs_1, Ref(τ_0.bpoint))
 
         for (fidx, τ_f) in enumerate(tau_grid[2:end])
 
             τ_w = tau_grid[fidx]
 
-            n_f = Node(τ_f.bpoint)
-            n_w = InchNode(τ_w.bpoint)
-            nodes = [n_f, n_w, n_0]
-
-            conf_0 = Configuration(nodes, NodePair[], ppsc_exp)
+            cfg.set_inchworm_node_time!(conf_0, τ_w.bpoint)
+            cfg.set_final_node_time!(conf_0, τ_f.bpoint)
 
             val = cfg.eval(ppsc_exp, conf_0)
+
+            cfg.set_inchworm_node_time!.(confs_1, Ref(τ_w.bpoint))
+            cfg.set_final_node_time!.(confs_1, Ref(τ_f.bpoint))
 
             # The 'im' prefactor accounts for the direction of the imaginary branch
             val -= im * qmc_time_ordered_integral_root(
@@ -194,10 +209,10 @@ end
                 τ_w.bpoint,
                 init = zero(val),
                 N = N) do τ_1
-                conf_1_fwd = Configuration(nodes, [NodePair(n_f.time, τ_1[1], 1)], ppsc_exp)
-                conf_1_bwd = Configuration(nodes, [NodePair(n_f.time, τ_1[1], 2)], ppsc_exp)
-                cfg.eval(ppsc_exp, conf_1_fwd) + cfg.eval(ppsc_exp, conf_1_bwd)
-            end
+                    pair_node_times = [τ_f.bpoint, τ_1[1]]
+                    teval.update_pair_node_times!.(confs_1, diags_1, Ref(pair_node_times))
+                    cfg.eval(ppsc_exp, confs_1[1]) + cfg.eval(ppsc_exp, confs_1[2])
+                end
 
             for (s, P_s) in enumerate(ppsc_exp.P)
                 sf, mat = val[s]
