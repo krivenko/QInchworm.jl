@@ -202,26 +202,38 @@ struct Configuration
         parity = 1.0
         return new(nodes, pairs, parity, [], paths, split_node_idx, nothing, pair_node_idxs)
     end
-    function Configuration(diagram::Diagram, exp::Expansion, d_before::Int)
 
-        contour = first(exp.P).grid.contour
-        time = contour(0.0)
-        n_f, n_w, n_i = Node(time), InchNode(time), Node(time)
+    """
+    $(TYPEDSIGNATURES)
+
+    Construct a configuration for a bold PPGF calculation.
+
+    Parameters
+    ----------
+
+    diagram :  Diagram to derive the configuration from.
+    exp :      Pseudo-particle expansion problem.
+    d_before : Number of pair nodes before the split node.
+    """
+    function Configuration(diagram::Diagram, exp::Expansion, d_before::Int)
+        # All nodes are initially placed at the start of the contour
+        t_0 = first(exp.P).grid.contour(0.0)
+
+        n_i, n_w, n_f = Node(t_0), InchNode(t_0), Node(t_0)
 
         split_node_idx = (d_before > 0) ? (d_before + 2) : nothing
-        single_nodes = (split_node_idx !== nothing) ? [n_i, n_w, n_f] : [n_i, n_f]
 
-        pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
+        pairs = [ NodePair(t_0, t_0, diagram.pair_idxs[idx])
                   for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
         parity = diagram.topology.parity
 
-        n = diagram.topology.order*2
-        pairnodes = [ Node(time) for i in 1:n ]
+        n = 2 * diagram.topology.order
+        pairnodes = [ Node(t_0) for i in 1:n ]
 
         for (idx, (f_idx, i_idx)) in enumerate(diagram.topology.pairs)
             p_idx = diagram.pair_idxs[idx]
-            pairnodes[i_idx] = Node(time, OperatorReference(pair_flag, p_idx, 1))
-            pairnodes[f_idx] = Node(time, OperatorReference(pair_flag, p_idx, 2))
+            pairnodes[i_idx] = Node(t_0, OperatorReference(pair_flag, p_idx, 1))
+            pairnodes[f_idx] = Node(t_0, OperatorReference(pair_flag, p_idx, 2))
         end
 
         reverse!(pairnodes)
@@ -233,7 +245,7 @@ struct Configuration
                 nodes = vcat([n_i], pairnodes, [n_f])
             end
         else
-            nodes = single_nodes
+            nodes = (split_node_idx !== nothing) ? [n_i, n_w, n_f] : [n_i, n_f]
         end
 
         paths = get_paths(exp, nodes)
@@ -241,33 +253,47 @@ struct Configuration
 
         return new(nodes, pairs, parity, [], paths, split_node_idx, nothing, pair_node_idxs)
     end
+
+    """
+    $(TYPEDSIGNATURES)
+
+    Construct a configuration for a GF calculation.
+
+    Parameters
+    ----------
+
+    diagram :       Diagram to derive the configuration from.
+    exp :           Pseudo-particle expansion problem.
+    d_before :      Number of pair nodes before the split node.
+    op_pair_index : Index of the C / C^+ operator pair within exp.corr_operators.
+    """
     function Configuration(diagram::Diagram, exp::Expansion, d_before::Int, op_pair_index::Int)
-        contour = first(exp.P).grid.contour
-        time = contour(0.0)
+        # All nodes are initially placed at the start of the contour
+        t_0 = first(exp.P).grid.contour(0.0)
 
-        n_f = Node(time)
-        n_c = OperatorNode(time, op_pair_index, 1)
-        n_cdag = OperatorNode(time, op_pair_index, 2)
+        n_cdag = OperatorNode(t_0, op_pair_index, 2)
+        n_c = OperatorNode(t_0, op_pair_index, 1)
+        n_f = Node(t_0)
 
-        single_nodes = [n_cdag, n_c, n_f]
-
-        pairs = [ NodePair(time, time, diagram.pair_idxs[idx])
-        for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
+        pairs = [ NodePair(t_0, t_0, diagram.pair_idxs[idx])
+            for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
         parity = diagram.topology.parity
 
-        n = diagram.topology.order*2
-        pairnodes = [ Node(time) for i in 1:n ]
+        n = 2 * diagram.topology.order
+        pairnodes = [ Node(t_0) for i in 1:n ]
 
         for (idx, (f_idx, i_idx)) in enumerate(diagram.topology.pairs)
             p_idx = diagram.pair_idxs[idx]
-            pairnodes[i_idx] = Node(time, OperatorReference(pair_flag, p_idx, 1))
-            pairnodes[f_idx] = Node(time, OperatorReference(pair_flag, p_idx, 2))
+            pairnodes[i_idx] = Node(t_0, OperatorReference(pair_flag, p_idx, 1))
+            pairnodes[f_idx] = Node(t_0, OperatorReference(pair_flag, p_idx, 2))
         end
+
+        reverse!(pairnodes)
 
         if length(pairnodes) > 0
             nodes = vcat([n_cdag], pairnodes[1:d_before], [n_c], pairnodes[d_before+1:end], [n_f])
         else
-            nodes = single_nodes
+            nodes = [n_cdag, n_c, n_f]
         end
 
         split_node_idx = d_before + 2

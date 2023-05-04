@@ -681,7 +681,7 @@ end
     @test diffs_nca < diffs_tca
     @test diffs_nca < diffs_exa
 
-    @test diff_g_nca < 4e-3
+    @test diff_g_nca < 3e-3
     @test diff_g_nca < diff_g_oca
 
 end
@@ -702,7 +702,7 @@ end
     @test diffs_oca < diffs_tca
     @test diffs_oca < diffs_exa
 
-    @test diff_g_oca < 4e-3
+    @test diff_g_oca < 1e-3
     @test diff_g_oca < diff_g_nca
 
 end
