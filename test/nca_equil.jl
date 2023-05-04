@@ -191,7 +191,7 @@ end
                 1,
                 contour,
                 τ_0.bpoint,
-                τ_f.bpoint,
+                τ_w.bpoint,
                 init = zero(val),
                 N = N) do τ_1
                 conf_1_fwd = Configuration(nodes, [NodePair(n_f.time, τ_1[1], 1)], ppsc_exp)
@@ -214,10 +214,10 @@ end
 
         @test ppsc_exp.P[1][τ_beta, τ_0] + ppsc_exp.P[2][τ_beta, τ_0] ≈ [-im]
         @test isapprox(ppsc_exp.P[1][τ_beta, τ_0][1, 1],
-                    0.0 - 0.6937776444966494im,
+                    0.0 - 0.6821011169782484im,
                     atol=1e-3)
         @test isapprox(ppsc_exp.P[2][τ_beta, τ_0][1, 1],
-                    0.0 - 0.30622235550335064im,
+                    0.0 - 0.3178988830217517im,
                     atol=1e-3)
     end
 
