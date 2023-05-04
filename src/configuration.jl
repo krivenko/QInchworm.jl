@@ -279,6 +279,29 @@ struct Configuration
     end
 end
 
+function set_initial_node_time!(configuration::Configuration, t_i::kd.BranchPoint)
+    @assert configuration.nodes[1].operator_ref.kind == identity_flag
+    configuration.nodes[1] = Node(t_i)
+end
+
+function set_final_node_time!(configuration::Configuration, t_f::kd.BranchPoint)
+    @assert configuration.nodes[end].operator_ref.kind == identity_flag
+    configuration.nodes[end] = Node(t_f)
+end
+
+function set_inchworm_node_time!(configuration::Configuration, t_w::kd.BranchPoint)
+    @assert configuration.split_node_idx !== nothing
+    @assert is_inch_node(configuration.nodes[configuration.split_node_idx])
+    configuration.nodes[configuration.split_node_idx] = InchNode(t_w)
+end
+
+function set_operator_node_time!(configuration::Configuration, idx::Int, t::kd.BranchPoint)
+    @assert 1 <= idx <= 2
+    @assert configuration.op_node_idx !== nothing
+    op_ref = configuration.nodes[configuration.op_node_idx[idx]].operator_ref
+    configuration.nodes[configuration.op_node_idx[idx]] = Node(t, op_ref)
+end
+
 """
 $(TYPEDSIGNATURES)
 

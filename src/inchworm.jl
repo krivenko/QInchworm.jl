@@ -20,6 +20,10 @@ using QInchworm.utility: mpi_N_skip_and_N_samples_on_rank, split_count
 
 using QInchworm.expansion: Expansion, set_bold_ppgf!, set_bold_ppgf_at_order!
 using QInchworm.configuration: Configuration,
+                               set_initial_node_time!,
+                               set_final_node_time!,
+                               set_inchworm_node_time!,
+                               set_operator_node_time!,
                                operator,
                                sector_block_matrix_from_ppgf
 using QInchworm.configuration: Node, InchNode, OperatorNode
@@ -103,7 +107,11 @@ function inchworm_step(expansion::Expansion,
         else
             d_after = od.n_pts_after
             d_before = 2 * od.order - od.n_pts_after
-            teval.update_inch_times!.(od.configurations, Ref(t_i), Ref(t_w), Ref(t_f))
+
+            set_initial_node_time!.(od.configurations, Ref(t_i))
+            set_inchworm_node_time!.(od.configurations, Ref(t_w))
+            set_final_node_time!.(od.configurations, Ref(t_f))
+
             seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0
                 order_contribs[od.order] += qmc_inchworm_integral_root(
@@ -163,7 +171,9 @@ function inchworm_step_bare(expansion::Expansion,
         if od.order == 0
             order_contrib = teval.eval(expansion, [n_i, n_f], kd.BranchPoint[], od.diagrams)
         else
-            teval.update_inch_times!.(od.configurations, Ref(t_i), Ref(t_i), Ref(t_f))
+            set_initial_node_time!.(od.configurations, Ref(t_i))
+            set_final_node_time!.(od.configurations, Ref(t_f))
+
             d = 2 * od.order
             seq = SobolSeqWith0(d)
             if od.N_samples > 0
@@ -352,7 +362,9 @@ function compute_gf_matsubara_point(expansion::Expansion,
             d_after = od.n_pts_after
             d_before = 2 * od.order - od.n_pts_after
 
-            teval.update_corr_times!.(od.configurations, Ref(t_cdag), Ref(t_c), Ref(t_f))
+            set_operator_node_time!.(od.configurations, 1, Ref(t_cdag))
+            set_operator_node_time!.(od.configurations, 2, Ref(t_c))
+            set_final_node_time!.(od.configurations, Ref(t_f))
 
             seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0

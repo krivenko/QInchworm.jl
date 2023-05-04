@@ -8,7 +8,13 @@ using QInchworm; cfg = QInchworm.configuration
 
 using QInchworm: SectorBlockMatrix
 using QInchworm.expansion: Expansion
-using QInchworm.configuration: Configuration, Time, Node, InchNode, NodePair
+using QInchworm.configuration: Configuration,
+                               Time,
+                               Node,
+                               InchNode,
+                               NodePair,
+                               is_inch_node,
+                               identity_flag
 using QInchworm.diagrammatics: Topology,
                                Diagram,
                                pair_partitions,
@@ -111,22 +117,7 @@ function get_configurations_and_diagrams(expansion::Expansion,
     return configurations, diagrams_out
 end
 
-function update_inch_times!(configuration::Configuration, τ_i::kd.BranchPoint, τ_w::kd.BranchPoint, τ_f::kd.BranchPoint)
-    if configuration.split_node_idx !== nothing
-        @inbounds begin
-            configuration.nodes[1] = Node(τ_i)
-            configuration.nodes[configuration.split_node_idx] = InchNode(τ_w)
-            configuration.nodes[end] = Node(τ_f)
-        end
-    else
-        @inbounds begin
-            configuration.nodes[1] = Node(τ_i)
-            configuration.nodes[end] = Node(τ_f)
-        end
-    end
-end
-
-function update_times!(configuration::Configuration, diagram::Diagram, times::Vector{Time})
+function update_pair_node_times!(configuration::Configuration, diagram::Diagram, times::Vector{Time})
     for (t_idx, n_idx) in enumerate(configuration.pair_node_idxs)
         op_ref = configuration.nodes[n_idx].operator_ref
         configuration.nodes[n_idx] = Node(times[t_idx], op_ref)
@@ -138,21 +129,6 @@ function update_times!(configuration::Configuration, diagram::Diagram, times::Ve
     end
 end
 
-# TODO: Should this function be merged with update_inch_times!() ?
-function update_corr_times!(configuration::Configuration,
-    τ_1::kd.BranchPoint,
-    τ_2::kd.BranchPoint,
-    τ_f::kd.BranchPoint)
-    @assert configuration.op_node_idx !== nothing
-
-    op_ref = configuration.nodes[configuration.op_node_idx[1]].operator_ref
-    configuration.nodes[configuration.op_node_idx[1]] = Node(τ_1, op_ref)
-    op_ref = configuration.nodes[configuration.op_node_idx[2]].operator_ref
-    configuration.nodes[configuration.op_node_idx[2]] = Node(τ_2, op_ref)
-
-    configuration.nodes[end] = Node(τ_f)
-end
-
 function eval(expansion::Expansion,
               diagrams::Vector{Diagram},
               configurations::Vector{Configuration},
@@ -162,7 +138,7 @@ function eval(expansion::Expansion,
     value = zeros(SectorBlockMatrix, expansion.ed)
 
     for (diagram, configuration) in zip(diagrams, configurations)
-        update_times!(configuration, diagram, times)
+        update_pair_node_times!(configuration, diagram, times)
         cfg.eval_acc!(value, expansion, configuration)
     end
 
