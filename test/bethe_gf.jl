@@ -19,9 +19,9 @@ Author: Hugo U. R. Strand (2023)
 
 """
 
-using MPI; MPI.Init()
+using Test
 
-#import PyPlot; plt = PyPlot
+using MPI; MPI.Init()
 
 using LinearAlgebra: diag
 using QuadGK: quadgk
@@ -616,49 +616,6 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples, μ_b
         @show diff_g_nca
         @show diff_g_oca
         @show diff_g_tca
-
-    end
-    end
-
-    if false
-    if inch_print()
-
-    τ = kd.imagtimes(g[1].grid)
-    τ_ref = collect(LinRange(0, β, 128))
-
-    plt.figure(figsize=(3.25*2, 8))
-    subp = [2, 1, 1]
-
-    plt.subplot(subp...); subp[end] += 1;
-    for s in 1:length(expansion.P)
-        plt.plot(τ, imag(expansion.P[s].mat.data[1, 1, :]), label="P$(s)")
-    end
-    for s in 1:4
-        plt.plot(τ_ref, get_G_nca()[s], "k--", label="NCA $s ref", alpha=0.25)
-    end
-    for s in 1:4
-        plt.plot(τ_ref, get_G_oca()[s], "k:", label="OCA $s ref", alpha=0.25)
-    end
-    for s in 1:4
-        plt.plot(τ_ref, get_G_tca()[s], "k-.", label="TCA $s ref", alpha=0.25)
-    end
-
-    plt.ylabel(raw"$P_\Gamma(\tau)$")
-    plt.xlabel(raw"$\tau$")
-    plt.legend(loc="best")
-
-    plt.subplot(subp...); subp[end] += 1;
-    plt.plot(τ_ref, imag(get_g_nca()), label="NCA ref")
-    plt.plot(τ_ref, imag(get_g_oca()), label="OCA ref")
-    plt.plot(τ_ref, imag(get_g_tca()), label="TCA ref")
-    plt.plot(τ, real(g[1].mat.data[1, 1, :]), "-", label="InchW re")
-    plt.plot(τ, imag(g[1].mat.data[1, 1, :]), "--", label="InchW im")
-    plt.xlabel(raw"$\tau$")
-    plt.ylabel(raw"$G_{11}(\tau)$")
-    plt.legend(loc="best")
-
-    plt.tight_layout()
-    plt.show()
 
     end
     end
