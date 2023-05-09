@@ -204,17 +204,18 @@ Result of the calculation is written into `expansion.P`.
 Parameters
 ----------
 expansion :            Pseudo-particle expansion problem.
+grid :                 Imaginary time grid of the bold PPGF.
 orders :               List of expansion orders to be accounted for during a regular inchworm step.
 orders_bare :          List of expansion orders to be accounted for during the initial inchworm step.
-N_chunk :              Numbers of qMC samples taken between consecutive convergence checks.
-max_chunks :           Stop accumulation after this number of unsuccessful convergence checks.
-qmc_convergence_atol : Absolute tolerance level for qMC convergence checks.
+N_samples :            Numbers of qMC samples.
+n_pts_after_max :      Maximum number of points in the after-t_w region to be taken into account.
 """
 function inchworm_matsubara!(expansion::Expansion,
                              grid::kd.ImaginaryTimeGrid,
                              orders,
                              orders_bare,
-                             N_samples::Int64)
+                             N_samples::Int64;
+                             n_pts_after_max::Int64 = typemax(Int64))
 
     if inch_print()
         comm = MPI.COMM_WORLD
@@ -277,7 +278,11 @@ function inchworm_matsubara!(expansion::Expansion,
     # The rest of inching
     empty!(order_data)
     for order in orders
-        n_pts_after_range = (order == 0) ? (0:0) : (1:(2 * order - 1))
+        if order == 0
+            n_pts_after_range = 0:0
+        else
+            n_pts_after_range = 1:min(2 * order - 1, n_pts_after_max)
+        end
 
         for n_pts_after in n_pts_after_range
             d_before = 2 * order - n_pts_after
