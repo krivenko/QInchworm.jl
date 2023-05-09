@@ -260,6 +260,11 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
         plt.legend(loc="best")
     end
 
+    x = collect(τ)
+    y = collect(imag(g[1].mat.data[1, 1, :]))
+    g_int = Interpolate(x, y)
+    gr = g_int.(τ_ref)
+
     plt.subplot(subp...); subp[end] += 1;
     plt.title("ntau = $(length(τ)), N_samples = $N_samples")
     plt.plot(τ_ref, imag(get_g_nca()), label="NCA ref")
@@ -270,6 +275,16 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
     plt.ylabel(raw"$G_{11}(\tau)$")
     plt.legend(loc="best")
 
+    plt.subplot(subp...); subp[end] += 1;
+    plt.title("ntau = $(length(τ)), N_samples = $N_samples")
+    plt.plot(τ_ref, abs.(gr - imag(get_g_nca())), label="NCA ref")
+    plt.plot(τ_ref, abs.(gr - imag(get_g_oca())), label="OCA ref")
+    plt.plot(τ_ref, abs.(gr - imag(get_g_tca())), label="TCA ref")
+    plt.semilogy([], [])
+    plt.xlabel(raw"$\tau$")
+    plt.ylabel(raw"$\Delta G_{11}(\tau)$")
+    plt.legend(loc="best")
+        
     plt.tight_layout()
     plt.savefig("figure_ntau_$(ntau)_N_samples_$(N_samples)_orders_$(orders).pdf")
     #plt.show()
@@ -284,9 +299,8 @@ end
     for o = [1, 2, 3]
         orders = 0:o
         orders_gf = 0:(o-1)        
-        for ntau = [128]
-            #for N_samples = [8*2^7]
-            for N_samples = [8*2^6]
+        for ntau = [128*8]
+            for N_samples = [8*2^7]
                 run_hubbard_dimer(ntau, orders, orders, orders_gf, N_samples)
             end
         end
