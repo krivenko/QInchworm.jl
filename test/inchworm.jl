@@ -14,7 +14,7 @@ using QInchworm.inchworm: ExpansionOrderInputData,
                           inchworm_step,
                           inchworm_step_bare,
                           inchworm!,
-                          compute_gf_matsubara
+                          correlator_2p
 
 # -- Single state pseudo particle expansion
 
@@ -171,7 +171,9 @@ end
     # -- Single-particle GF
 
     push!(expansion.corr_operators, (op.c("0"), op.c_dag("0")))
-    g = compute_gf_matsubara(expansion, grid, orders, N_samples)
+    g = correlator_2p(expansion, grid, orders, N_samples)
+    # FIXME: AbstractTimeGF should support basic arithmetic operations
+    g[1].mat.data[:] *= -1
 
     @show g
 end

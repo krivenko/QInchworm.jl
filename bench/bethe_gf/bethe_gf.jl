@@ -34,7 +34,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair
-using QInchworm.inchworm: inchworm!, compute_gf_matsubara
+using QInchworm.inchworm: inchworm!, correlator_2p
 using QInchworm.utility: inch_print
 
 function semi_circular_g_tau(times, t, h, β)
@@ -199,7 +199,9 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
     end
 
     push!(expansion.corr_operators, (op.c(1), op.c_dag(1)))
-    g = compute_gf_matsubara(expansion, grid, orders_gf, N_samples)
+    g = correlator_2p(expansion, grid, orders_gf, N_samples)
+    # FIXME: AbstractTimeGF should support basic arithmetic operations
+    g[1].mat.data[:] *= -1
 
     if false
     diff_g_nca = maximum(abs.(get_g_nca() - g[1].mat.data[1, 1, :]))
