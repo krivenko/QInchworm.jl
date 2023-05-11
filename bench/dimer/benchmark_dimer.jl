@@ -14,7 +14,7 @@ using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.topology_eval: get_topologies_at_order,
                                get_diagrams_at_order
 
-using QInchworm.inchworm: inchworm_matsubara!
+using QInchworm.inchworm: inchworm!
 using QInchworm.spline_gf: SplineInterpolatedGF
 using QInchworm.utility: inch_print
 
@@ -75,11 +75,11 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     ρ_0 = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P0), ed), ed)
 
-    inchworm_matsubara!(expansion,
-                        grid,
-                        orders,
-                        orders_bare,
-                        N_samples)
+    inchworm!(expansion,
+              grid,
+              orders,
+              orders_bare,
+              N_samples)
 
     if interpolate_gfs
         P = [ p.GF for p in expansion.P ]

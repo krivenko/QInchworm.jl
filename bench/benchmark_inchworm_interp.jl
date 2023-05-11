@@ -26,7 +26,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair
-using QInchworm.inchworm: inchworm_matsubara!
+using QInchworm.inchworm: inchworm!
 using QInchworm.spline_gf: SplineInterpolatedGF
 using QInchworm.utility: inch_print
 
@@ -150,7 +150,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples, μ_bethe, inter
 
     ρ_0 = full_hs_matrix(tofockbasis(density_matrix(expansion.P0), ed), ed)
 
-    inchworm_matsubara!(expansion, grid, orders, orders_bare, N_samples)
+    inchworm!(expansion, grid, orders, orders_bare, N_samples)
 
     if interpolation
         # Extract a plain (non-interpolated) version of expansion.P

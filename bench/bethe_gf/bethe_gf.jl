@@ -34,7 +34,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair
-using QInchworm.inchworm: inchworm_matsubara!, compute_gf_matsubara
+using QInchworm.inchworm: inchworm!, compute_gf_matsubara
 using QInchworm.utility: inch_print
 
 function semi_circular_g_tau(times, t, h, β)
@@ -139,7 +139,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
             (t1, t2) -> -1.0im * 0.5 * V^2,
             grid, 1, kd.fermionic, true)
     end
-    
+
     function reverse(g::kd.ImaginaryTimeGF)
         g_rev = deepcopy(g)
         τ_0, τ_β = first(g.grid), last(g.grid)
@@ -159,7 +159,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
 
     ρ_0 = full_hs_matrix(tofockbasis(density_matrix(expansion.P0), ed), ed)
 
-    inchworm_matsubara!(expansion, grid, orders, orders_bare, N_samples)
+    inchworm!(expansion, grid, orders, orders_bare, N_samples)
 
     normalize!(expansion.P, β)
     ρ_wrm = full_hs_matrix(tofockbasis(density_matrix(expansion.P), ed), ed)
@@ -230,7 +230,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
         y = collect(imag(expansion.P[s].mat.data[1, 1, :]))
         P_int = Interpolate(x, y)
         P = P_int.(τ_ref)
-        
+
         #plt.plot(τ, -imag(expansion.P[s].mat.data[1, 1, :]), label="P$(s)")
         plt.plot(τ_ref, -P, label="P$(s)")
         plt.plot(τ_ref, -get_G_nca()[s], "k--", label="NCA $s ref", alpha=0.25)
@@ -284,7 +284,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
     plt.xlabel(raw"$\tau$")
     plt.ylabel(raw"$\Delta G_{11}(\tau)$")
     plt.legend(loc="best")
-        
+
     plt.tight_layout()
     plt.savefig("figure_ntau_$(ntau)_N_samples_$(N_samples)_orders_$(orders).pdf")
     #plt.show()
@@ -298,7 +298,7 @@ end
 
     for o = [1, 2, 3]
         orders = 0:o
-        orders_gf = 0:(o-1)        
+        orders_gf = 0:(o-1)
         for ntau = [128*8]
             for N_samples = [8*2^7]
                 run_hubbard_dimer(ntau, orders, orders, orders_gf, N_samples)

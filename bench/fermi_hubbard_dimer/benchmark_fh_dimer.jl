@@ -12,7 +12,7 @@ using QInchworm.ppgf
 using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.topology_eval: get_topologies_at_order,
                                get_diagrams_at_order
-using QInchworm.inchworm: inchworm_matsubara!
+using QInchworm.inchworm: inchworm!
 using QInchworm.utility: inch_print
 
 
@@ -78,11 +78,11 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
 
     ρ_0 = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P0), ed), ed)
 
-    inchworm_matsubara!(expansion,
-                        grid,
-                        orders,
-                        orders_bare,
-                        N_samples)
+    inchworm!(expansion,
+              grid,
+              orders,
+              orders_bare,
+              N_samples)
 
     ppgf.normalize!(expansion.P, β)
     ρ_wrm = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P), ed), ed)

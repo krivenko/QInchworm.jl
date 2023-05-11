@@ -13,7 +13,7 @@ using QInchworm.topology_eval: get_topologies_at_order,
 
 using QInchworm.ppgf
 using QInchworm.spline_gf: SplineInterpolatedGF
-using QInchworm.inchworm: inchworm_matsubara!
+using QInchworm.inchworm: inchworm!
 
 using PyPlot; plt = PyPlot # DEBUG
 
@@ -121,13 +121,13 @@ function run_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_convergen
 
     ρ_0 = ppgf.density_matrix(expansion.P0)
 
-    inchworm_matsubara!(expansion,
-                        grid,
-                        orders,
-                        orders_bare,
-                        N_chunk,
-                        max_chunks,
-                        qmc_convergence_atol)
+    inchworm!(expansion,
+              grid,
+              orders,
+              orders_bare,
+              N_chunk,
+              max_chunks,
+              qmc_convergence_atol)
 
     if interpolate_gfs
         P = [ p.GF for p in expansion.P ]
@@ -300,13 +300,13 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_chunk, max_chunks, qmc_c
 
     ρ_0 = tofockbasis(density_matrix(expansion.P0), ed)
 
-    inchworm_matsubara!(expansion,
-                        grid,
-                        orders,
-                        orders_bare,
-                        N_chunk,
-                        max_chunks,
-                        qmc_convergence_atol)
+    inchworm!(expansion,
+              grid,
+              orders,
+              orders_bare,
+              N_chunk,
+              max_chunks,
+              qmc_convergence_atol)
 
     ppgf.normalize!(expansion.P, β)
     ρ_wrm = tofockbasis(density_matrix(expansion.P), ed)
@@ -345,4 +345,3 @@ end
     @test diff_o2 < 1e-4
     end
 end
-
