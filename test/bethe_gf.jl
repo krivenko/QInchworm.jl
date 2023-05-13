@@ -25,7 +25,6 @@ using MPI; MPI.Init()
 using HDF5
 
 using LinearAlgebra: diag, tr
-using QuadGK: quadgk
 
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
@@ -34,22 +33,6 @@ using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.inchworm: inchworm!, correlator_2p
 using QInchworm.utility: inch_print
-
-# TODO: Use dos2gf() from Keldysh.jl
-function semi_circular_g_tau(τ, t, h, β)
-
-    function kernel(t, w)
-        if w > 0
-            return exp(-t * w) / (1 + exp(-w))
-        else
-            return exp((1 - t)*w) / (1 + exp(w))
-        end
-    end
-
-    I = x -> -2 / pi / t^2 * kernel(τ/β, β*x) * sqrt(x + t - h) * sqrt(t + h - x)
-    g, err = quadgk(I, -t+h, t+h; rtol=1e-12)
-    return g
-end
 
 @testset "bethe_gf" begin
 
@@ -73,7 +56,7 @@ end
         β = 10.0
         V = 0.5
         μ = 0.0
-        t_bethe = 1.0
+        t_bethe = 0.5
 
         # -- ED solution
 
@@ -89,12 +72,8 @@ end
 
         # -- Hybridization propagator
 
-        Δ = kd.ImaginaryTimeGF(
-            (t1, t2) -> 1.0im * V^2 *
-                semi_circular_g_tau(
-                    -imag(t1.bpoint.val - t2.bpoint.val),
-                    t_bethe, μ_bethe, β)[1],
-            grid, 1, kd.fermionic, true)
+        A_bethe = bethe_dos(t=t_bethe, ϵ=μ_bethe)
+        Δ = V^2 * kd.ImaginaryTimeGF(A_bethe, grid)
 
         # -- Pseudo Particle Strong Coupling Expansion
 
