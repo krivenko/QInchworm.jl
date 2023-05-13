@@ -143,9 +143,7 @@ end
         end
 
         push!(expansion.corr_operators, (op.c(1), op.c_dag(1)))
-        g = correlator_2p(expansion, grid, orders_gf, N_samples)
-        # FIXME: AbstractTimeGF should support basic arithmetic operations
-        g[1].mat.data[:] *= -1
+        g = -correlator_2p(expansion, grid, orders_gf, N_samples)
 
         diff_g_nca = maximum(abs.(g_nca - g[1].mat.data[1, 1, :]))
         diff_g_oca = maximum(abs.(g_oca - g[1].mat.data[1, 1, :]))

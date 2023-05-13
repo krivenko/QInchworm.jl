@@ -171,9 +171,7 @@ end
     # -- Single-particle GF
 
     push!(expansion.corr_operators, (op.c("0"), op.c_dag("0")))
-    g = correlator_2p(expansion, grid, orders, N_samples)
-    # FIXME: AbstractTimeGF should support basic arithmetic operations
-    g[1].mat.data[:] *= -1
+    g = -correlator_2p(expansion, grid, orders, N_samples)
 
     @show g
 end
