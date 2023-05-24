@@ -2,6 +2,8 @@ module utility
 
 using MPI: MPI
 
+using Serialization
+
 import Interpolations
 
 using Sobol: AbstractSobolSeq, SobolSeq, ndims
@@ -132,6 +134,54 @@ end
 
 function inch_print()
     return MPI.Comm_rank(MPI.COMM_WORLD) == 0
+end
+
+
+function range_from_chuncks_and_idx(chunks, idx)
+    sidx = 1 + sum(chunks[1:idx-1])
+    eidx = sidx + chunks[idx] - 1
+    return sidx:eidx
+end
+
+function rank_sub_range(n)
+    comm_size = MPI.Comm_size(MPI.COMM_WORLD)
+    comm_rank = MPI.Comm_rank(MPI.COMM_WORLD) # zero based indexing
+    chunks = split_count(n, comm_size)
+    return range_from_chuncks_and_idx(chunks, comm_rank + 1)
+end
+
+function iobuffer_serialize(data)
+    io = IOBuffer()
+    serialize(io, data)
+    seekstart(io)
+    data_raw = read(io)
+    close(io)
+    return data_raw
+end    
+
+function iobuffer_deserialize(data_raw)
+    return deserialize(IOBuffer(data_raw))
+end
+
+function mpi_all_gather_julia_vector(subvec::Vector{T}; comm = MPI.COMM_WORLD) where T
+    data_raw = iobuffer_serialize(subvec)
+    data_size = length(data_raw)
+
+    size = [data_size]
+    sizes = MPI.Allgather(size, comm)
+
+    output = zeros(UInt8, sum(sizes))
+    output_vbuf = MPI.VBuffer(output, sizes)
+
+    MPI.Allgatherv!(data_raw, output_vbuf, comm)
+
+    out_vec = T[]
+    for i = 1:length(sizes)
+        r = range_from_chuncks_and_idx(sizes, i)
+        subvec_i = iobuffer_deserialize(output[r])
+        append!(out_vec, subvec_i)
+    end
+    return out_vec
 end
 
 end
