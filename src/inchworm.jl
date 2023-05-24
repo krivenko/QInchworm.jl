@@ -2,7 +2,9 @@ module inchworm
 
 using DocStringExtensions
 
+using TimerOutputs: TimerOutput, @timeit
 using ProgressBars: ProgressBar
+
 using MPI: MPI
 using LinearAlgebra: tr
 
@@ -243,58 +245,21 @@ function inchworm_matsubara!(expansion::Expansion,
 
     if inch_print(); println("= Bare Diagrams ========"); end
     # First inchworm step
-    order_data = ExpansionOrderInputData[]
-    for order in orders_bare
-        topologies = teval.get_topologies_at_order(order)
-        all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
-        configurations, diagrams =
-            teval.get_configurations_and_diagrams(expansion, all_diagrams, nothing)
+    tmr = TimerOutput()
 
-        if inch_print()
-            println("order $(order), N_diag $(length(diagrams))")
-            #println("diagram topologies")
-            #for top in topologies
-            #    println("top = $(top), ncross = $(diagrammatics.n_crossings(top)), parity = $(diagrammatics.parity(top))")
-            #end
-            #println("length(diagrams) = $(length(diagrams))")
-            #println("length(configurations) = $(length(configurations))")
-            @assert length(diagrams) == length(configurations)
-        end
-
-        if length(configurations) > 0
-            push!(order_data, ExpansionOrderInputData(
-                order, 2*order, diagrams, configurations, N_samples))
-        end
-    end
-
-    result = inchworm_step_bare(expansion,
-                                grid.contour,
-                                grid[1],
-                                grid[2],
-                                order_data)
-    set_bold_ppgf!(expansion, grid[1], grid[2], result)
-
-    if inch_print(); println("= Bold Diagrams ========"); end
-    # The rest of inching
-    empty!(order_data)
-    for order in orders
-        if order == 0
-            n_pts_after_range = 0:0
-        else
-            n_pts_after_range = 1:min(2 * order - 1, n_pts_after_max)
-        end
-
-        for n_pts_after in n_pts_after_range
-            d_before = 2 * order - n_pts_after
-            topologies = teval.get_topologies_at_order(order, n_pts_after)
-            all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
-            configurations, diagrams =
-                teval.get_configurations_and_diagrams(
-                    expansion, all_diagrams, d_before)
-
+    
+    @timeit tmr "Construction" begin
+        order_data = ExpansionOrderInputData[]
+        for order in orders_bare
+            @timeit tmr "Bare order $(order)" begin
+                topologies = teval.get_topologies_at_order(order)
+                all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
+                configurations, diagrams =
+                    teval.get_configurations_and_diagrams(expansion, all_diagrams, nothing)
+            end
+            
             if inch_print()
-                println("order $(order), n_pts_after $(n_pts_after), N_diag $(length(diagrams))")
-                #println("n_pts_after $(n_pts_after)")
+                println("Bare Order $(order), N_diag $(length(diagrams))")
                 #println("diagram topologies")
                 #for top in topologies
                 #    println("top = $(top), ncross = $(diagrammatics.n_crossings(top)), parity = $(diagrammatics.parity(top))")
@@ -303,27 +268,104 @@ function inchworm_matsubara!(expansion::Expansion,
                 #println("length(configurations) = $(length(configurations))")
                 @assert length(diagrams) == length(configurations)
             end
-
+            
             if length(configurations) > 0
                 push!(order_data, ExpansionOrderInputData(
-                    order, n_pts_after, diagrams, configurations, N_samples))
+                    order, 2*order, diagrams, configurations, N_samples))
+            end
+        end
+    end
+    
+    if inch_print()
+        println("Evaluation Bare")
+    end
+    
+    @timeit tmr "Evaluation" begin
+        @timeit tmr "Bare" begin
+            result = inchworm_step_bare(expansion,
+                                        grid.contour,
+                                        grid[1],
+                                        grid[2],
+                                        order_data)
+            set_bold_ppgf!(expansion, grid[1], grid[2], result)
+        end
+    end
+    
+    if inch_print()
+        show(tmr)
+        println()
+    end
+
+    if inch_print(); println("= Bold Diagrams ========"); end
+
+    # The rest of inching
+    empty!(order_data)
+
+    @timeit tmr "Construction" begin
+        for order in orders
+            @timeit tmr "Bold order $(order)" begin
+                if order == 0
+                    n_pts_after_range = 0:0
+                else
+                    n_pts_after_range = 1:min(2 * order - 1, n_pts_after_max)
+                end
+                
+                for n_pts_after in n_pts_after_range
+                    d_before = 2 * order - n_pts_after
+                    topologies = teval.get_topologies_at_order(order, n_pts_after)
+                    all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
+                    configurations, diagrams =
+                        teval.get_configurations_and_diagrams(
+                            expansion, all_diagrams, d_before)
+                    
+                    if inch_print()
+                        println("Bold order $(order), n_pts_after $(n_pts_after), N_diag $(length(diagrams))")
+                        #println("n_pts_after $(n_pts_after)")
+                        #println("diagram topologies")
+                        #for top in topologies
+                        #    println("top = $(top), ncross = $(diagrammatics.n_crossings(top)), parity = $(diagrammatics.parity(top))")
+                        #end
+                        #println("length(diagrams) = $(length(diagrams))")
+                        #println("length(configurations) = $(length(configurations))")
+                        @assert length(diagrams) == length(configurations)
+                    end
+                    
+                    if length(configurations) > 0
+                        push!(order_data, ExpansionOrderInputData(
+                            order, n_pts_after, diagrams, configurations, N_samples))
+                    end
+                end
             end
         end
     end
 
-    iter = 2:length(grid)-1
-    iter = inch_print() ? ProgressBar(iter) : iter
-
-    τ_i = grid[1]
-    for n in iter
-        #if inch_print(); println("Inch step $n of $(length(grid)-1)"); end
-        τ_w = grid[n]
-        τ_f = grid[n + 1]
-
-        result = inchworm_step(
-            expansion, grid.contour, τ_i, τ_w, τ_f, order_data)
-        set_bold_ppgf!(expansion, τ_i, τ_f, result)
+    if inch_print()
+        println("Evaluation Bold")
     end
+    
+    @timeit tmr "Evaluation" begin
+        @timeit tmr "Bold" begin
+            iter = 2:length(grid)-1
+            iter = inch_print() ? ProgressBar(iter) : iter
+            
+            τ_i = grid[1]
+            for n in iter
+                #if inch_print(); println("Inch step $n of $(length(grid)-1)"); end
+                τ_w = grid[n]
+                τ_f = grid[n + 1]
+                
+                result = inchworm_step(
+                    expansion, grid.contour, τ_i, τ_w, τ_f, order_data)
+                set_bold_ppgf!(expansion, τ_i, τ_f, result)
+            end
+        end
+    end
+
+    if inch_print()
+        show(tmr)
+        println()
+    end
+
 end
 
 #
@@ -460,6 +502,10 @@ function compute_gf_matsubara(expansion::Expansion,
         # Filter diagrams and generate lists of configurations
         order_data = ExpansionOrderInputData[]
         for od in common_order_data
+            if inch_print()
+                println("order $(od.order) n_pts_after $(od.n_pts_after) N_diag $(length(od.diagrams))")
+            end
+            
             configurations, diagrams = teval.get_configurations_and_diagrams(
                 expansion,
                 od.diagrams,
