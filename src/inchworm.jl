@@ -293,15 +293,15 @@ function inchworm_matsubara!(expansion::Expansion,
 
         @timeit tmr "Bare" begin; @timeit tmr "Order $(order)" begin; @timeit tmr "Diagrams" begin
 
-        local_tmr = TimerOutput()
-        @timeit local_tmr "Order $(order)" begin;
-        @timeit local_tmr "Topologies" begin    
+        #local_tmr = TimerOutput()
+        #@timeit local_tmr "Order $(order)" begin;
+        #@timeit local_tmr "Topologies" begin    
 
         topologies = teval.get_topologies_at_order(order)
 
-        if inch_print(); println("Order $(order) N_topo $(length(topologies))"); end
+        #if inch_print(); println("Order $(order) N_topo $(length(topologies))"); end
 
-        end; end; if inch_print(); show(local_tmr); println(); end
+        #end; end; if inch_print(); show(local_tmr); println(); end
 
         #@timeit local_tmr "Order $(order)" begin;
         #@timeit local_tmr "Diagrams" begin    
@@ -312,8 +312,8 @@ function inchworm_matsubara!(expansion::Expansion,
 
         #end; end; if inch_print(); show(local_tmr); println(); end
             
-        @timeit local_tmr "Order $(order)" begin;
-        @timeit local_tmr "Diagrams non-zero" begin
+        #@timeit local_tmr "Order $(order)" begin;
+        #@timeit local_tmr "Diagrams non-zero" begin
                 
         #configurations_dummy, diagrams =
         #    teval.get_configurations_and_diagrams(
@@ -323,11 +323,11 @@ function inchworm_matsubara!(expansion::Expansion,
             teval.get_configurations_and_diagrams_from_topologies(
                 expansion, topologies, order, nothing, return_configurations=false)
             
-        end; end; if inch_print(); show(local_tmr); println(); end
+        #end; end; if inch_print(); show(local_tmr); println(); end
 
         if inch_print()
             #println("Bare Order $(order), N_diag $(length(all_diagrams)) -> $(length(diagrams))")
-            println("Bare Order $(order), N_topo $(length(topologies)) N_diag $(length(diagrams))")
+            println("Bare Order $(order), N_topo $(length(topologies)), N_diag $(length(diagrams))")
         end
             
         if length(diagrams) > 0
@@ -370,13 +370,17 @@ function inchworm_matsubara!(expansion::Expansion,
         for n_pts_after in n_pts_after_range
             d_before = 2 * order - n_pts_after
             topologies = teval.get_topologies_at_order(order, n_pts_after)
-            all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
 
-            configurations_dummay, diagrams = teval.get_configurations_and_diagrams(
-                expansion, all_diagrams, d_before, return_configurations=false)
+            #all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
+            #configurations_dummay, diagrams = teval.get_configurations_and_diagrams(
+            #    expansion, all_diagrams, d_before, return_configurations=false)
+
+            configurations_dummay, diagrams = teval.get_configurations_and_diagrams_from_topologies(
+                expansion, topologies, order, d_before, return_configurations=false)
             
             if inch_print()
-                println("Bold order $(order), n_pts_after $(n_pts_after), N_diag $(length(all_diagrams)) -> $(length(diagrams))")
+                #println("Bold order $(order), n_pts_after $(n_pts_after), N_diag $(length(all_diagrams)) -> $(length(diagrams))")
+                println("Bold order $(order), n_pts_after $(n_pts_after), N_topo $(length(topologies)), N_diag $(length(diagrams))")
             end
                     
             if length(diagrams) > 0
