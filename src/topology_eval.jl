@@ -68,6 +68,58 @@ function get_diagrams_at_order(
     return diagrams
 end
 
+function get_configurations_and_diagrams_from_topologies(
+    expansion::Expansion,
+    #
+    topologies::Vector{Topology}, order::Int64,
+    #
+    d_before::Union{Int, Nothing};
+    op_pair_idx::Union{Int, Nothing} = nothing,
+    return_configurations = true)::Tuple{Vector{Configuration}, Vector{Diagram}}
+
+    r = rank_sub_range(length(topologies))
+    rank_topologies = topologies[r]
+    
+    rank_diagrams = Diagram[]
+    rank_configurations = Configuration[]
+
+    for topology in rank_topologies
+
+        # -- Generate all `order` lenght vector of combinations of pseudo particle interaction pair indices
+        pair_idx_range = range(1, length(expansion.pairs)) # range of allowed pp interaction pair indices
+        pair_idxs_combinations = Iterators.product(repeat([pair_idx_range], outer=[order])...)
+
+        for pair_idxs in pair_idxs_combinations
+            diagram = Diagram(topology, pair_idxs)
+
+            if op_pair_idx === nothing
+                configuration = Configuration(diagram, expansion, d_before)
+            else
+                configuration = Configuration(diagram, expansion, d_before, op_pair_idx)
+            end
+
+            if length(configuration.paths) > 0
+                if return_configurations
+                    push!(rank_configurations, configuration)
+                end
+                push!(rank_diagrams, diagram)
+            end
+        end
+    end
+
+    diagrams_out = mpi_all_gather_julia_vector(rank_diagrams)
+    
+    if return_configurations
+        configurations = mpi_all_gather_julia_vector(rank_configurations)
+    end
+
+    if return_configurations
+        return configurations, diagrams_out
+    else
+        return [], diagrams_out
+    end
+end
+
 function get_configurations_and_diagrams_serial(
     expansion::Expansion,
     diagrams::Vector{Diagram},

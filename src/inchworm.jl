@@ -302,27 +302,32 @@ function inchworm_matsubara!(expansion::Expansion,
         if inch_print(); println("Order $(order) N_topo $(length(topologies))"); end
 
         end; end; if inch_print(); show(local_tmr); println(); end
-            
-        @timeit local_tmr "Order $(order)" begin;
-        @timeit local_tmr "Diagrams" begin    
 
-        all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
+        #@timeit local_tmr "Order $(order)" begin;
+        #@timeit local_tmr "Diagrams" begin    
 
-        if inch_print(); println("Order $(order) N_diag $(length(all_diagrams))"); end
+        #all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
 
-        end; end; if inch_print(); show(local_tmr); println(); end
+        #if inch_print(); println("Order $(order) N_diag $(length(all_diagrams))"); end
+
+        #end; end; if inch_print(); show(local_tmr); println(); end
             
         @timeit local_tmr "Order $(order)" begin;
         @timeit local_tmr "Diagrams non-zero" begin
                 
+        #configurations_dummy, diagrams =
+        #    teval.get_configurations_and_diagrams(
+        #        expansion, all_diagrams, nothing, return_configurations=false)
+
         configurations_dummy, diagrams =
-            teval.get_configurations_and_diagrams(
-                expansion, all_diagrams, nothing, return_configurations=false)
-                            
+            teval.get_configurations_and_diagrams_from_topologies(
+                expansion, topologies, order, nothing, return_configurations=false)
+            
         end; end; if inch_print(); show(local_tmr); println(); end
 
         if inch_print()
-            println("Bare Order $(order), N_diag $(length(all_diagrams)) -> $(length(diagrams))")
+            #println("Bare Order $(order), N_diag $(length(all_diagrams)) -> $(length(diagrams))")
+            println("Bare Order $(order), N_topo $(length(topologies)) N_diag $(length(diagrams))")
         end
             
         if length(diagrams) > 0
