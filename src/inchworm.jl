@@ -88,7 +88,8 @@ function inchworm_step(expansion::Expansion,
                        τ_i::kd.TimeGridPoint,
                        τ_w::kd.TimeGridPoint,
                        τ_f::kd.TimeGridPoint,
-                       order_data::Vector{ExpansionOrderInputData})
+                       order_data::Vector{ExpansionOrderInputData},
+                       tmr::TimerOutput)
 
     t_i, t_w, t_f = τ_i.bpoint, τ_w.bpoint, τ_f.bpoint
     n_i, n_w, n_f = Node(t_i), InchNode(t_w), Node(t_f)
@@ -102,6 +103,22 @@ function inchworm_step(expansion::Expansion,
     order_contribs = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
 
     for od in order_data
+
+        @timeit tmr "Bold" begin
+        @timeit tmr "Order $(od.order)" begin;
+        @timeit tmr "Configurations" begin;
+
+        empty!(od.configurations)
+        configurations, diagrams = teval.get_configurations_and_diagrams(
+            expansion, od.diagrams, 2 * od.order - od.n_pts_after)
+        append!(od.configurations, configurations)
+                
+        end; end; end # tmr
+            
+        @timeit tmr "Bold" begin
+        @timeit tmr "Order $(od.order)" begin
+        @timeit tmr "Integration" begin;
+
         set_initial_node_time!.(od.configurations, Ref(t_i))
         set_inchworm_node_time!.(od.configurations, Ref(t_w))
         set_final_node_time!.(od.configurations, Ref(t_f))
@@ -127,6 +144,9 @@ function inchworm_step(expansion::Expansion,
                 )
             end
         end
+
+        end; end; end # tmr
+        
     end
 
     for order in orders
@@ -160,7 +180,8 @@ function inchworm_step_bare(expansion::Expansion,
                             c::kd.AbstractContour,
                             τ_i::kd.TimeGridPoint,
                             τ_f::kd.TimeGridPoint,
-                            order_data::Vector{ExpansionOrderInputData})
+                            order_data::Vector{ExpansionOrderInputData},
+                            tmr::TimerOutput)
 
     t_i, t_f = τ_i.bpoint, τ_f.bpoint
     n_i, n_f = Node(t_i), Node(t_f)
@@ -170,6 +191,22 @@ function inchworm_step_bare(expansion::Expansion,
     result = deepcopy(zero_sector_block_matrix)
 
     for od in order_data
+
+        @timeit tmr "Bare" begin
+        @timeit tmr "Order $(od.order)" begin;
+        @timeit tmr "Configurations" begin;
+
+        empty!(od.configurations)
+        configurations, diagrams =
+            teval.get_configurations_and_diagrams(expansion, od.diagrams, nothing)
+        append!(od.configurations, configurations)
+
+        end; end; end # tmr
+            
+        @timeit tmr "Bare" begin
+        @timeit tmr "Order $(od.order)" begin
+        @timeit tmr "Integration" begin;
+        
         set_initial_node_time!.(od.configurations, Ref(t_i))
         set_final_node_time!.(od.configurations, Ref(t_f))
 
@@ -193,7 +230,10 @@ function inchworm_step_bare(expansion::Expansion,
             end
         end
         set_bold_ppgf_at_order!(expansion, od.order, τ_i, τ_f, order_contrib)
-        result += order_contrib
+            result += order_contrib
+
+        end; end; end # tmr
+        
     end
     result
 end
@@ -219,6 +259,8 @@ function inchworm_matsubara!(expansion::Expansion,
                              N_samples::Int64;
                              n_pts_after_max::Int64 = typemax(Int64))
 
+    tmr = TimerOutput()
+
     if inch_print()
         comm = MPI.COMM_WORLD
         comm_size = MPI.Comm_size(comm)
@@ -228,6 +270,7 @@ function inchworm_matsubara!(expansion::Expansion,
         println("N_tau = ", length(grid))
         println("orders_bare = ", orders_bare)
         println("orders = ", orders)
+        println("n_pts_after_max = ", n_pts_after_max)
         println("N_samples = ", N_samples)
         println("N_ranks = ", comm_size)
         println("N_samples (per rank) = ", N_split)
@@ -241,130 +284,103 @@ function inchworm_matsubara!(expansion::Expansion,
         push!(expansion.P_orders, kd.zero(expansion.P0))
     end
 
-    if inch_print(); println("Inch step 1 (bare)"); end
-
     if inch_print(); println("= Bare Diagrams ========"); end
+    
     # First inchworm step
-    tmr = TimerOutput()
+        
+    order_data = ExpansionOrderInputData[]
+    for order in orders_bare
 
-    
-    @timeit tmr "Construction" begin
-        order_data = ExpansionOrderInputData[]
-        for order in orders_bare
-            @timeit tmr "Bare order $(order)" begin
-                topologies = teval.get_topologies_at_order(order)
-                all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
-                configurations, diagrams =
-                    teval.get_configurations_and_diagrams(expansion, all_diagrams, nothing)
-            end
+        @timeit tmr "Bare" begin; @timeit tmr "Order $(order)" begin; @timeit tmr "Diagrams" begin
             
-            if inch_print()
-                println("Bare Order $(order), N_diag $(length(diagrams))")
-                #println("diagram topologies")
-                #for top in topologies
-                #    println("top = $(top), ncross = $(diagrammatics.n_crossings(top)), parity = $(diagrammatics.parity(top))")
-                #end
-                #println("length(diagrams) = $(length(diagrams))")
-                #println("length(configurations) = $(length(configurations))")
-                @assert length(diagrams) == length(configurations)
-            end
+        topologies = teval.get_topologies_at_order(order)
+        all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
+
+        configurations_dummy, diagrams =
+            teval.get_configurations_and_diagrams(
+                expansion, all_diagrams, nothing, return_configurations=false)
+                            
+        if inch_print()
+            println("Bare Order $(order), N_diag $(length(all_diagrams)) -> $(length(diagrams))")
+        end
             
-            if length(configurations) > 0
-                push!(order_data, ExpansionOrderInputData(
-                    order, 2*order, diagrams, configurations, N_samples))
-            end
+        if length(diagrams) > 0
+            push!(order_data, ExpansionOrderInputData(
+                order, 2*order, diagrams, [], N_samples))
+                #order, 2*order, diagrams, configurations, N_samples))
         end
+
+        end; end; end # tmr "Bare" "Order"
+
     end
     
-    if inch_print()
-        println("Evaluation Bare")
-    end
+    if inch_print(); println("= Evaluation Bare ========"); end
     
-    @timeit tmr "Evaluation" begin
-        @timeit tmr "Bare" begin
-            result = inchworm_step_bare(expansion,
-                                        grid.contour,
-                                        grid[1],
-                                        grid[2],
-                                        order_data)
-            set_bold_ppgf!(expansion, grid[1], grid[2], result)
-        end
-    end
+    result = inchworm_step_bare(expansion,
+                                grid.contour,
+                                grid[1],
+                                grid[2],
+                                order_data, tmr)
+    set_bold_ppgf!(expansion, grid[1], grid[2], result)
     
-    if inch_print()
-        show(tmr)
-        println()
-    end
+    #if inch_print(); show(tmr); println(); end
 
     if inch_print(); println("= Bold Diagrams ========"); end
 
     # The rest of inching
+
     empty!(order_data)
 
-    @timeit tmr "Construction" begin
-        for order in orders
-            @timeit tmr "Bold order $(order)" begin
-                if order == 0
-                    n_pts_after_range = 0:0
-                else
-                    n_pts_after_range = 1:min(2 * order - 1, n_pts_after_max)
-                end
-                
-                for n_pts_after in n_pts_after_range
-                    d_before = 2 * order - n_pts_after
-                    topologies = teval.get_topologies_at_order(order, n_pts_after)
-                    all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
-                    configurations, diagrams =
-                        teval.get_configurations_and_diagrams(
-                            expansion, all_diagrams, d_before)
-                    
-                    if inch_print()
-                        println("Bold order $(order), n_pts_after $(n_pts_after), N_diag $(length(diagrams))")
-                        #println("n_pts_after $(n_pts_after)")
-                        #println("diagram topologies")
-                        #for top in topologies
-                        #    println("top = $(top), ncross = $(diagrammatics.n_crossings(top)), parity = $(diagrammatics.parity(top))")
-                        #end
-                        #println("length(diagrams) = $(length(diagrams))")
-                        #println("length(configurations) = $(length(configurations))")
-                        @assert length(diagrams) == length(configurations)
-                    end
-                    
-                    if length(configurations) > 0
-                        push!(order_data, ExpansionOrderInputData(
-                            order, n_pts_after, diagrams, configurations, N_samples))
-                    end
-                end
-            end
-        end
-    end
+    for order in orders
 
-    if inch_print()
-        println("Evaluation Bold")
-    end
-    
-    @timeit tmr "Evaluation" begin
-        @timeit tmr "Bold" begin
-            iter = 2:length(grid)-1
-            iter = inch_print() ? ProgressBar(iter) : iter
+        @timeit tmr "Bold" begin; @timeit tmr "Order $(order)" begin; @timeit tmr "Diagrams" begin
+
+        if order == 0
+            n_pts_after_range = 0:0
+        else
+            n_pts_after_range = 1:min(2 * order - 1, n_pts_after_max)
+        end
             
-            τ_i = grid[1]
-            for n in iter
-                #if inch_print(); println("Inch step $n of $(length(grid)-1)"); end
-                τ_w = grid[n]
-                τ_f = grid[n + 1]
-                
-                result = inchworm_step(
-                    expansion, grid.contour, τ_i, τ_w, τ_f, order_data)
-                set_bold_ppgf!(expansion, τ_i, τ_f, result)
+        for n_pts_after in n_pts_after_range
+            d_before = 2 * order - n_pts_after
+            topologies = teval.get_topologies_at_order(order, n_pts_after)
+            all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
+
+            configurations_dummay, diagrams = teval.get_configurations_and_diagrams(
+                expansion, all_diagrams, d_before, return_configurations=false)
+            
+            if inch_print()
+                println("Bold order $(order), n_pts_after $(n_pts_after), N_diag $(length(all_diagrams)) -> $(length(diagrams))")
+            end
+                    
+            if length(diagrams) > 0
+                push!(order_data, ExpansionOrderInputData(
+                    order, n_pts_after, diagrams, [], N_samples))
+                #order, n_pts_after, diagrams, configurations, N_samples))
             end
         end
+
+        end; end; end # tmr "Bold" "Order" "Diagrams"
+
     end
 
-    if inch_print()
-        show(tmr)
-        println()
+    if inch_print(); println("= Evaluation Bold ========"); end
+    
+    iter = 2:length(grid)-1
+    iter = inch_print() ? ProgressBar(iter) : iter
+            
+    τ_i = grid[1]
+    for n in iter
+        #if inch_print(); println("Inch step $n of $(length(grid)-1)"); end
+        τ_w = grid[n]
+        τ_f = grid[n + 1]
+        
+        result = inchworm_step(
+            expansion, grid.contour, τ_i, τ_w, τ_f, order_data, tmr)
+        set_bold_ppgf!(expansion, τ_i, τ_f, result)
     end
+
+    if inch_print(); show(tmr); println(); end
 
 end
 
@@ -392,7 +408,8 @@ function compute_gf_matsubara_point(expansion::Expansion,
                                     grid::kd.ImaginaryTimeGrid,
                                     c_cdag_pair_idx::Int64,
                                     τ_c::kd.TimeGridPoint,
-                                    order_data::Vector{ExpansionOrderInputData})::ComplexF64
+                                    order_data::Vector{ExpansionOrderInputData},
+                                    tmr::TimerOutput)::ComplexF64
     t_cdag = grid[1].bpoint # C^+ is always placed at τ=0
     t_c = τ_c.bpoint
     t_f = grid[end].bpoint
@@ -405,6 +422,9 @@ function compute_gf_matsubara_point(expansion::Expansion,
     result::ComplexF64 = 0
 
     for od in order_data
+
+        @timeit tmr "Order $(od.order)" begin; @timeit tmr "Integration" begin
+        
         set_operator_node_time!.(od.configurations, 1, Ref(t_cdag))
         set_operator_node_time!.(od.configurations, 2, Ref(t_c))
         set_final_node_time!.(od.configurations, Ref(t_f))
@@ -428,6 +448,8 @@ function compute_gf_matsubara_point(expansion::Expansion,
                 )
             end
         end
+
+        end; end # tmr
     end
 
     result / -partition_function(expansion.P)
@@ -457,8 +479,11 @@ function compute_gf_matsubara(expansion::Expansion,
                               grid::kd.ImaginaryTimeGrid,
                               orders,
                               N_samples::Int64)::Vector{kd.ImaginaryTimeGF{ComplexF64, true}}
+
     @assert grid.contour.β == expansion.P[1].grid.contour.β
 
+    tmr = TimerOutput()
+    
     if inch_print()
         comm = MPI.COMM_WORLD
         comm_size = MPI.Comm_size(comm)
@@ -479,14 +504,18 @@ function compute_gf_matsubara(expansion::Expansion,
     # Pre-compute topologies and diagrams: These are common for all
     # pairs of operators in expansion.corr_operators. Some of the diagrams
     # computed here will be excluded for a specific choice of C/C^+.
-    if inch_print(); println("= Response Function Diagrams ========"); end
+    if inch_print(); println("= Diagrams ========"); end
     common_order_data = ExpansionOrderInputData[]
     for order in orders
+
+        @timeit tmr "Order $(order)" begin; @timeit tmr "Diagrams" begin
+
         n_pts_after_range = (order == 0) ? (0:0) : (1:(2 * order - 1))
         for n_pts_after in n_pts_after_range
             d_before = 2 * order - n_pts_after
             topologies = teval.get_topologies_at_order(order, n_pts_after, with_1k_arc=true)
             all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
+
             push!(common_order_data, ExpansionOrderInputData(
                 order, n_pts_after, all_diagrams, [], N_samples))
 
@@ -494,17 +523,22 @@ function compute_gf_matsubara(expansion::Expansion,
                 println("order $(order), n_pts_after $(n_pts_after), N_diag $(length(all_diagrams))")
             end
         end
+
+        end; end # tmr "Order" "Diagrams"
+
     end
 
     # Accummulate GFs
     gf_list = kd.ImaginaryTimeGF{ComplexF64, true}[]
     for (op_pair_idx, (c, cdag)) in enumerate(expansion.corr_operators)
+
+        if inch_print(); println("= Correlator <$(c),$(cdag)> ========"); end
+
         # Filter diagrams and generate lists of configurations
         order_data = ExpansionOrderInputData[]
         for od in common_order_data
-            if inch_print()
-                println("order $(od.order) n_pts_after $(od.n_pts_after) N_diag $(length(od.diagrams))")
-            end
+
+            @timeit tmr "Order $(od.order)" begin; @timeit tmr "Configurations" begin
             
             configurations, diagrams = teval.get_configurations_and_diagrams(
                 expansion,
@@ -513,10 +547,16 @@ function compute_gf_matsubara(expansion::Expansion,
                 op_pair_idx = op_pair_idx
             )
 
+            if inch_print()
+                println("order $(od.order) n_pts_after $(od.n_pts_after) N_diag $(length(od.diagrams)) -> $(length(diagrams))")
+            end
+
             if length(configurations) > 0
                 push!(order_data, ExpansionOrderInputData(
                     od.order, od.n_pts_after, diagrams, configurations, N_samples))
             end
+
+            end; end # tmr "Order" "Configurations"
         end
 
         # Create a GF container to carry the result
@@ -526,9 +566,7 @@ function compute_gf_matsubara(expansion::Expansion,
         # Fill in values
         #
 
-        if inch_print()
-            println("Computing matrix element ", (c, cdag))
-        end
+        if inch_print(); println("= Evaluation ======== ", (c, cdag)); end
 
         # Only the 0-th order can contribute at τ_c = τ_cdag
         if order_data[1].order == 0
@@ -537,7 +575,8 @@ function compute_gf_matsubara(expansion::Expansion,
                 grid,
                 op_pair_idx,
                 τ_cdag,
-                order_data[1:1]
+                order_data[1:1],
+                tmr
             )
         end
 
@@ -552,11 +591,14 @@ function compute_gf_matsubara(expansion::Expansion,
                 grid,
                 op_pair_idx,
                 τ_c,
-                order_data
+                order_data,
+                tmr
             )
         end
     end
 
+    if inch_print(); show(tmr); println(); end
+    
     gf_list
 end
 
