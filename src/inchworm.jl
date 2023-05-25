@@ -88,8 +88,8 @@ function inchworm_step(expansion::Expansion,
                        τ_i::kd.TimeGridPoint,
                        τ_w::kd.TimeGridPoint,
                        τ_f::kd.TimeGridPoint,
-                       order_data::Vector{ExpansionOrderInputData},
-                       tmr::TimerOutput)
+                       order_data::Vector{ExpansionOrderInputData};
+                       tmr::TimerOutput = TimerOutput())
 
     t_i, t_w, t_f = τ_i.bpoint, τ_w.bpoint, τ_f.bpoint
     n_i, n_w, n_f = Node(t_i), InchNode(t_w), Node(t_f)
@@ -180,8 +180,8 @@ function inchworm_step_bare(expansion::Expansion,
                             c::kd.AbstractContour,
                             τ_i::kd.TimeGridPoint,
                             τ_f::kd.TimeGridPoint,
-                            order_data::Vector{ExpansionOrderInputData},
-                            tmr::TimerOutput)
+                            order_data::Vector{ExpansionOrderInputData};
+                            tmr::TimerOutput = TimerOutput())
 
     t_i, t_f = τ_i.bpoint, τ_f.bpoint
     n_i, n_f = Node(t_i), Node(t_f)
@@ -346,7 +346,7 @@ function inchworm_matsubara!(expansion::Expansion,
                                 grid.contour,
                                 grid[1],
                                 grid[2],
-                                order_data, tmr)
+                                order_data, tmr=tmr)
     set_bold_ppgf!(expansion, grid[1], grid[2], result)
     
     #if inch_print(); show(tmr); println(); end
@@ -406,7 +406,7 @@ function inchworm_matsubara!(expansion::Expansion,
         τ_f = grid[n + 1]
         
         result = inchworm_step(
-            expansion, grid.contour, τ_i, τ_w, τ_f, order_data, tmr)
+            expansion, grid.contour, τ_i, τ_w, τ_f, order_data, tmr=tmr)
         set_bold_ppgf!(expansion, τ_i, τ_f, result)
     end
 
@@ -438,8 +438,8 @@ function compute_gf_matsubara_point(expansion::Expansion,
                                     grid::kd.ImaginaryTimeGrid,
                                     c_cdag_pair_idx::Int64,
                                     τ_c::kd.TimeGridPoint,
-                                    order_data::Vector{ExpansionOrderInputData},
-                                    tmr::TimerOutput)::ComplexF64
+                                    order_data::Vector{ExpansionOrderInputData};
+                                    tmr::TimerOutput = TimerOutput())::ComplexF64
     t_cdag = grid[1].bpoint # C^+ is always placed at τ=0
     t_c = τ_c.bpoint
     t_f = grid[end].bpoint
@@ -606,7 +606,7 @@ function compute_gf_matsubara(expansion::Expansion,
                 op_pair_idx,
                 τ_cdag,
                 order_data[1:1],
-                tmr
+                tmr=tmr
             )
         end
 
@@ -622,7 +622,7 @@ function compute_gf_matsubara(expansion::Expansion,
                 op_pair_idx,
                 τ_c,
                 order_data,
-                tmr
+                tmr=tmr
             )
         end
     end
