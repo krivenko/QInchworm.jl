@@ -193,9 +193,11 @@ if n_pts_after_max == 0
 end
 
 order_gf = order - 1
-    
-println("order $(order) ntau $(ntau) N_samples $(N_samples) n_pts_after_max $(n_pts_after_max)")
-    
+
+if inch_print()
+    println("order $(order) ntau $(ntau) N_samples $(N_samples) n_pts_after_max $(n_pts_after_max)")
+end
+
 #exit()
 
 orders = 0:order
