@@ -505,7 +505,7 @@ Returns
 gf : A list of scalar-valued single-particle GFs, one element per a pair in
      `expansion.corr_operators`.
 """
-function compute_gf_matsubara(expansion::Expansion,
+function compute_gf_matsubara_depr(expansion::Expansion,
                               grid::kd.ImaginaryTimeGrid,
                               orders,
                               N_samples::Int64)::Vector{kd.ImaginaryTimeGF{ComplexF64, true}}
@@ -625,6 +625,127 @@ function compute_gf_matsubara(expansion::Expansion,
                 tmr=tmr
             )
         end
+    end
+
+    if inch_print(); show(tmr); println(); end
+    
+    gf_list
+end
+
+raw"""
+Perform a calculation of single-particle Green's functions on the Matsubara branch.
+
+Accumulation is performed for each annihilation/creation operator pair
+passed in `expansion.corr_operators`.
+
+Parameters
+----------
+expansion :            Pseudo-particle expansion problem containing a precomputed bold PPGF
+                       and annihilation/creation operator pairs to be used in accumulation.
+grid :                 Imaginary time grid of the single-particle GF to be computed.
+orders :               List of expansion orders to be accounted for.
+N_samples :            Numbers of qMC samples.
+
+Returns
+-------
+
+gf : A list of scalar-valued single-particle GFs, one element per a pair in
+     `expansion.corr_operators`.
+"""
+function compute_gf_matsubara(expansion::Expansion,
+                              grid::kd.ImaginaryTimeGrid,
+                              orders,
+                              N_samples::Int64)::Vector{kd.ImaginaryTimeGF{ComplexF64, true}}
+
+    @assert grid.contour.β == expansion.P[1].grid.contour.β
+
+    tmr = TimerOutput()
+    
+    if inch_print()
+        comm = MPI.COMM_WORLD
+        comm_size = MPI.Comm_size(comm)
+        N_split = split_count(N_samples, comm_size)
+
+        println(logo)
+        println("N_tau = ", length(grid))
+        println("orders = ", orders)
+        println("N_samples = ", N_samples)
+        println("N_ranks = ", comm_size)
+        println("N_samples (per rank) = ", N_split)
+    end
+
+    @assert N_samples == 0 || N_samples == 2^Int(log2(N_samples))
+
+    τ_cdag = grid[1]
+
+    # Accummulate GFs
+
+    gf_list = kd.ImaginaryTimeGF{ComplexF64, true}[]
+    
+    for (op_pair_idx, (c, cdag)) in enumerate(expansion.corr_operators)
+
+        if inch_print(); println("= Correlator <$(c),$(cdag)> ========"); end
+
+        # Create a GF container to carry the result
+        push!(gf_list, kd.ImaginaryTimeGF(grid, 1, kd.fermionic, true))
+
+        for order in orders
+
+            n_pts_after_range = (order == 0) ? (0:0) : (1:(2 * order - 1))
+
+            for n_pts_after in n_pts_after_range
+
+                @timeit tmr "Order $(order)" begin; @timeit tmr "Diag + Conf" begin
+                
+                d_before = 2 * order - n_pts_after
+                topologies = teval.get_topologies_at_order(order, n_pts_after, with_1k_arc=true)
+
+                #all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
+                #configurations, diagrams = teval.get_configurations_and_diagrams(
+                #    expansion, all_diagrams, 2 * order - n_pts_after, op_pair_idx=op_pair_idx) 
+
+                configurations, diagrams = teval.get_configurations_and_diagrams_from_topologies(
+                    expansion, topologies, order, 2 * order - n_pts_after, op_pair_idx=op_pair_idx) 
+
+                if inch_print()
+                    #println("order $(order), n_pts_after $(n_pts_after), N_diag $(length(all_diagrams)) -> $(length(diagrams))")
+                    println("order $(order), n_pts_after $(n_pts_after), N_topo $(length(topologies)), N_diag $(length(diagrams))")
+                end
+
+                order_data = ExpansionOrderInputData[]
+                
+                if length(configurations) > 0
+                    push!(order_data, ExpansionOrderInputData(
+                        order, n_pts_after, diagrams, configurations, N_samples))
+                end
+
+                end; end # tmr
+                
+                #
+                # Fill in values
+                #
+                
+                # Only the 0-th order can contribute at τ_c = τ_cdag
+                if length(order_data) > 0 && order_data[1].order == 0
+                    gf_list[end][τ_cdag, τ_cdag] += compute_gf_matsubara_point(
+                        expansion, grid, op_pair_idx, τ_cdag, order_data[1:1], tmr=tmr)
+                end
+
+                # The rest of τ_c values
+                iter = 2:length(grid)
+                iter = inch_print() ? ProgressBar(iter) : iter
+
+                for n in iter
+                    τ_c = grid[n]
+                    gf_list[end][τ_c, τ_cdag] += compute_gf_matsubara_point(
+                        expansion, grid, op_pair_idx, τ_c, order_data, tmr=tmr)
+                end
+            end
+
+            #end; end # tmr "Order" "Diagrams"
+
+        end
+
     end
 
     if inch_print(); show(tmr); println(); end
