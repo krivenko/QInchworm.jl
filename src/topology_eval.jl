@@ -95,7 +95,8 @@ function get_configurations_and_diagrams(
     expansion::Expansion,
     diagrams::Vector{Diagram},
     d_before::Union{Int, Nothing};
-    op_pair_idx::Union{Int, Nothing} = nothing)::Tuple{Vector{Configuration}, Vector{Diagram}}
+    op_pair_idx::Union{Int, Nothing} = nothing,
+    return_configurations = true)::Tuple{Vector{Configuration}, Vector{Diagram}}
 
     r = rank_sub_range(length(diagrams))
     rank_diagrams = diagrams[r]
@@ -110,15 +111,23 @@ function get_configurations_and_diagrams(
         end
 
         if length(configuration.paths) > 0
-            push!(rank_configurations, configuration)
+            if return_configurations
+                push!(rank_configurations, configuration)
+            end
             push!(rank_diagrams_out, diagram)
         end
     end
 
     diagrams_out = mpi_all_gather_julia_vector(rank_diagrams_out)
-    configurations = mpi_all_gather_julia_vector(rank_configurations)
-    
-    return configurations, diagrams_out
+    if return_configurations
+        configurations = mpi_all_gather_julia_vector(rank_configurations)
+    end
+
+    if return_configurations
+        return configurations, diagrams_out
+    else
+        return [], diagrams_out
+    end
 end
 
 function update_pair_node_times!(configuration::Configuration, diagram::Diagram, times::Vector{Time})
