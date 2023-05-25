@@ -423,13 +423,13 @@ end
 
 function initial_ppgf_derivative(ed::ked.EDCore, β::Float64)
     Z = sum([ sum(exp.(-β * eig.eigenvalues)) for eig in ed.eigensystems ])
-    if inch_print(); @show Z; end
+    #if inch_print(); @show Z; end
     λ = log(Z) / β
-    if inch_print(); @show λ; end
+    #if inch_print(); @show λ; end
 
     dP = []
     for eig in ed.eigensystems
-        if inch_print(); @show eig.eigenvalues; end
+        #if inch_print(); @show eig.eigenvalues; end
         dP_s = -im * diagm(-eig.eigenvalues .- λ)
         push!(dP, dP_s)
     end
