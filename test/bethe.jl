@@ -30,7 +30,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair
-using QInchworm.inchworm: inchworm_matsubara!
+using QInchworm.inchworm: inchworm!
 using QInchworm.utility: inch_print
 
 function semi_circular_g_tau(times, t, h, β)
@@ -142,7 +142,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples, μ_bethe)
 
     ρ_0 = full_hs_matrix(tofockbasis(density_matrix(expansion.P0), ed), ed)
 
-    inchworm_matsubara!(expansion, grid, orders, orders_bare, N_samples)
+    inchworm!(expansion, grid, orders, orders_bare, N_samples)
 
     normalize!(expansion.P, β)
     ρ_wrm = full_hs_matrix(tofockbasis(density_matrix(expansion.P), ed), ed)

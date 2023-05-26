@@ -13,8 +13,8 @@ using QInchworm.topology_eval: get_topologies_at_order,
 using QInchworm.inchworm: ExpansionOrderInputData,
                           inchworm_step,
                           inchworm_step_bare,
-                          inchworm_matsubara!,
-                          compute_gf_matsubara
+                          inchworm!,
+                          correlator_2p
 
 # -- Single state pseudo particle expansion
 
@@ -143,7 +143,7 @@ end
     @show value
 end
 
-@testset "inchworm_matsubara" begin
+@testset "inchworm" begin
     contour = kd.ImaginaryContour(β=β);
     grid = kd.ImaginaryTimeGrid(contour, ntau);
 
@@ -165,18 +165,15 @@ end
     orders_bare = 0:2
     N_samples = 2^8
 
-    inchworm_matsubara!(expansion,
-                        grid,
-                        orders,
-                        orders_bare,
-                        N_samples)
-
+    inchworm!(expansion, grid, orders, orders_bare, N_samples)
     @show expansion.P
 
     # -- Single-particle GF
 
     push!(expansion.corr_operators, (op.c("0"), op.c_dag("0")))
-    g = compute_gf_matsubara(expansion, grid, orders, N_samples)
+    g = correlator_2p(expansion, grid, orders, N_samples)
+    # FIXME: AbstractTimeGF should support basic arithmetic operations
+    g[1].mat.data[:] *= -1
 
     @show g
 end

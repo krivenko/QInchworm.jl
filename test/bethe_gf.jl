@@ -31,7 +31,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair
-using QInchworm.inchworm: inchworm_matsubara!, compute_gf_matsubara
+using QInchworm.inchworm: inchworm!, correlator_2p
 using QInchworm.utility: inch_print
 
 function semi_circular_g_tau(times, t, h, β)
@@ -564,7 +564,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples, μ_b
 
     ρ_0 = full_hs_matrix(tofockbasis(density_matrix(expansion.P0), ed), ed)
 
-    inchworm_matsubara!(expansion, grid, orders, orders_bare, N_samples)
+    inchworm!(expansion, grid, orders, orders_bare, N_samples)
 
     normalize!(expansion.P, β)
     ρ_wrm = full_hs_matrix(tofockbasis(density_matrix(expansion.P), ed), ed)
@@ -604,7 +604,9 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples, μ_b
     end
 
     push!(expansion.corr_operators, (op.c(1), op.c_dag(1)))
-    g = compute_gf_matsubara(expansion, grid, orders_gf, N_samples)
+    g = correlator_2p(expansion, grid, orders_gf, N_samples)
+    # FIXME: AbstractTimeGF should support basic arithmetic operations
+    g[1].mat.data[:] *= -1
 
     if true
     diff_g_nca = maximum(abs.(get_g_nca() - g[1].mat.data[1, 1, :]))
@@ -668,7 +670,7 @@ end
 @testset "bethe_gf_order3" begin
 
     return # Third order calculation takes some considerable time, skip by default
-    
+
     ntau = 128
     orders = 0:3
     orders_gf = 0:2
@@ -677,7 +679,7 @@ end
 
     ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca, diff_g_nca, diff_g_oca, diff_g_tca =
         run_hubbard_dimer(ntau, orders, orders, orders_gf, N_samples, μ_bethe)
-    
+
     if inch_print()
 
         @test diffs_tca < 2e-3
@@ -687,6 +689,6 @@ end
         @test diff_g_tca < 7e-3
         @test diff_g_tca < diff_g_nca
         @test diff_g_tca < diff_g_oca
-        
+
     end
 end

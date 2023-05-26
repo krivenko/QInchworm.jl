@@ -18,7 +18,7 @@ using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.topology_eval: get_topologies_at_order,
                                get_diagrams_at_order
 
-using QInchworm.inchworm: inchworm_matsubara!
+using QInchworm.inchworm: inchworm!
 using QInchworm.ppgf
 using QInchworm.KeldyshED_addons: reduced_density_matrix,
                                   density_matrix,
@@ -39,7 +39,7 @@ using PyPlot; plt = PyPlot # DEBUG
 function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     #@time begin
-        
+
     #β = 2.0
     #β = 4.0
     β = 1.0
@@ -54,7 +54,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     H_2 = ϵ_2 * op.n(2)
 
     H_12 = H_1 + H_2 + V * ( op.c_dag(1) * op.c(2) + op.c_dag(2) * op.c(1) )
-    
+
     soi_1 = KeldyshED.Hilbert.SetOfIndices([[1]])
     soi_2 = KeldyshED.Hilbert.SetOfIndices([[2]])
     soi_12 = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
@@ -65,7 +65,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     #end
     #println("KED")
-    
+
     #@time begin
     # -- Many body density matrices
 
@@ -73,9 +73,9 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     # To be comparable with the reduced_density_matrix it would be
     # easier with a matrix in the entire Hilbert space?
-    
+
     blockmat = m -> Matrix(sa.blockdiag(sa.sparse.(m)...))
-    
+
     ρ_1 = blockmat(ked.tofockbasis(ked.density_matrix(ed_1, β), ed_1))
     ρ_2 = blockmat(ked.tofockbasis(ked.density_matrix(ed_2, β), ed_2))
     ρ_12 = blockmat(ked.tofockbasis(ked.density_matrix(ed_12, β), ed_12))
@@ -87,7 +87,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
         @show ρ_12
         @show ρ_1
         @show ρ_2
-        
+
         @show ρ_12_red1
         @show ρ_12_red2
     end
@@ -100,12 +100,12 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     #@test ρ_12_red2 ≈ ρ_2
 
     # -- Propagators
-    
+
     contour = kd.ImaginaryContour(β=β);
     grid = kd.ImaginaryTimeGrid(contour, ntau);
 
     #@time begin
-        
+
     #S_1 = ked.tofockbasis(ked.evolution_operator(ed_1, grid), ed_1)
     #S_2 = ked.tofockbasis(ked.evolution_operator(ed_2, grid), ed_2)
 
@@ -113,12 +113,12 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     S_2 = tofockbasis_imtime(evolution_operator_imtime(ed_2, grid), ed_2)
 
     #S_2_tr = S_2[1] + S_2[2] # Does not compile
-    
+
     S_2_tr = deepcopy(S_2[1])
     #S_2_tr.data.data[:] = S_2[1].data.data + S_2[2].data.data
     S_2_tr.mat.data[:] = S_2[1].mat.data + S_2[2].mat.data
-    #S_2_tr.data.data[:] = sum([ S_2[i].data.data for i in length(S_2) ], dims=1) 
-    
+    #S_2_tr.data.data[:] = sum([ S_2[i].data.data for i in length(S_2) ], dims=1)
+
     #S_12_red1 = ked.reduced_evolution_operator(ed_12, soi_1, grid)
     S_12_red1 = reduced_evolution_operator_imtime(ed_12, soi_1, grid)
 
@@ -140,12 +140,12 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     #end
     #println("QInch atomic prop")
 
-    #@time begin    
+    #@time begin
     P_12_red1 = reduced_ppgf(P_12, ed_12, ed_1)
     #end
     #println("QInch reduced ppgf")
 
-    #@time begin    
+    #@time begin
     # -- Normalize
 
     PS_1 = deepcopy(P_1)
@@ -204,8 +204,8 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     end
 
     ρ_0 = density_matrix(expansion.P0, ed_1)
-    
-    inchworm_matsubara!(expansion, grid, orders, orders_bare, N_samples)
+
+    inchworm!(expansion, grid, orders, orders_bare, N_samples)
 
     if interpolate_gfs
         P = [ p.GF for p in expansion.P ]
@@ -223,16 +223,16 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     P1_exact = -imag(PS_12_red1_TrS2.mat.data[1, 1, :])
     P2_exact = -imag(PS_12_red1_TrS2.mat.data[2, 2, :])
-    
+
     #D1 = - imag(PS_12_red1_TrS2.mat.data[1, 1, :]) + imag(expansion.P[1].mat.data[1, 1, :])
     #D2 = -imag(PS_12_red1_TrS2.mat.data[2, 2, :]) + imag(expansion.P[2].mat.data[1, 1, :])
 
     D1 = P1 - P1_exact
     D2 = P2 - P2_exact
-    
+
     diff = maximum([maximum(abs.(D1)), maximum(abs.(D2))])
     max_order = maximum(orders)
-    
+
     # -- Dump to h5 file
 
     if inch_print()
@@ -262,10 +262,10 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
         g["P2"] = P2
         g["P1_exact"] = P1_exact
         g["P2_exact"] = P2_exact
-        
+
         h5.close(fid)
     end
-    
+
     if inch_print()
         @printf "ρ_0   = %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2])
         #@printf "ρ_ref = %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2])
@@ -274,14 +274,14 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
         #@show diff
     end
 
-    
+
     if inch_print()
     #if true # -----  VIZ
-        
+
     # -- Visualize
-        
+
     plt.figure(figsize=(7, 10))
-    
+
     #subp = [3, 2, 1]
     subp = [4, 1, 1]
 
@@ -294,7 +294,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     #plt.plot(τ, real(S_2[1].data[1, 1, :, 1]), label="S_2[1]")
     #plt.plot(τ, real(S_2[2].data[1, 1, :, 1]), label="S_2[2]")
-    
+
     #plt.plot(τ, real(S_12_red1.data[1, 1, :, 1]), "-", label="S_12_red1[1,1]")
     #plt.plot(τ, real(S_12_red1.data[2, 2, :, 1]), "-", label="S_12_red1[2,2]")
     plt.plot(τ, real(S_12_red1.mat.data[1, 1, :]), "-", label="S_12_red1[1,1]")
@@ -304,10 +304,10 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     #plt.plot(τ, real(S_12_red1_TrS2.data[2, 2, :, 1]), "-", label="S_12_red1_TrS2[2,2]")
     plt.plot(τ, real(S_12_red1_TrS2.mat.data[1, 1, :]), "-", label="S_12_red1_TrS2[1,1]")
     plt.plot(τ, real(S_12_red1_TrS2.mat.data[2, 2, :]), "-", label="S_12_red1_TrS2[2,2]")
-    
+
     plt.legend()
     plt.grid(true)
-    
+
     plt.subplot(subp...); subp[end] += 1
 
     plt.plot(τ, -imag(P_1[1].mat.data[1, 1, :]), "-", label="P_1[1]")
@@ -318,7 +318,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     plt.legend()
     plt.grid(true)
-        
+
     plt.subplot(subp...); subp[end] += 1
 
     plt.plot(τ, -imag(PS_12_red1_TrS2.mat.data[1, 1, :]),
@@ -328,24 +328,24 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     plt.plot(τ, -imag(expansion.P[1].mat.data[1, 1, :]), "-", label="exp.P[1]")
     plt.plot(τ, -imag(expansion.P[2].mat.data[1, 1, :]), "-", label="exp.P[2]")
-        
+
     plt.legend()
     plt.grid(true)
 
     plt.subplot(subp...); subp[end] += 1
-        
+
     plt.plot(τ, D1, "-", label="D1")
     plt.plot(τ, D2, "-", label="D2")
-        
+
     plt.legend()
     plt.grid(true)
-        
+
     plt.tight_layout()
     plt.savefig("figure_ntau_$(ntau)_N_samples_$(N_samples)_orders_$(orders).pdf")
     #plt.show()
-    
+
     end # -----  VIZ
-    
+
     if inch_print()
         @show diff
     end

@@ -1,4 +1,4 @@
-""" 
+"""
 
 Author: Hugo U. R. Strand (2023)
 
@@ -22,7 +22,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair
-using QInchworm.inchworm: inchworm_matsubara!, compute_gf_matsubara
+using QInchworm.inchworm: inchworm_matsubara!, correlator_2p
 using QInchworm.utility: inch_print
 
 function semi_circular_g_tau(times, t, h, β)
@@ -77,7 +77,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
                 [-imag(t1.bpoint.val - t2.bpoint.val)],
                 t_bethe, μ_bethe, β)[1],
         grid, 1, kd.fermionic, true)
-    
+
     function reverse(g::kd.ImaginaryTimeGF)
         g_rev = deepcopy(g)
         τ_0, τ_β = first(g.grid), last(g.grid)
@@ -98,7 +98,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
     normalize!(expansion.P, β)
 
     push!(expansion.corr_operators, (op.c(1), op.c_dag(1)))
-    g = compute_gf_matsubara(expansion, grid, orders_gf, N_samples)
+    g = correlator_2p(expansion, grid, orders_gf, N_samples)
 
     # ==
     if inch_print()
@@ -124,7 +124,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
 
         h5.close(fid)
     end
-    
+
     #if inch_print()
     if false
 
@@ -136,18 +136,18 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
 
         for s in 1:length(expansion.P)
             plt.subplot(subp...); subp[end] += 1;
-            
+
             x = collect(τ)
             y = collect(imag(expansion.P[s].mat.data[1, 1, :]))
             P_int = Interpolate(x, y)
             P = P_int.(τ_ref)
-            
+
             plt.plot(τ_ref, -P, label="P$(s)")
             plt.semilogy([], [])
             plt.ylabel(raw"$P_\Gamma(\tau)$")
             plt.xlabel(raw"$\tau$")
             plt.legend(loc="best")
-            
+
             plt.subplot(subp...); subp[end] += 1;
             for (o, P) in enumerate(expansion.P_orders)
                 p = imag(P[s].mat.data[1, 1, :])
@@ -172,7 +172,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
         plt.ylabel(raw"$G_{11}(τ)$")
         plt.legend(loc="best")
         plt.ylim(bottom=0)
-        
+
         plt.tight_layout()
         plt.savefig("figure_ntau_$(ntau)_N_samples_$(N_samples)_orders_$(orders).pdf")
         #plt.show()
@@ -202,7 +202,7 @@ end
 
 orders = 0:order
 orders_gf = 0:order_gf
-    
+
 run_bethe(ntau, orders, orders, orders_gf, N_samples, n_pts_after_max)
 
 exit()
@@ -217,7 +217,7 @@ n_pts_after_max = 1
 for o = [7]
     #for o = [6, 7, 8]
     orders = 0:o
-    orders_gf = 0:(o-1)        
+    orders_gf = 0:(o-1)
     #for ntau = [64, 128, 256]
     for ntau = [16]
         #for N_samples = 32 * 2 .^ range(0, 10)
