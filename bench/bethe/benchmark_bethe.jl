@@ -20,29 +20,29 @@ using QInchworm.inchworm: inchworm!
 using QInchworm.spline_gf: SplineInterpolatedGF
 using QInchworm.utility: inch_print
 
+using QuadGK: quadgk
+
 
 function semi_circular_g_tau(times, t, h, β)
 
-    np = PyCall.pyimport("numpy")
-    kernel = PyCall.pyimport("pydlr").kernel
-    quad = PyCall.pyimport("scipy.integrate").quad
-
-    #def eval_semi_circ_tau(tau, beta, h, t):
-    #    I = lambda x : -2 / np.pi / t**2 * kernel(np.array([tau])/beta, beta*np.array([x]))[0,0]
-    #    g, res = quad(I, -t+h, t+h, weight='alg', wvar=(0.5, 0.5))
-    #    return g
-
     g_out = zero(times)
 
-    for (i, tau) in enumerate(times)
-        I = x -> -2 / np.pi / t^2 * kernel([tau/β], [β*x])[1, 1]
-        g, res = quad(I, -t+h, t+h, weight="alg", wvar=(0.5, 0.5))
+    function kernel(t, w)
+        if w > 0
+            return exp(-t * w) / (1 + exp(-w))
+        else
+            return exp((1 - t)*w) / (1 + exp(w))
+        end
+    end
+
+    for (i, τ) in enumerate(times)
+        I = x -> -2 / pi / t^2 * kernel(τ/β, β*x) * sqrt(x + t - h) * sqrt(t + h - x)
+        g, err = quadgk(I, -t+h, t+h; rtol=1e-12)
         g_out[i] = g
     end
 
     return g_out
 end
-
 
 function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
