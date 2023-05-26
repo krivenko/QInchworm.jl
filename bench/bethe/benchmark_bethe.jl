@@ -104,7 +104,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
               grid,
               orders,
               orders_bare,
-              N_samples)
+              N_samples; n_pts_after_max=1)
 
     if interpolate_gfs
         P = [ p.GF for p in expansion.P ]
@@ -204,37 +204,9 @@ end
 
 MPI.Init()
 
-#ntaus = 2 .^ range(4, 12)
-#N_samples = 8 * 2 .^ range(0, 13)
-#orderss = [0:1, 0:3]
-
-#ntaus = 2 .^ range(4, 12)
-#ntaus = [64]
-#N_sampless = 2 .^ range(10, 10)
-#N_sampless = 2 .^ range(3, 23)
-#orderss = [0:1]
-
-#ntaus = 2 .^ range(4, 8)
-#N_sampless = 2 .^ range(3, 10)
-#ntaus = 2 .^ range(9, 10)
-#ntaus = 2 .^ range(11, 12)
-#N_sampless = 2 .^ range(3, 15)
-#orderss = [0:5]
-#orderss = [[0,1,3,5]]
-
-#ntaus = [1024]
-#ntaus = 2 .^ range(11, 12)
-#N_sampless = 2 .^ range(3, 15)
-#orderss = [0:1]
-#orderss = [0:1, 0:3]
-
-#ntaus = [128]
-#N_sampless = 2 .^ range(8, 8)
-#orderss = [0:5]
-
-ntaus = [1024 * 2]
+ntaus = [1024 * 8 * 4]
 N_sampless = 2 .^ range(3, 15)
-orderss = [0:5]
+orderss = [0:4]
 
 if inch_print()
     @show ntaus
