@@ -16,3 +16,10 @@ TODO list for QInchworm
 
 * One performance bottleneck is the generation of the operator matrices
   consider storing the matrix representations in each configuration.
+
+* Define a new module `QInchworm.mpi` to hold all MPI-related utility
+  functions. This way `mpi_all_gather_julia_vector()` can become
+  `all_gather(v::Vector)`.
+
+* Consider using [Logging](https://docs.julialang.org/en/v1/stdlib/Logging/)
+  instead of `println()` / `@show`.
