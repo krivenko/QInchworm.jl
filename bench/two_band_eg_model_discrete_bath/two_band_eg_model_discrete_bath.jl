@@ -161,12 +161,13 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
         push!(ips, InteractionPair(op.c(s, o), op.c_dag(s, o), reverse(Δ)))
     end
 
-    #for s in ["up", "dn"]
-    #    push!(ips, InteractionPair(op.c_dag(s, 1), op.c(s, 2), Δ))
-    #    push!(ips, InteractionPair(op.c(s, 1), op.c_dag(s, 2), reverse(Δ)))
-    #    push!(ips, InteractionPair(op.c_dag(s, 2), op.c(s, 1), Δ))
-    #    push!(ips, InteractionPair(op.c(s, 2), op.c_dag(s, 1), reverse(Δ)))
-    #end
+    for s in ["up", "dn"]
+        push!(ips, InteractionPair(op.c_dag(s, 1), op.c(s, 2), Δ))
+        push!(ips, InteractionPair(op.c(s, 2), op.c_dag(s, 1), reverse(Δ)))
+
+        push!(ips, InteractionPair(op.c_dag(s, 2), op.c(s, 1), Δ))
+        push!(ips, InteractionPair(op.c(s, 1), op.c_dag(s, 2), reverse(Δ)))
+    end
     
     #println(ips)
     
