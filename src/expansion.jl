@@ -5,7 +5,7 @@ using DocStringExtensions
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-using QInchworm: SectorBlockMatrix
+using QInchworm: SectorBlockMatrix, operator_to_sector_block_matrix
 using QInchworm.ppgf
 using QInchworm.spline_gf: SplineInterpolatedGF
 using QInchworm.spline_gf: IncSplineImaginaryTimeGF, extend!
@@ -80,6 +80,13 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
     "List of operator pairs used in accumulation of two-point correlation functions"
     corr_operators::Vector{Tuple{Operator, Operator}}
 
+    "Block matrix representation of the identity operator"
+    identity_mat::SectorBlockMatrix
+    "Block matrix representation of paired operators (operator_i, operator_f)"
+    pair_operator_mat::Vector{Tuple{SectorBlockMatrix, SectorBlockMatrix}}
+    "Block matrix representation of corr_operators"
+    corr_operators_mat::Vector{Tuple{SectorBlockMatrix, SectorBlockMatrix}}
+
     """
     $(TYPEDSIGNATURES)
     """
@@ -113,22 +120,30 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
             P = P_interp
         end
 
-        return new{ScalarGF, typeof(P0)}(ed, P0, P, P_orders, interaction_pairs, [], corr_operators)
-    end
-end
+        identity_mat = operator_to_sector_block_matrix(ed, Operator(1.0))
+        pair_operator_mat = [
+            (operator_to_sector_block_matrix(ed, pair.operator_i),
+             operator_to_sector_block_matrix(ed, pair.operator_f))
+            for pair in interaction_pairs
+        ]
+        corr_operators_mat = [
+            (operator_to_sector_block_matrix(ed, op1),
+             operator_to_sector_block_matrix(ed, op2))
+            for (op1, op2) in corr_operators
+        ]
 
-"""
-$(TYPEDSIGNATURES)
-
-Returns the [`SectorBlockMatrix`](@ref) representation of the many-body operator `op::Operator`.
-"""
-function operator_to_sector_block_matrix(exp::Expansion, op::Operator)::SectorBlockMatrix
-    sbm = SectorBlockMatrix()
-    op_blocks = ked.operator_blocks(exp.ed, op)
-    for ((s_f, s_i), mat) in op_blocks
-        sbm[s_i] = (s_f, mat)
+        return new{ScalarGF, typeof(P0)}(
+            ed,
+            P0,
+            P,
+            P_orders,
+            interaction_pairs,
+            [],
+            corr_operators,
+            identity_mat,
+            pair_operator_mat,
+            corr_operators_mat)
     end
-    sbm
 end
 
 function set_bold_ppgf!(exp::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},
@@ -175,6 +190,14 @@ function set_bold_ppgf_at_order!(exp::Expansion,
         @assert s_i == s_f
         exp.P_orders[order+1][s_i][t_f, t_i] = mat
     end
+end
+
+function add_corr_operators!(exp::Expansion, ops::Tuple{Operator, Operator})
+    push!(exp.corr_operators, ops)
+    push!(exp.corr_operators_mat,
+          (operator_to_sector_block_matrix(exp.ed, ops[1]),
+           operator_to_sector_block_matrix(exp.ed, ops[2]))
+    )
 end
 
 end # module expansion

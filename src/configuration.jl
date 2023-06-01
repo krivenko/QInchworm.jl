@@ -7,7 +7,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm: SectorBlockMatrix
 using QInchworm.ppgf
-using QInchworm.expansion: Operator, Expansion, operator_to_sector_block_matrix
+using QInchworm.expansion: Operator, Expansion
 using QInchworm.diagrammatics: Diagram, n_crossings
 
 const Time = kd.BranchPoint
@@ -138,7 +138,7 @@ function get_pair_node_idxs(nodes::Vector{Node})::Vector{Int}
     reverse([idx for (idx, node) in enumerate(nodes) if node.operator_ref.kind == pair_flag])
 end
 
-const Path = Vector{Tuple{Int, Int, Matrix{ComplexF64}}}
+const Path = Vector{Tuple{Int, Int}}
 
 """
 $(TYPEDEF)
@@ -159,7 +159,7 @@ struct Configuration
     "List of groups of time nodes associated with expansion determinants"
     determinants::Vector{Determinant}
 
-    "List of precomputed trace paths with operator sub matrices"
+    "List of precomputed trace paths"
     paths::Vector{Path}
 
     "Position of the node that splits the integration domain into two simplices"
@@ -323,22 +323,18 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Returns the [`SectorBlockMatrix`](@ref) representation of the many-body operator at the given time `node::Node'.
+Returns the [`SectorBlockMatrix`](@ref) representation of the many-body operator at the given `node::Node'.
 """
-function operator(exp::Expansion, node::Node)::SectorBlockMatrix
-    op::Operator = Operator()
+function get_block_matrix(exp::Expansion, node::Node)::SectorBlockMatrix
     if node.operator_ref.kind == pair_flag
-        op = exp.pairs[node.operator_ref.interaction_index][node.operator_ref.operator_index]
-    elseif node.operator_ref.kind == determinant_flag
-        op = exp.determinants[node.operator_ref.interaction_index][node.operator_ref.operator_index]
+        return exp.pair_operator_mat[node.operator_ref.interaction_index][node.operator_ref.operator_index]
     elseif node.operator_ref.kind == operator_flag
-        op = exp.corr_operators[node.operator_ref.interaction_index][node.operator_ref.operator_index]
+        return exp.corr_operators_mat[node.operator_ref.interaction_index][node.operator_ref.operator_index]
     elseif node.operator_ref.kind == identity_flag || is_inch_node(node)
-        op = Operator(1.)
+        return exp.identity_mat
     else
         throw(BoundsError())
     end
-    return operator_to_sector_block_matrix(exp, op)
 end
 
 """
@@ -358,7 +354,7 @@ end
 function eval(exp::Expansion, nodes::Vector{Node})
 
     node = first(nodes)
-    val = operator(exp, node)
+    val = get_block_matrix(exp, node)
 
     P = exp.P # Inch with dressed ppsc propagator from start
 
@@ -366,7 +362,7 @@ function eval(exp::Expansion, nodes::Vector{Node})
 
     for (nidx, node) in enumerate(nodes[2:end])
 
-        op = operator(exp, node)
+        op = get_block_matrix(exp, node)
         P_interp = sector_block_matrix_from_ppgf(node.time, prev_node.time, P)
 
         val = (im * op * P_interp) * val
@@ -379,7 +375,7 @@ end
 
 function get_paths(exp::Expansion, nodes::Vector{Node})::Vector{Path}
 
-    operators = [ operator(exp, node) for node in nodes ]
+    operators = [ get_block_matrix(exp, node) for node in nodes ]
     N_sectors = length(exp.P)
 
     paths = Path[]
@@ -388,7 +384,7 @@ function get_paths(exp::Expansion, nodes::Vector{Node})::Vector{Path}
         for operator in operators
             if haskey(operator, s_i)
                 s_f, op_mat = operator[s_i]
-                push!(path, (s_i, s_f, op_mat))
+                push!(path, (s_i, s_f))
                 s_i = s_f
             end
         end
@@ -399,19 +395,20 @@ function get_paths(exp::Expansion, nodes::Vector{Node})::Vector{Path}
     return paths
 end
 
-function eval(exp::Expansion, nodes::Vector{Node}, paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}}, has_split_node::Bool)
+function eval(exp::Expansion, nodes::Vector{Node}, paths::Vector{Path}, has_split_node::Bool)
 
-    start = operator(exp, first(nodes))
     val = SectorBlockMatrix()
 
     for path in paths
 
         prev_node = first(nodes)
-        first_s_i, s_f, mat = first(path)
+        first_s_i, s_f = first(path)
+        mat = get_block_matrix(exp, first(nodes))[first_s_i][2]
 
         for (nidx, node) in enumerate(nodes[2:end])
 
-            s_i, s_f, op_mat = path[nidx + 1]
+            s_i, s_f = path[nidx + 1]
+            op_mat = get_block_matrix(exp, node)[s_i][2]
 
             #@assert node.time >= prev_node.time
 
@@ -429,21 +426,21 @@ end
 
 function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
                    exp::Expansion, nodes::Vector{Node},
-                   paths::Vector{Vector{Tuple{Int, Int, Matrix{ComplexF64}}}},
+                   paths::Vector{Path},
                    has_split_node::Bool)
-
-    start = operator(exp, first(nodes))
 
     P = has_split_node ? exp.P : exp.P0
 
     @inbounds for path in paths
 
         prev_node = first(nodes)
-        S_i, S_f, mat = first(path)
+        S_i, S_f = first(path)
+        mat = get_block_matrix(exp, first(nodes))[S_i][2]
 
         for (nidx, node) in enumerate(nodes[2:end])
 
-            s_i, s_f, op_mat = path[nidx + 1]
+            s_i, s_f = path[nidx + 1]
+            op_mat = get_block_matrix(exp, node)[s_i][2]
 
             #@assert !(node.time < prev_node.time)
             #@assert node.time >= prev_node.time # BROKEN FIXME ?

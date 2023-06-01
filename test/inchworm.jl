@@ -5,7 +5,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm.spline_gf: SplineInterpolatedGF
 
-using QInchworm.expansion: Expansion, InteractionPair
+using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.topology_eval: get_topologies_at_order,
                                get_diagrams_at_order,
                                get_configurations_and_diagrams
@@ -170,7 +170,7 @@ end
 
     # -- Single-particle GF
 
-    push!(expansion.corr_operators, (op.c("0"), op.c_dag("0")))
+    add_corr_operators!(expansion, (op.c("0"), op.c_dag("0")))
     g = -correlator_2p(expansion, grid, orders, N_samples)
 
     @show g

@@ -33,7 +33,7 @@ using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm.ppgf: normalize!, density_matrix
-using QInchworm.expansion: Expansion, InteractionPair
+using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.inchworm: inchworm!, correlator_2p
 using QInchworm.mpi: ismaster
 
@@ -198,7 +198,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
         @show diff_exa
     end
 
-    push!(expansion.corr_operators, (op.c(1), op.c_dag(1)))
+    add_corr_operators!(expansion, (op.c(1), op.c_dag(1)))
     g = -correlator_2p(expansion, grid, orders_gf, N_samples)
 
     if false

@@ -16,6 +16,21 @@ const SectorBlockMatrix = Dict{Int64, Tuple{Int64, Matrix{ComplexF64}}}
 """
 $(TYPEDSIGNATURES)
 
+Returns the [`SectorBlockMatrix`](@ref) representation of the many-body operator.
+"""
+function operator_to_sector_block_matrix(ed::KeldyshED.EDCore,
+                                         op::KeldyshED.OperatorExpr)::SectorBlockMatrix
+    sbm = SectorBlockMatrix()
+    op_blocks = KeldyshED.operator_blocks(ed, op)
+    for ((s_f, s_i), mat) in op_blocks
+        sbm[s_i] = (s_f, mat)
+    end
+    sbm
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Construct a block-diagonal complex matrix, whose block structure is consistent
 with the invariant subspace partition of a given KeldyshED.EDCore object.
 All matrix elements of the stored blocks are set to zero.
