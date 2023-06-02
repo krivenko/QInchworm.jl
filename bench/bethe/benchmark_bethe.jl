@@ -205,7 +205,7 @@ end
 MPI.Init()
 
 ntaus = [1024 * 8 * 4]
-N_sampless = 2 .^ range(3, 15)
+N_sampless = 2 .^ (3:15)
 orderss = [0:4]
 
 if inch_print()

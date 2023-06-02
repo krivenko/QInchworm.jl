@@ -63,7 +63,7 @@ ed = ked.EDCore(H, soi)
     N_samples = 2^8
 
     # Extend expansion.P_orders to max of orders
-    for o in range(1, maximum(orders)+1)
+    for o in 1:(maximum(orders)+1)
         push!(expansion.P_orders, kd.zero(expansion.P0))
     end
 
@@ -120,7 +120,7 @@ end
     N_samples = 2^8
 
     # Extend expansion.P_orders to max of orders
-    for o in range(1, maximum(orders)+1)
+    for o in 1:(maximum(orders)+1)
         push!(expansion.P_orders, kd.zero(expansion.P0))
     end
 

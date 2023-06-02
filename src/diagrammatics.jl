@@ -97,7 +97,7 @@ Returns the number of crossing arcs in a topology.
 """
 function n_crossings(top::Topology)::Int
   n = 0
-  for i1 in range(1, top.order), i2 in range(i1 + 1, top.order) # Iterate over all unique pairs of arcs
+  for i1 in 1:top.order, i2 in (i1 + 1):top.order # Iterate over all unique pairs of arcs
     if iscrossing(top.pairs[i1], top.pairs[i2])
       n += 1
     end

@@ -149,13 +149,13 @@ end
 
 MPI.Init()
 
-#ntaus = 2 .^ range(4, 12)
-#N_samples = 8 * 2 .^ range(0, 13)
+#ntaus = 2 .^ (4:12)
+#N_samples = 8 * 2 .^ (0:13)
 #orderss = [0:1, 0:3]
 
-#ntaus = 2 .^ range(4, 12)
+#ntaus = 2 .^ (4:12)
 ntaus = [1024]
-N_sampless = 2 .^ range(3, 23)
+N_sampless = 2 .^ (3:23)
 orderss = [0:1, 0:3]
 
 if inch_print()

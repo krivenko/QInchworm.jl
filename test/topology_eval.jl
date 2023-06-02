@@ -84,7 +84,7 @@ using QInchworm.expansion: Expansion, InteractionPair
 
     n_samples = 100
 
-    for sample in range(1, n_samples)
+    for sample in 1:n_samples
 
         # -- Generate time ordered points on the unit-interval (replace with quasi-MC points)
         # -- separating the initial point `x1` (between the final- and worm-time) from the others `xs`

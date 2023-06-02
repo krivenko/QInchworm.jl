@@ -59,7 +59,7 @@ function get_diagrams_at_order(
     )::Vector{Diagram}
 
     # -- Generate all `order` lenght vector of combinations of pseudo particle interaction pair indices
-    pair_idx_range = range(1, length(expansion.pairs)) # range of allowed pp interaction pair indices
+    pair_idx_range = 1:length(expansion.pairs) # range of allowed pp interaction pair indices
     pair_idxs_combinations = collect(Iterators.product(repeat([pair_idx_range], outer=[order])...))
 
     diagrams = vec([ Diagram(topology, pair_idxs) for (topology, pair_idxs) in
@@ -79,14 +79,14 @@ function get_configurations_and_diagrams_from_topologies(
 
     r = rank_sub_range(length(topologies))
     rank_topologies = topologies[r]
-    
+
     rank_diagrams = Diagram[]
     rank_configurations = Configuration[]
 
     for topology in rank_topologies
 
         # -- Generate all `order` lenght vector of combinations of pseudo particle interaction pair indices
-        pair_idx_range = range(1, length(expansion.pairs)) # range of allowed pp interaction pair indices
+        pair_idx_range = 1:length(expansion.pairs) # range of allowed pp interaction pair indices
         pair_idxs_combinations = Iterators.product(repeat([pair_idx_range], outer=[order])...)
 
         for pair_idxs in pair_idxs_combinations
@@ -108,7 +108,7 @@ function get_configurations_and_diagrams_from_topologies(
     end
 
     diagrams_out = mpi_all_gather_julia_vector(rank_diagrams)
-    
+
     if return_configurations
         configurations = mpi_all_gather_julia_vector(rank_configurations)
     end
@@ -152,7 +152,7 @@ function get_configurations_and_diagrams(
 
     r = rank_sub_range(length(diagrams))
     rank_diagrams = diagrams[r]
-    
+
     rank_diagrams_out = Diagram[]
     rank_configurations = Configuration[]
     for (didx, diagram) in enumerate(rank_diagrams)

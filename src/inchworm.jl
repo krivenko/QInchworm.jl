@@ -280,7 +280,7 @@ function inchworm!(expansion::Expansion,
 
     # Extend expansion.P_orders to max of orders, orders_bare
     max_order = maximum([maximum(orders), maximum(orders_bare)])
-    for o in range(1, max_order+1)
+    for o in 1:(max_order+1)
         push!(expansion.P_orders, kd.zero(expansion.P0))
     end
 

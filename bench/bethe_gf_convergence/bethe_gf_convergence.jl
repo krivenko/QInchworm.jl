@@ -220,7 +220,7 @@ for o = [7]
     orders_gf = 0:(o-1)
     #for ntau = [64, 128, 256]
     for ntau = [16]
-        #for N_samples = 32 * 2 .^ range(0, 10)
+        #for N_samples = 32 * 2 .^ (0:10)
         for N_samples = [8*2^0]
             run_bethe(ntau, orders, orders, orders_gf, N_samples, n_pts_after_max)
         end
