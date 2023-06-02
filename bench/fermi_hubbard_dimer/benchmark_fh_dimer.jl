@@ -13,7 +13,7 @@ using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.topology_eval: get_topologies_at_order,
                                get_diagrams_at_order
 using QInchworm.inchworm: inchworm!
-using QInchworm.utility: inch_print
+using QInchworm.mpi: ismaster
 
 
 function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
@@ -88,7 +88,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
     ρ_wrm = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P), ed), ed)
     diff = maximum(abs.(ρ_ref - ρ_wrm))
 
-    if inch_print()
+    if ismaster()
         @printf "ρ_0   = %16.16f %16.16f %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2]) real(ρ_0[3, 3]) real(ρ_0[4, 4])
         @printf "ρ_ref = %16.16f %16.16f %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2]) real(ρ_ref[3, 3]) real(ρ_ref[4, 4])
         @printf "ρ_wrm = %16.16f %16.16f %16.16f %16.16f \n" real(ρ_wrm[1, 1]) real(ρ_wrm[2, 2]) real(ρ_wrm[3, 3]) real(ρ_wrm[4, 4])
@@ -156,7 +156,7 @@ orderss = [0:2, 0:3]
 #N_sampless = 2 .^ (3:14)
 N_sampless = 2 .^ (15:17)
 
-if inch_print()
+if ismaster()
     @show ntaus
     @show N_sampless
     @show orderss

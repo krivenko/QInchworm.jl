@@ -18,7 +18,7 @@ using QInchworm.topology_eval: get_topologies_at_order,
 
 using QInchworm.inchworm: inchworm!
 using QInchworm.spline_gf: SplineInterpolatedGF
-using QInchworm.utility: inch_print
+using QInchworm.mpi: ismaster
 
 using QuadGK: quadgk
 
@@ -46,7 +46,7 @@ end
 
 function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
-    if inch_print(); @show interpolate_gfs; end
+    if ismaster(); @show interpolate_gfs; end
 
     β = 8.0
     #β = 32.0
@@ -142,7 +142,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     diff = maximum(abs.(ρ_ref - ρ_wrm))
 
-    if inch_print()
+    if ismaster()
         @show ρ_wrm_orders
         @show pto_hist
         @printf "ρ_0   = %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2])
@@ -208,7 +208,7 @@ ntaus = [1024 * 8 * 4]
 N_sampless = 2 .^ (3:15)
 orderss = [0:4]
 
-if inch_print()
+if ismaster()
     @show ntaus
     @show N_sampless
     @show orderss

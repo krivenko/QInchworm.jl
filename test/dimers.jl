@@ -15,7 +15,7 @@ using QInchworm.topology_eval: get_topologies_at_order,
 using QInchworm.ppgf
 using QInchworm.spline_gf: SplineInterpolatedGF
 using QInchworm.inchworm: inchworm!
-using QInchworm.utility: inch_print
+using QInchworm.mpi: ismaster
 
 @testset "dimer" begin
 
@@ -89,7 +89,7 @@ using QInchworm.utility: inch_print
             ρ_wrm = full_hs_matrix(ppgf.density_matrix(expansion.P), ed)
         end
 
-        if inch_print()
+        if ismaster()
             @show real(diag(ρ_0))
             @show real(diag(ρ_ref))
             @show real(diag(ρ_wrm))
@@ -196,7 +196,7 @@ end
         ppgf.normalize!(expansion.P, β)
         ρ_wrm = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P), ed), ed)
 
-        if inch_print()
+        if ismaster()
             @show real(diag(ρ_0))
             @show real(diag(ρ_ref))
             @show real(diag(ρ_wrm))

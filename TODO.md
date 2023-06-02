@@ -17,25 +17,21 @@ TODO list for QInchworm
 * One performance bottleneck is the generation of the operator matrices
   consider storing the matrix representations in each configuration.
 
-* Define a new module `QInchworm.mpi` to hold all MPI-related utility
-  functions. This way `mpi_all_gather_julia_vector()` can become
-  `all_gather(v::Vector)`.
-
 * Consider using [Logging](https://docs.julialang.org/en/v1/stdlib/Logging/)
   instead of `println()` / `@show`.
-  
+
 * Rethink parallelization strategy in order to handle high order expansions
 
   - Our current approach is to pre generate all non-zero configurations
     storing a copy of all of them on every mpi node.
-  
+
     For a two fermion problem we currently run out of memory at order 8.
-  
+
   - The parallell calculation is solely over the quasi Monte Carlo evaluations
     which is done by all mpi ranks in tandem for each and every diagram+configration.
-  
+
   - To get to order 8 and beyond, consider designing a distributed generation of
     configurations with separate quasi Monte Carlo evaluation of subset of diagrams?
-  
+
     The distribution of configurations could still be done order-by-order
     inorder to avoid dealing with load re-distribution.

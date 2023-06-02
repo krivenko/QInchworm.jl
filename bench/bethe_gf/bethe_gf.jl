@@ -35,7 +35,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.inchworm: inchworm!, correlator_2p
-using QInchworm.utility: inch_print
+using QInchworm.mpi: ismaster
 
 function semi_circular_g_tau(times, t, h, β)
 
@@ -181,7 +181,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
     ρ_tca = real(diag(ρ_tca))
     ρ_wrm = real(diag(ρ_wrm))
 
-    if inch_print()
+    if ismaster()
         @show ρ_000
         @show ρ_nca
         @show ρ_oca
@@ -206,7 +206,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
     diff_g_oca = maximum(abs.(get_g_oca() - g[1].mat.data[1, 1, :]))
     diff_g_tca = maximum(abs.(get_g_tca() - g[1].mat.data[1, 1, :]))
 
-    if inch_print()
+    if ismaster()
 
         @show diff_g_nca
         @show diff_g_oca
@@ -215,7 +215,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
     end
     end
 
-    if inch_print()
+    if ismaster()
 
     τ = kd.imagtimes(g[1].grid)
     τ_ref = collect(LinRange(0, β, 128))

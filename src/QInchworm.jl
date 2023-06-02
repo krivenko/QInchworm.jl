@@ -5,6 +5,7 @@ using Quasi Monte Carlo and the inchworm algorithm.
 module QInchworm
 
 include("utility.jl")
+include("mpi.jl")
 include("diagrammatics.jl")
 include("spline_gf.jl")
 include("ppgf.jl")

@@ -15,7 +15,7 @@ using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.topology_eval: get_topologies_at_order,
                                get_diagrams_at_order
 using QInchworm.inchworm: inchworm!
-using QInchworm.utility: inch_print
+using QInchworm.mpi: ismaster
 
 function semi_circular_g_tau(times, t, h, β)
 
@@ -154,7 +154,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
     ρ_tca = real(diag(ρ_tca))
     ρ_wrm = real(diag(ρ_wrm))
 
-    if inch_print()
+    if ismaster()
         @show ρ_000
         @show ρ_nca
         @show ρ_oca
@@ -234,7 +234,7 @@ ntaus = 2 .^ (4:12)
 N_sampless = 2 .^ (4:15)
 orderss = [0:2, 0:3]
 
-if inch_print()
+if ismaster()
     @show ntaus
     @show N_sampless
     @show orderss

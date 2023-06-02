@@ -32,7 +32,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.inchworm: inchworm!, correlator_2p
-using QInchworm.utility: inch_print
+using QInchworm.mpi: ismaster
 
 @testset "bethe_gf" begin
 
@@ -104,7 +104,7 @@ using QInchworm.utility: inch_print
         diff_tca = maximum(abs.(ρ_wrm - ρ_tca))
         diff_exa = maximum(abs.(ρ_wrm - ρ_exa))
 
-        if inch_print()
+        if ismaster()
             @show real(diag(ρ_0))
             @show real(diag(ρ_nca))
             @show real(diag(ρ_oca))
@@ -128,7 +128,7 @@ using QInchworm.utility: inch_print
         diff_g_oca = maximum(abs.(g_oca - g[1].mat.data[1, 1, :]))
         diff_g_tca = maximum(abs.(g_tca - g[1].mat.data[1, 1, :]))
 
-        if inch_print()
+        if ismaster()
             @show diff_g_nca
             @show diff_g_oca
             @show diff_g_tca

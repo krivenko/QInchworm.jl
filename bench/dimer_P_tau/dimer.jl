@@ -31,7 +31,7 @@ using QInchworm.KeldyshED_addons: reduced_density_matrix,
 
                                   using QInchworm.spline_gf: SplineInterpolatedGF
 
-using QInchworm.utility: inch_print
+using QInchworm.mpi: ismaster
 
 using PyPlot; plt = PyPlot # DEBUG
 
@@ -83,7 +83,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     ρ_12_red1 = ked.reduced_density_matrix(ed_12, soi_1, β)
     ρ_12_red2 = ked.reduced_density_matrix(ed_12, soi_2, β)
 
-    if inch_print()
+    if ismaster()
         @show ρ_12
         @show ρ_1
         @show ρ_2
@@ -163,7 +163,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     ppgf.normalize!([PS_12_red1_TrS2], β)
 
     ρ_ps_12_red1_TrS2 = real(eigenstate_density_matrix([PS_12_red1_TrS2])[1])
-    if inch_print()
+    if ismaster()
         @show ρ_ps_12_red1_TrS2
     end
 
@@ -235,7 +235,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     # -- Dump to h5 file
 
-    if inch_print()
+    if ismaster()
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, P1)))
         filename = "data_dimer_ntau_$(ntau)_maxorder_$(max_order)_Nsamples_$(N_samples)_md5_$(id).h5"
 
@@ -266,7 +266,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
         h5.close(fid)
     end
 
-    if inch_print()
+    if ismaster()
         @printf "ρ_0   = %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2])
         #@printf "ρ_ref = %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2])
         @printf "ρ_wrm = %16.16f %16.16f \n" real(ρ_wrm[1, 1]) real(ρ_wrm[2, 2])
@@ -275,7 +275,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     end
 
 
-    if inch_print()
+    if ismaster()
     #if true # -----  VIZ
 
     # -- Visualize
@@ -346,7 +346,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     end # -----  VIZ
 
-    if inch_print()
+    if ismaster()
         @show diff
     end
 
@@ -402,7 +402,7 @@ diffs = [
     run_dimer(ntau, orders, orders, N_samples, interpolate_gfs=false)
     for orders in orderss ]
 
-if inch_print()
+if ismaster()
     @show diffs
     ord = [ maximum(o) for o in orderss ]
 

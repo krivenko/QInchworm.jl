@@ -22,7 +22,7 @@ using QInchworm.diagrammatics: Topology,
                                is_doubly_k_connected,
                                generate_topologies
 
-using QInchworm.utility: rank_sub_range, mpi_all_gather_julia_vector
+using QInchworm.mpi: rank_sub_range, all_gather
 
 
 function get_topologies_at_order(order::Int64, k = nothing; with_1k_arc = false)::Vector{Topology}
@@ -107,10 +107,10 @@ function get_configurations_and_diagrams_from_topologies(
         end
     end
 
-    diagrams_out = mpi_all_gather_julia_vector(rank_diagrams)
+    diagrams_out = all_gather(rank_diagrams)
 
     if return_configurations
-        configurations = mpi_all_gather_julia_vector(rank_configurations)
+        configurations = all_gather(rank_configurations)
     end
 
     if return_configurations
@@ -170,9 +170,9 @@ function get_configurations_and_diagrams(
         end
     end
 
-    diagrams_out = mpi_all_gather_julia_vector(rank_diagrams_out)
+    diagrams_out = all_gather(rank_diagrams_out)
     if return_configurations
-        configurations = mpi_all_gather_julia_vector(rank_configurations)
+        configurations = all_gather(rank_configurations)
     end
 
     if return_configurations

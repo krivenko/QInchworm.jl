@@ -32,7 +32,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.inchworm: inchworm!
-using QInchworm.utility: inch_print
+using QInchworm.mpi: ismaster
 
 @testset "bethe" begin
 
@@ -100,7 +100,7 @@ using QInchworm.utility: inch_print
         diff_tca = maximum(abs.(ρ_wrm - ρ_tca))
         diff_exa = maximum(abs.(ρ_wrm - ρ_exa))
 
-        if inch_print()
+        if ismaster()
             @show real(diag(ρ_0))
             @show real(diag(ρ_nca))
             @show real(diag(ρ_oca))

@@ -17,8 +17,8 @@ using QInchworm; teval = QInchworm.topology_eval
 using QInchworm.diagrammatics
 
 using QInchworm.utility: SobolSeqWith0, next!
-using QInchworm.utility: inch_print
-using QInchworm.utility: mpi_N_skip_and_N_samples_on_rank, split_count
+using QInchworm.utility: split_count
+using QInchworm.mpi: ismaster
 
 using QInchworm.expansion: Expansion, set_bold_ppgf!, set_bold_ppgf_at_order!
 using QInchworm.configuration: Configuration,
@@ -261,7 +261,7 @@ function inchworm!(expansion::Expansion,
 
     tmr = TimerOutput()
 
-    if inch_print()
+    if ismaster()
         comm = MPI.COMM_WORLD
         comm_size = MPI.Comm_size(comm)
         N_split = split_count(N_samples, comm_size)
@@ -284,7 +284,7 @@ function inchworm!(expansion::Expansion,
         push!(expansion.P_orders, kd.zero(expansion.P0))
     end
 
-    if inch_print(); println("= Bare Diagrams ========"); end
+    if ismaster(); println("= Bare Diagrams ========"); end
 
     # First inchworm step
 
@@ -299,18 +299,18 @@ function inchworm!(expansion::Expansion,
 
         topologies = teval.get_topologies_at_order(order)
 
-        #if inch_print(); println("Order $(order) N_topo $(length(topologies))"); end
+        #if ismaster(); println("Order $(order) N_topo $(length(topologies))"); end
 
-        #end; end; if inch_print(); show(local_tmr); println(); end
+        #end; end; if ismaster(); show(local_tmr); println(); end
 
         #@timeit local_tmr "Order $(order)" begin;
         #@timeit local_tmr "Diagrams" begin
 
         #all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
 
-        #if inch_print(); println("Order $(order) N_diag $(length(all_diagrams))"); end
+        #if ismaster(); println("Order $(order) N_diag $(length(all_diagrams))"); end
 
-        #end; end; if inch_print(); show(local_tmr); println(); end
+        #end; end; if ismaster(); show(local_tmr); println(); end
 
         #@timeit local_tmr "Order $(order)" begin;
         #@timeit local_tmr "Diagrams non-zero" begin
@@ -323,9 +323,9 @@ function inchworm!(expansion::Expansion,
             teval.get_configurations_and_diagrams_from_topologies(
                 expansion, topologies, order, nothing, return_configurations=false)
 
-        #end; end; if inch_print(); show(local_tmr); println(); end
+        #end; end; if ismaster(); show(local_tmr); println(); end
 
-        if inch_print()
+        if ismaster()
             #println("Bare Order $(order), N_diag $(length(all_diagrams)) -> $(length(diagrams))")
             println("Bare Order $(order), N_topo $(length(topologies)), N_diag $(length(diagrams))")
         end
@@ -340,7 +340,7 @@ function inchworm!(expansion::Expansion,
 
     end
 
-    if inch_print(); println("= Evaluation Bare ========"); end
+    if ismaster(); println("= Evaluation Bare ========"); end
 
     result = inchworm_step_bare(expansion,
                                 grid.contour,
@@ -349,9 +349,9 @@ function inchworm!(expansion::Expansion,
                                 order_data, tmr=tmr)
     set_bold_ppgf!(expansion, grid[1], grid[2], result)
 
-    #if inch_print(); show(tmr); println(); end
+    #if ismaster(); show(tmr); println(); end
 
-    if inch_print(); println("= Bold Diagrams ========"); end
+    if ismaster(); println("= Bold Diagrams ========"); end
 
     # The rest of inching
 
@@ -378,7 +378,7 @@ function inchworm!(expansion::Expansion,
             configurations_dummay, diagrams = teval.get_configurations_and_diagrams_from_topologies(
                 expansion, topologies, order, d_before, return_configurations=false)
 
-            if inch_print()
+            if ismaster()
                 #println("Bold order $(order), n_pts_after $(n_pts_after), N_diag $(length(all_diagrams)) -> $(length(diagrams))")
                 println("Bold order $(order), n_pts_after $(n_pts_after), N_topo $(length(topologies)), N_diag $(length(diagrams))")
             end
@@ -394,14 +394,14 @@ function inchworm!(expansion::Expansion,
 
     end
 
-    if inch_print(); println("= Evaluation Bold ========"); end
+    if ismaster(); println("= Evaluation Bold ========"); end
 
     iter = 2:length(grid)-1
-    iter = inch_print() ? ProgressBar(iter) : iter
+    iter = ismaster() ? ProgressBar(iter) : iter
 
     τ_i = grid[1]
     for n in iter
-        #if inch_print(); println("Inch step $n of $(length(grid)-1)"); end
+        #if ismaster(); println("Inch step $n of $(length(grid)-1)"); end
         τ_w = grid[n]
         τ_f = grid[n + 1]
 
@@ -410,7 +410,7 @@ function inchworm!(expansion::Expansion,
         set_bold_ppgf!(expansion, τ_i, τ_f, result)
     end
 
-    if inch_print(); show(tmr); println(); end
+    if ismaster(); show(tmr); println(); end
 
 end
 
@@ -515,7 +515,7 @@ function correlator_2p_depr(expansion::Expansion,
 
     tmr = TimerOutput()
 
-    if inch_print()
+    if ismaster()
         comm = MPI.COMM_WORLD
         comm_size = MPI.Comm_size(comm)
         N_split = split_count(N_samples, comm_size)
@@ -535,7 +535,7 @@ function correlator_2p_depr(expansion::Expansion,
     # Pre-compute topologies and diagrams: These are common for all
     # pairs of operators in expansion.corr_operators. Some of the diagrams
     # computed here will be excluded for a specific choice of the operators A and B.
-    if inch_print(); println("= Diagrams ========"); end
+    if ismaster(); println("= Diagrams ========"); end
     common_order_data = ExpansionOrderInputData[]
     for order in orders
 
@@ -550,7 +550,7 @@ function correlator_2p_depr(expansion::Expansion,
             push!(common_order_data, ExpansionOrderInputData(
                 order, n_pts_after, all_diagrams, [], N_samples))
 
-            if inch_print()
+            if ismaster()
                 println("order $(order), n_pts_after $(n_pts_after), N_diag $(length(all_diagrams))")
             end
         end
@@ -566,7 +566,7 @@ function correlator_2p_depr(expansion::Expansion,
         @assert length(A) == 1 "Operator A must be a single monomial in C/C^+"
         @assert length(B) == 1 "Operator B must be a single monomial in C/C^+"
 
-        if inch_print(); println("= Correlator <$(A),$(B)> ========"); end
+        if ismaster(); println("= Correlator <$(A),$(B)> ========"); end
 
         # Filter diagrams and generate lists of configurations
         order_data = ExpansionOrderInputData[]
@@ -581,7 +581,7 @@ function correlator_2p_depr(expansion::Expansion,
                 op_pair_idx = op_pair_idx
             )
 
-            if inch_print()
+            if ismaster()
                 println("order $(od.order) n_pts_after $(od.n_pts_after) N_diag $(length(od.diagrams)) -> $(length(diagrams))")
             end
 
@@ -603,7 +603,7 @@ function correlator_2p_depr(expansion::Expansion,
         # Fill in values
         #
 
-        if inch_print(); println("= Evaluation ======== ", (A, B)); end
+        if ismaster(); println("= Evaluation ======== ", (A, B)); end
 
         # Only the 0-th order can contribute at τ_A = τ_B
         if order_data[1].order == 0
@@ -619,7 +619,7 @@ function correlator_2p_depr(expansion::Expansion,
 
         # The rest of τ_A values
         iter = 2:length(grid)
-        iter = inch_print() ? ProgressBar(iter) : iter
+        iter = ismaster() ? ProgressBar(iter) : iter
 
         for n in iter
             τ_A = grid[n]
@@ -634,7 +634,7 @@ function correlator_2p_depr(expansion::Expansion,
         end
     end
 
-    if inch_print(); show(tmr); println(); end
+    if ismaster(); show(tmr); println(); end
 
     return corr_list
 end
@@ -669,7 +669,7 @@ function correlator_2p(expansion::Expansion,
 
     tmr = TimerOutput()
 
-    if inch_print()
+    if ismaster()
         comm = MPI.COMM_WORLD
         comm_size = MPI.Comm_size(comm)
         N_split = split_count(N_samples, comm_size)
@@ -695,7 +695,7 @@ function correlator_2p(expansion::Expansion,
         @assert length(A) == 1 "Operator A must be a single monomial in C/C^+"
         @assert length(B) == 1 "Operator B must be a single monomial in C/C^+"
 
-        if inch_print(); println("= Correlator <$(A),$(B)> ========"); end
+        if ismaster(); println("= Correlator <$(A),$(B)> ========"); end
 
         # Create a GF container to carry the result
         is_fermion(expr) = isodd(length(first(keys(expr.monomials))))
@@ -721,7 +721,7 @@ function correlator_2p(expansion::Expansion,
                 configurations, diagrams = teval.get_configurations_and_diagrams_from_topologies(
                     expansion, topologies, order, 2 * order - n_pts_after, op_pair_idx=op_pair_idx)
 
-                if inch_print()
+                if ismaster()
                     #println("order $(order), n_pts_after $(n_pts_after), N_diag $(length(all_diagrams)) -> $(length(diagrams))")
                     println("order $(order), n_pts_after $(n_pts_after), N_topo $(length(topologies)), N_diag $(length(diagrams))")
                 end
@@ -747,7 +747,7 @@ function correlator_2p(expansion::Expansion,
 
                 # The rest of τ_A values
                 iter = 2:length(grid)
-                iter = inch_print() ? ProgressBar(iter) : iter
+                iter = ismaster() ? ProgressBar(iter) : iter
 
                 for n in iter
                     τ_A = grid[n]
@@ -762,7 +762,7 @@ function correlator_2p(expansion::Expansion,
 
     end
 
-    if inch_print(); show(tmr); println(); end
+    if ismaster(); show(tmr); println(); end
 
     return corr_list
 end

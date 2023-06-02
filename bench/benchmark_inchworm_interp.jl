@@ -28,7 +28,7 @@ using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.inchworm: inchworm!
 using QInchworm.spline_gf: SplineInterpolatedGF
-using QInchworm.utility: inch_print
+using QInchworm.mpi: ismaster
 
 function semi_circular_g_tau(times, t, h, β)
 
