@@ -17,4 +17,4 @@ Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [compat]
-julia = "1.5"
+julia = "1.6"
