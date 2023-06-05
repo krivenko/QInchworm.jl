@@ -192,20 +192,20 @@ struct Configuration
 
         inch_node_idx = (d_before === nothing) ? nothing : (d_before + 2)
 
-        pairs = [ NodePair(t_0, t_0, diagram.pair_idxs[idx])
-                  for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
+        pairs = Vector{NodePair}(undef, length(diagram.topology.pairs))
+        for idx in 1:length(pairs)
+            pairs[idx] = NodePair(t_0, t_0, diagram.pair_idxs[idx])
+        end
+        
         parity = diagram.topology.parity
-
         n = 2 * diagram.topology.order
-        pairnodes = [ Node(t_0) for i in 1:n ]
 
+        pairnodes = Vector{Node}(undef, n)
         for (idx, (f_idx, i_idx)) in enumerate(diagram.topology.pairs)
             p_idx = diagram.pair_idxs[idx]
-            pairnodes[i_idx] = Node(t_0, OperatorReference(pair_flag, p_idx, 1))
-            pairnodes[f_idx] = Node(t_0, OperatorReference(pair_flag, p_idx, 2))
+            pairnodes[n - i_idx + 1] = Node(t_0, OperatorReference(pair_flag, p_idx, 1))
+            pairnodes[n - f_idx + 1] = Node(t_0, OperatorReference(pair_flag, p_idx, 2))
         end
-
-        reverse!(pairnodes)
 
         if length(pairnodes) > 0
             if inch_node_idx !== nothing
@@ -248,20 +248,20 @@ struct Configuration
         n_c = OperatorNode(t_0, op_pair_index, 1)
         n_f = Node(t_0)
 
-        pairs = [ NodePair(t_0, t_0, diagram.pair_idxs[idx])
-            for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
-        parity = diagram.topology.parity
-
-        n = 2 * diagram.topology.order
-        pairnodes = [ Node(t_0) for i in 1:n ]
-
-        for (idx, (f_idx, i_idx)) in enumerate(diagram.topology.pairs)
-            p_idx = diagram.pair_idxs[idx]
-            pairnodes[i_idx] = Node(t_0, OperatorReference(pair_flag, p_idx, 1))
-            pairnodes[f_idx] = Node(t_0, OperatorReference(pair_flag, p_idx, 2))
+        pairs = Vector{NodePair}(undef, length(diagram.topology.pairs))
+        for idx in 1:length(pairs)
+            pairs[idx] = NodePair(t_0, t_0, diagram.pair_idxs[idx])
         end
 
-        reverse!(pairnodes)
+        parity = diagram.topology.parity
+        n = 2 * diagram.topology.order
+
+        pairnodes = Vector{Node}(undef, n)
+        for (idx, (f_idx, i_idx)) in enumerate(diagram.topology.pairs)
+            p_idx = diagram.pair_idxs[idx]
+            pairnodes[n - i_idx + 1] = Node(t_0, OperatorReference(pair_flag, p_idx, 1))
+            pairnodes[n - f_idx + 1] = Node(t_0, OperatorReference(pair_flag, p_idx, 2))
+        end
 
         if length(pairnodes) > 0
             nodes = vcat([n_cdag], pairnodes[1:d_before], [n_c], pairnodes[d_before+1:end], [n_f])
@@ -376,20 +376,27 @@ end
 function get_paths(exp::Expansion, nodes::Vector{Node})::Vector{Path}
 
     operators = [ get_block_matrix(exp, node) for node in nodes ]
+    N_operators = length(operators)
     N_sectors = length(exp.P)
 
+    path = Path(undef, N_operators) # Pre allocate and reuse
+
     paths = Path[]
+    
     for s_i in 1:N_sectors
-        path = Path()
-        for operator in operators
+        full_path = true
+        for (idx, operator) in enumerate(operators)
             if haskey(operator, s_i)
                 s_f, op_mat = operator[s_i]
-                push!(path, (s_i, s_f))
+                path[idx] = (s_i, s_f)
                 s_i = s_f
+            else
+                full_path = false
+                break                
             end
         end
-        if length(path) == length(operators)
-            push!(paths, path)
+        if full_path
+            push!(paths, copy(path)) # pay extra copy cost for valid paths
         end
     end
     return paths
