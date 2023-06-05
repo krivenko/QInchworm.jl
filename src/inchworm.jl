@@ -103,14 +103,19 @@ function inchworm_step(expansion::Expansion,
 
     for od in order_data
 
+        for diagram in od.diagrams
+
+            diagrams = [diagram]
+            
         @timeit tmr "Bold" begin
         @timeit tmr "Order $(od.order)" begin;
         @timeit tmr "Configurations" begin;
 
-        empty!(od.configurations)
+        #empty!(od.configurations)
         configurations, diagrams = teval.get_configurations_and_diagrams(
-            expansion, od.diagrams, 2 * od.order - od.n_pts_after)
-        append!(od.configurations, configurations)
+            expansion, diagrams, 2 * od.order - od.n_pts_after)
+            #expansion, od.diagrams, 2 * od.order - od.n_pts_after)
+        #append!(od.configurations, configurations)
 
         end; end; end # tmr
 
@@ -118,15 +123,21 @@ function inchworm_step(expansion::Expansion,
         @timeit tmr "Order $(od.order)" begin
         @timeit tmr "Integration" begin;
 
-        set_initial_node_time!.(od.configurations, Ref(t_i))
-        set_inchworm_node_time!.(od.configurations, Ref(t_w))
-        set_final_node_time!.(od.configurations, Ref(t_f))
+        #set_initial_node_time!.(od.configurations, Ref(t_i))
+        #set_inchworm_node_time!.(od.configurations, Ref(t_w))
+        #set_final_node_time!.(od.configurations, Ref(t_f))
 
+        set_initial_node_time!.(configurations, Ref(t_i))
+        set_inchworm_node_time!.(configurations, Ref(t_w))
+        set_final_node_time!.(configurations, Ref(t_f))
+            
         order_contrib = deepcopy(zero_sector_block_matrix)
 
         if od.order == 0
             order_contribs[od.order] = teval.eval(
-                expansion, od.diagrams, od.configurations, kd.BranchPoint[])
+                expansion, diagrams, configurations, kd.BranchPoint[])
+                #expansion, diagrams, od.configurations, kd.BranchPoint[])
+                #expansion, od.diagrams, od.configurations, kd.BranchPoint[])
         else
             d_after = od.n_pts_after
             d_before = 2 * od.order - od.n_pts_after
@@ -134,7 +145,9 @@ function inchworm_step(expansion::Expansion,
             seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0
                 order_contribs[od.order] += qmc_inchworm_integral_root(
-                    t -> teval.eval(expansion, od.diagrams, od.configurations, t),
+                    #t -> teval.eval(expansion, od.diagrams, od.configurations, t),
+                    #t -> teval.eval(expansion, diagrams, od.configurations, t),
+                    t -> teval.eval(expansion, diagrams, configurations, t),
                     d_before, d_after,
                     c, t_i, t_w, t_f,
                     init = deepcopy(zero_sector_block_matrix),
@@ -145,6 +158,8 @@ function inchworm_step(expansion::Expansion,
         end
 
         end; end; end # tmr
+
+        end # for od.diagrams
 
     end
 
@@ -191,14 +206,19 @@ function inchworm_step_bare(expansion::Expansion,
 
     for od in order_data
 
+        for diagram in od.diagrams
+
+            diagrams = [diagram]
+            
         @timeit tmr "Bare" begin
         @timeit tmr "Order $(od.order)" begin;
         @timeit tmr "Configurations" begin;
 
-        empty!(od.configurations)
+        #empty!(od.configurations)
         configurations, diagrams =
-            teval.get_configurations_and_diagrams(expansion, od.diagrams, nothing)
-        append!(od.configurations, configurations)
+            #teval.get_configurations_and_diagrams(expansion, od.diagrams, nothing)
+            teval.get_configurations_and_diagrams(expansion, diagrams, nothing)
+        #append!(od.configurations, configurations)
 
         end; end; end # tmr
 
@@ -206,20 +226,25 @@ function inchworm_step_bare(expansion::Expansion,
         @timeit tmr "Order $(od.order)" begin
         @timeit tmr "Integration" begin;
 
-        set_initial_node_time!.(od.configurations, Ref(t_i))
-        set_final_node_time!.(od.configurations, Ref(t_f))
+        #set_initial_node_time!.(od.configurations, Ref(t_i))
+        #set_final_node_time!.(od.configurations, Ref(t_f))
+
+        set_initial_node_time!.(configurations, Ref(t_i))
+        set_final_node_time!.(configurations, Ref(t_f))
 
         order_contrib = deepcopy(zero_sector_block_matrix)
 
         if od.order == 0
             order_contrib = teval.eval(
-                expansion, od.diagrams, od.configurations, kd.BranchPoint[])
+                #expansion, od.diagrams, od.configurations, kd.BranchPoint[])
+                expansion, diagrams, configurations, kd.BranchPoint[])
         else
             d = 2 * od.order
             seq = SobolSeqWith0(d)
             if od.N_samples > 0
                 order_contrib = qmc_time_ordered_integral_root(
-                    t -> teval.eval(expansion, od.diagrams, od.configurations, t),
+                    #t -> teval.eval(expansion, od.diagrams, od.configurations, t),
+                    t -> teval.eval(expansion, diagrams, configurations, t),
                     d,
                     c, t_i, t_f,
                     init = deepcopy(zero_sector_block_matrix),
@@ -233,6 +258,7 @@ function inchworm_step_bare(expansion::Expansion,
 
         end; end; end # tmr
 
+        end # for od.diagrams
     end
     result
 end
