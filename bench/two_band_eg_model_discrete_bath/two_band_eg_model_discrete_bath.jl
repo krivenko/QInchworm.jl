@@ -102,19 +102,24 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
 
     # -- Need to break symmetry of ED! FIXME
     
-    K = 1e-9
+    esgs = [
+        op.c_dag("up", 1) * op.c("up", 2) + op.c_dag("up", 2) * op.c("up", 1),
+        op.c_dag("dn", 1) * op.c("dn", 2) + op.c_dag("dn", 2) * op.c("dn", 1),
+    ]
+    
+    #K = 1e-9
+    
+    #H_imp += K * op.c_dag("up", 1) * op.c("up", 2)
+    #H_imp += K * op.c_dag("up", 2) * op.c("up", 1)
 
-    H_imp += K * op.c_dag("up", 1) * op.c("up", 2)
-    H_imp += K * op.c_dag("up", 2) * op.c("up", 1)
-
-    H_imp += K * op.c_dag("dn", 1) * op.c("dn", 2)
-    H_imp += K * op.c_dag("dn", 2) * op.c("dn", 1)
+    #H_imp += K * op.c_dag("dn", 1) * op.c("dn", 2)
+    #H_imp += K * op.c_dag("dn", 2) * op.c("dn", 1)
     
     # -- Impurity problem
 
     contour = kd.ImaginaryContour(β=β);
     grid = kd.ImaginaryTimeGrid(contour, ntau);
-    ed = ked.EDCore(H_imp, soi)
+    ed = ked.EDCore(H_imp, soi, extra_subspace_generators=esgs)
 
     # -- Hybridization propagator
 
