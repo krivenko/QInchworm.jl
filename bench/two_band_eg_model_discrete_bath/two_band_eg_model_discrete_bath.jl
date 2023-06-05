@@ -23,7 +23,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.inchworm: inchworm!, correlator_2p
-using QInchworm.utility: inch_print
+using QInchworm.mpi: ismaster
 
 function make_hamiltonian(n_orb, mu, U, J)
   soi = ked.Hilbert.SetOfIndices([[s,o] for s in ("up","dn") for o = 1:n_orb])
@@ -123,7 +123,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
 
     if discrete_bath
 
-        if inch_print(); println("--> Discrete Bath"); end
+        if ismaster(); println("--> Discrete Bath"); end
         
         Δ = kd.ImaginaryTimeGF(
             (t1, t2) -> -1.0im * (
@@ -132,7 +132,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
             grid, 1, kd.fermionic, true)
     else
 
-        if inch_print(); println("--> Bethe Bath"); end
+        if ismaster(); println("--> Bethe Bath"); end
         
         Δ = kd.ImaginaryTimeGF(
             (t1, t2) -> 1.0im * 
@@ -194,7 +194,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
 
     # ==
     
-    if inch_print()
+    if ismaster()
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, vcat(g[1].mat.data...))))
         filename = "data_order_$(orders)_ntau_$(ntau)_N_samples_$(N_samples)_md5_$(id).h5"
 
@@ -234,7 +234,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
         h5.close(fid)
     end
 
-    #if inch_print()
+    #if ismaster()
     if false
 
         τ = kd.imagtimes(g[1].grid)
@@ -303,7 +303,7 @@ end
 
 order_gf = order - 1
 
-if inch_print()
+if ismaster()
     println("order $(order) ntau $(ntau) N_samples $(N_samples) n_pts_after_max $(n_pts_after_max)")
 end
 
