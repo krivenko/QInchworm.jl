@@ -21,7 +21,7 @@ using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm.ppgf: normalize!, density_matrix
-using QInchworm.expansion: Expansion, InteractionPair
+using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.inchworm: inchworm_matsubara!, correlator_2p
 using QInchworm.mpi: ismaster
 
@@ -97,7 +97,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
                         n_pts_after_max=n_pts_after_max)
     normalize!(expansion.P, β)
 
-    push!(expansion.corr_operators, (op.c(1), op.c_dag(1)))
+    add_corr_operators!(expansion, (op.c(1), op.c_dag(1)))
     g = correlator_2p(expansion, grid, orders_gf, N_samples)
 
     # ==

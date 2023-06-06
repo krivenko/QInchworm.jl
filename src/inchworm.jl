@@ -26,7 +26,6 @@ using QInchworm.configuration: Configuration,
                                set_final_node_time!,
                                set_inchworm_node_time!,
                                set_operator_node_time!,
-                               operator,
                                sector_block_matrix_from_ppgf
 using QInchworm.configuration: Node, InchNode, OperatorNode
 
