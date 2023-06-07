@@ -88,6 +88,12 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
     corr_operators_mat::Vector{Tuple{SectorBlockMatrix, SectorBlockMatrix}}
 
     """
+    Given a subspace index `s_i`, lists indices of all interaction pairs with operator_i
+    acting non-trivially on that subspace.
+    """
+    subspace_attachable_pairs::Vector{Vector{Int64}}
+
+    """
     $(TYPEDSIGNATURES)
     """
     function Expansion(ed::ked.EDCore,
@@ -132,6 +138,11 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
             for (op1, op2) in corr_operators
         ]
 
+        subspace_attachable_pairs = [
+            findall(op -> haskey(op[1], s), pair_operator_mat)
+            for s in eachindex(ed.subspaces)
+        ]
+
         return new{ScalarGF, typeof(P0)}(
             ed,
             P0,
@@ -142,7 +153,8 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
             corr_operators,
             identity_mat,
             pair_operator_mat,
-            corr_operators_mat)
+            corr_operators_mat,
+            subspace_attachable_pairs)
     end
 end
 

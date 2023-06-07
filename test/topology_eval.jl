@@ -10,7 +10,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 using QInchworm; cfg = QInchworm.configuration; teval = QInchworm.topology_eval
 using QInchworm: SectorBlockMatrix
 
-using QInchworm.expansion: Expansion, InteractionPair
+using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 
 @testset "topology_to_config" begin
 
@@ -50,9 +50,9 @@ using QInchworm.expansion: Expansion, InteractionPair
     fidx = 8
     widx = fidx - 1
 
-    n_0 = cfg.Node(τ_grid[1].bpoint)
-    n_w = cfg.InchNode(τ_grid[widx].bpoint)
-    n_f = cfg.Node(τ_grid[fidx].bpoint)
+    n_0 = teval.IdentityNode(τ_grid[1].bpoint)
+    n_w = teval.InchNode(τ_grid[widx].bpoint)
+    n_f = teval.IdentityNode(τ_grid[fidx].bpoint)
 
     worm_nodes = [n_0, n_w, n_f]
 
@@ -61,32 +61,17 @@ using QInchworm.expansion: Expansion, InteractionPair
     order = 3
     topologies = teval.get_topologies_at_order(order, 1)
 
-    diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
-    configurations = cfg.Configuration.(diagrams, Ref(expansion), 2 * order - 1)
-
-    cfg.set_initial_node_time!.(configurations, Ref(n_0.time))
-    cfg.set_inchworm_node_time!.(configurations, Ref(n_w.time))
-    cfg.set_final_node_time!.(configurations, Ref(n_f.time))
-
-    @test length(diagrams) == length(topologies) * length(expansion.pairs)^order
-
     println("n_topologies = $(length(topologies))")
     for topology in topologies
         println(topology)
     end
 
-    println("n_diagrams = $(length(diagrams))")
-    for diagram in diagrams
-        println(diagram)
-    end
-
     n_samples = 100
-
-    Random.seed!(1234)
 
     values = Matrix{ComplexF64}(undef, n_samples, 2)
     accumulated_value = zeros(SectorBlockMatrix, expansion.ed)
 
+    #Random.seed!(1234)
     #x1_list = Random.rand(Float64, n_samples)
     #xs_list = Random.rand(Float64, (2 * order - 1), n_samples)
     #sort!(xs_list, dims=1, rev=true)
@@ -95,6 +80,8 @@ using QInchworm.expansion: Expansion, InteractionPair
     x1_list = HDF5.read(fid["/x1_list"])
     xs_list = HDF5.read(fid["/xs_list"])
     HDF5.close(fid)
+
+    tev = teval.TopologyEvaluator(expansion, order, Dict(1 => n_0, 7 => n_w, 9 => n_f))
 
     for sample in 1:n_samples
 
@@ -124,7 +111,7 @@ using QInchworm.expansion: Expansion, InteractionPair
         @test all([τ_i >= τ_0 for τ_i in τs[2:end]])
 
         # -- Evaluate all diagrams at `order`
-        value = teval.eval(expansion, diagrams, configurations, τs)
+        value = tev(topologies, τs)
         println("value = $value")
         values[sample, :] = [value[1][2][1, 1], value[2][2][1, 1]]
 

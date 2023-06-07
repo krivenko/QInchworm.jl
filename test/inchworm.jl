@@ -8,9 +8,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 using QInchworm.spline_gf: SplineInterpolatedGF
 
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
-using QInchworm.topology_eval: get_topologies_at_order,
-                               get_diagrams_at_order,
-                               get_configurations_and_diagrams
+using QInchworm.topology_eval: get_topologies_at_order
 
 using QInchworm.inchworm: ExpansionOrderInputData,
                           inchworm_step,
@@ -70,17 +68,11 @@ ed = ked.EDCore(H, soi)
     for order in 0:3
         n_pts_after_range = (order == 0) ? (0:0) : (1:(2 * order - 1))
         for n_pts_after in n_pts_after_range
-            d_before = 2 * order - n_pts_after
             topologies = get_topologies_at_order(order, n_pts_after)
-            all_diagrams = get_diagrams_at_order(expansion, topologies, order)
-            configurations, diagrams = get_configurations_and_diagrams(
-                expansion, all_diagrams, d_before)
-            if length(configurations) > 0
-                push!(order_data, ExpansionOrderInputData(order,
-                                                          n_pts_after,
-                                                          diagrams,
-                                                          configurations,
-                                                          N_samples))
+            if !isempty(topologies)
+                push!(order_data,
+                        ExpansionOrderInputData(order, n_pts_after, topologies, N_samples)
+                )
             end
         end
     end
@@ -123,16 +115,7 @@ end
     order_data = ExpansionOrderInputData[]
     for order in 0:3
         topologies = get_topologies_at_order(order)
-        all_diagrams = get_diagrams_at_order(expansion, topologies, order)
-        configurations, diagrams = get_configurations_and_diagrams(
-            expansion, all_diagrams, nothing)
-        if length(configurations) > 0
-            push!(order_data, ExpansionOrderInputData(order,
-                                                      1,
-                                                      diagrams,
-                                                      configurations,
-                                                      N_samples))
-        end
+        push!(order_data, ExpansionOrderInputData(order, 1, topologies, N_samples))
     end
 
     value = inchworm_step_bare(expansion, contour, τ_i, τ_f, order_data)
