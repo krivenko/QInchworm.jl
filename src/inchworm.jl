@@ -543,7 +543,7 @@ function correlator_2p_depr(expansion::Expansion,
         n_pts_after_range = (order == 0) ? (0:0) : (1:(2 * order - 1))
         for n_pts_after in n_pts_after_range
             d_before = 2 * order - n_pts_after
-            topologies = teval.get_topologies_at_order(order, n_pts_after, with_1k_arc=true)
+            topologies = teval.get_topologies_at_order(order, n_pts_after, with_external_arc=true)
             all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
 
             push!(common_order_data, ExpansionOrderInputData(
@@ -711,7 +711,7 @@ function correlator_2p(expansion::Expansion,
                 @timeit tmr "Order $(order)" begin; @timeit tmr "Diag + Conf" begin
 
                 d_before = 2 * order - n_pts_after
-                topologies = teval.get_topologies_at_order(order, n_pts_after, with_1k_arc=true)
+                topologies = teval.get_topologies_at_order(order, n_pts_after, with_external_arc=true)
 
                 #all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
                 #configurations, diagrams = teval.get_configurations_and_diagrams(

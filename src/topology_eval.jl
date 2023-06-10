@@ -25,16 +25,16 @@ using QInchworm.diagrammatics: Topology,
 using QInchworm.mpi: rank_sub_range, all_gather
 
 
-function get_topologies_at_order(order::Int64, k = nothing; with_1k_arc = false)::Vector{Topology}
+function get_topologies_at_order(order::Int64, k = nothing; with_external_arc = false)::Vector{Topology}
     topologies = generate_topologies(order)
-
-    if with_1k_arc
-      topologies = [Topology(top.pairs, (-1)^k * top.parity) for top in topologies]
-    end
     k === nothing && return topologies
 
     filter!(topologies) do top
         is_doubly_k_connected(top, k)
+    end
+
+    if with_external_arc
+        topologies = [Topology(top.pairs, (-1)^k * top.parity) for top in topologies]
     end
 
     return topologies
