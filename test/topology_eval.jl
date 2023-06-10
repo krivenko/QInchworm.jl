@@ -1,6 +1,8 @@
+using Test
 using Random
 
 using MPI; MPI.Init()
+using HDF5
 
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
@@ -32,16 +34,13 @@ using QInchworm.expansion: Expansion, InteractionPair
 
     # -- Hybridization propagator
 
-    Δ = kd.FullTimeGF(
-        (t1, t2) -> -1.0im * V^2 *
-            (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ, contour.β)) *
-            exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ),
-        grid, 1, kd.fermionic, true)
+    Δ = V^2 * kd.FullTimeGF(kd.DeltaDOS(ϵ), grid)
+    Δ_rev = kd.FullTimeGF((t1, t2) -> Δ[t2, t1], grid, 1, kd.fermionic, true)
 
     # -- Pseudo Particle Strong Coupling Expansion
 
     ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
-    ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), Δ)
+    ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), Δ_rev)
     expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
 
     # -- Inch-worm node configuration, fixing the final-time and worm-time
@@ -61,6 +60,7 @@ using QInchworm.expansion: Expansion, InteractionPair
 
     order = 3
     topologies = teval.get_topologies_at_order(order, 1)
+
     diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
     configurations = cfg.Configuration.(diagrams, Ref(expansion), 2 * order - 1)
 
@@ -80,9 +80,13 @@ using QInchworm.expansion: Expansion, InteractionPair
         println(diagram)
     end
 
-    accumulated_value = zeros(SectorBlockMatrix, expansion.ed)
-
     n_samples = 100
+    seed = 1234
+
+    Random.seed!(seed)
+
+    values = Matrix{ComplexF64}(undef, n_samples, 2)
+    accumulated_value = zeros(SectorBlockMatrix, expansion.ed)
 
     for sample in 1:n_samples
 
@@ -115,9 +119,20 @@ using QInchworm.expansion: Expansion, InteractionPair
         # -- Evaluate all diagrams at `order`
         value = teval.eval(expansion, diagrams, configurations, τs)
         println("value = $value")
+        values[sample, :] = [value[1][2][1, 1], value[2][2][1, 1]]
 
         accumulated_value += value
     end
     println("accumulated_value = $accumulated_value")
+
+    #HDF5.h5open((@__DIR__) * "/topology_eval.h5", "w") do fid
+    #    HDF5.write(fid, "/seed", seed)
+    #    HDF5.write(fid, "/values", values)
+    #end
+
+    HDF5.h5open((@__DIR__) * "/topology_eval.h5", "r") do fid
+        @test seed == HDF5.read(fid["/seed"])
+        @test isapprox(values, HDF5.read(fid["/values"]), rtol=1e-10)
+    end
 
 end
