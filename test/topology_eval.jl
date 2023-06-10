@@ -81,21 +81,28 @@ using QInchworm.expansion: Expansion, InteractionPair
     end
 
     n_samples = 100
-    seed = 1234
 
-    Random.seed!(seed)
+    Random.seed!(1234)
 
     values = Matrix{ComplexF64}(undef, n_samples, 2)
     accumulated_value = zeros(SectorBlockMatrix, expansion.ed)
+
+    #x1_list = Random.rand(Float64, n_samples)
+    #xs_list = Random.rand(Float64, (2 * order - 1), n_samples)
+    #sort!(xs_list, dims=1, rev=true)
+
+    fid = HDF5.h5open((@__DIR__) * "/topology_eval.h5", "r")
+    x1_list = HDF5.read(fid["/x1_list"])
+    xs_list = HDF5.read(fid["/xs_list"])
+    HDF5.close(fid)
 
     for sample in 1:n_samples
 
         # -- Generate time ordered points on the unit-interval (replace with quasi-MC points)
         # -- separating the initial point `x1` (between the final- and worm-time) from the others `xs`
 
-        x1 = Random.rand(Float64)
-        xs = Random.rand(Float64, (2 * order - 1))
-        sort!(xs, rev=true)
+        x1 = x1_list[sample]
+        xs = xs_list[:, sample]
 
         # -- Map unit-interval points to contour times on the imaginary time branch
         x_0, x_w, x_f = [ node.time.ref for node in worm_nodes ]
@@ -126,12 +133,12 @@ using QInchworm.expansion: Expansion, InteractionPair
     println("accumulated_value = $accumulated_value")
 
     #HDF5.h5open((@__DIR__) * "/topology_eval.h5", "w") do fid
-    #    HDF5.write(fid, "/seed", seed)
+    #    HDF5.write(fid, "/x1_list", x1_list)
+    #    HDF5.write(fid, "/xs_list", xs_list)
     #    HDF5.write(fid, "/values", values)
     #end
 
     HDF5.h5open((@__DIR__) * "/topology_eval.h5", "r") do fid
-        @test seed == HDF5.read(fid["/seed"])
         @test isapprox(values, HDF5.read(fid["/values"]), rtol=1e-10)
     end
 
