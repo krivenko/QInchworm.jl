@@ -1,3 +1,5 @@
+using Test
+
 using MPI; MPI.Init()
 
 using Keldysh; kd = Keldysh
@@ -37,16 +39,13 @@ ed = ked.EDCore(H, soi)
 
     # -- Hybridization propagator
 
-    Δ = kd.FullTimeGF(
-        (t1, t2) -> -1.0im * V^2 *
-            (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ, contour.β)) *
-            exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ),
-        grid, 1, kd.fermionic, true)
+    Δ = V^2 * kd.FullTimeGF(kd.DeltaDOS(ϵ), grid)
+    Δ_rev = kd.FullTimeGF((t1, t2) -> Δ[t2, t1], grid, 1, kd.fermionic, true)
 
     # -- Pseudo Particle Strong Coupling Expansion
 
     ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
-    ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), Δ)
+    ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), Δ_rev)
     expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
 
     # Fixing the initial, final and worm-time
@@ -72,7 +71,7 @@ ed = ked.EDCore(H, soi)
         n_pts_after_range = (order == 0) ? (0:0) : (1:(2 * order - 1))
         for n_pts_after in n_pts_after_range
             d_before = 2 * order - n_pts_after
-            topologies = get_topologies_at_order(order, 1)
+            topologies = get_topologies_at_order(order, n_pts_after)
             all_diagrams = get_diagrams_at_order(expansion, topologies, order)
             configurations, diagrams = get_configurations_and_diagrams(
                 expansion, all_diagrams, d_before)
@@ -96,16 +95,13 @@ end
 
     # -- Hybridization propagator
 
-    Δ = kd.FullTimeGF(
-        (t1, t2) -> -1.0im * V^2 *
-            (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ, contour.β)) *
-            exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ),
-        grid, 1, kd.fermionic, true)
+    Δ = V^2 * kd.FullTimeGF(kd.DeltaDOS(ϵ), grid)
+    Δ_rev = kd.FullTimeGF((t1, t2) -> Δ[t2, t1], grid, 1, kd.fermionic, true)
 
     # -- Pseudo Particle Strong Coupling Expansion
 
     ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
-    ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), Δ)
+    ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), Δ_rev)
     expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
 
     # Fixing the initial, final and worm-time
@@ -149,16 +145,13 @@ end
 
     # -- Hybridization propagator
 
-    Δ = kd.ImaginaryTimeGF(
-        (t1, t2) -> -1.0im * V^2 *
-            (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ, contour.β)) *
-            exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ),
-        grid, 1, kd.fermionic, true)
+    Δ = V^2 * kd.ImaginaryTimeGF(kd.DeltaDOS(ϵ), grid)
+    Δ_rev = kd.ImaginaryTimeGF((t1, t2) -> Δ[t2, t1], grid, 1, kd.fermionic, true)
 
     # -- Pseudo Particle Strong Coupling Expansion
 
     ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), SplineInterpolatedGF(Δ))
-    ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), SplineInterpolatedGF(Δ))
+    ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), SplineInterpolatedGF(Δ_rev))
     expansion = Expansion(ed, grid, [ip_fwd, ip_bwd], interpolate_ppgf = true)
 
     orders = 0:3
