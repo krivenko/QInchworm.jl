@@ -417,7 +417,7 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
 end
 
 function _traverse_configuration_tree!(eval::TopologyEvaluator,
-                                       conf,
+                                       conf::SubArray{Node, 1},
                                        s_i::Int64,
                                        s_f::Int64,
                                        ppgf_weight::Matrix{ComplexF64},
