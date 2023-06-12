@@ -133,8 +133,8 @@ using QInchworm.mpi: ismaster
             (0:0, 0:2), # ok
             (0:3, 0:0), # ok
             (0:0, 0:3), # ok
-            #(0:4, 0:0), # ok, but too slow for testing
-            #(0:0, 0:4), # ok, but too slow for testing
+            (0:4, 0:0), # ok
+            (0:0, 0:4), # ok
             ]
 
         for (orders_bare, orders) in tests
