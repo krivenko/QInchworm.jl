@@ -316,22 +316,30 @@ function inchworm!(expansion::Expansion,
     order_data = ExpansionOrderInputData[]
     for order in orders_bare
 
-        @timeit tmr "Bare" begin; @timeit tmr "Order $(order)" begin; @timeit tmr "Diagrams" begin
+        @timeit tmr "Bare" begin; @timeit tmr "Order $(order)" begin; @timeit tmr "Topologies" begin
 
         #local_tmr = TimerOutput()
         #@timeit local_tmr "Order $(order)" begin;
         #@timeit local_tmr "Topologies" begin
 
+        #@time topologies = teval.get_topologies_at_order(order)
         topologies = teval.get_topologies_at_order(order)
 
-        #if ismaster(); println("Order $(order) N_topo $(length(topologies))"); end
+        if ismaster(); println("Order $(order) N_topo $(length(topologies))"); end
 
         #end; end; if ismaster(); show(local_tmr); println(); end
 
         #@timeit local_tmr "Order $(order)" begin;
         #@timeit local_tmr "Diagrams" begin
 
+        end; end; end # tmr "Bare" "Order"
+
+        @timeit tmr "Bare" begin; @timeit tmr "Order $(order)" begin; @timeit tmr "Diagrams" begin
+
         #all_diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
+            
+        #@time diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
+        diagrams = teval.get_diagrams_at_order(expansion, topologies, order)
 
         #if ismaster(); println("Order $(order) N_diag $(length(all_diagrams))"); end
 
@@ -340,10 +348,15 @@ function inchworm!(expansion::Expansion,
         #@timeit local_tmr "Order $(order)" begin;
         #@timeit local_tmr "Diagrams non-zero" begin
 
+        end; end; end # tmr "Bare" "Order"
+
+        @timeit tmr "Bare" begin; @timeit tmr "Order $(order)" begin; @timeit tmr "Diag/Conf" begin
+
         #configurations_dummy, diagrams =
         #    teval.get_configurations_and_diagrams(
         #        expansion, all_diagrams, nothing, return_configurations=false)
 
+        #@time configurations_dummy, diagrams =
         configurations_dummy, diagrams =
             teval.get_configurations_and_diagrams_from_topologies(
                 expansion, topologies, order, nothing, return_configurations=false)
@@ -363,8 +376,12 @@ function inchworm!(expansion::Expansion,
 
         end; end; end # tmr "Bare" "Order"
 
+        #if ismaster(); show(tmr); println(); end    
+
     end
 
+    #exit()
+    
     if ismaster(); println("= Evaluation Bare ========"); end
 
     result = inchworm_step_bare(expansion,
@@ -374,7 +391,7 @@ function inchworm!(expansion::Expansion,
                                 order_data, tmr=tmr)
     set_bold_ppgf!(expansion, grid[1], grid[2], result)
 
-    #if ismaster(); show(tmr); println(); end
+    if ismaster(); show(tmr); println(); end
 
     if ismaster(); println("= Bold Diagrams ========"); end
 
