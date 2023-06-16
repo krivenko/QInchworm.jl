@@ -163,7 +163,11 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
 
     orders_bare = orders
 
-    diff_0, pto_hist_0 = run_dimer(ntau, orders, orders_bare, 0, interpolate_gfs=false)
+    #diff_0, pto_hist_0 = run_dimer(ntau, orders, orders_bare, 0, interpolate_gfs=false)
+    #@show diff_0
+    diff_0, pto_hist_0 = run_dimer(ntau, 0:0, 0:0, 0, interpolate_gfs=false)
+    #@show diff_0
+    #exit()
 
     diffs_pto_hists = [
         run_dimer(ntau, orders, orders_bare,
@@ -205,7 +209,8 @@ end
 MPI.Init()
 
 ntaus = [1024 * 8 * 4]
-N_sampless = 2 .^ (3:15)
+#N_sampless = 2 .^ (3:15)
+N_sampless = 2 .^ (10:15)
 orderss = [0:4]
 
 if ismaster()
