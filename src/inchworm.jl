@@ -114,7 +114,7 @@ function inchworm_step(expansion::Expansion,
         @timeit tmr "Configurations" begin;
 
         #empty!(od.configurations)
-        configurations, diagrams = teval.get_configurations_and_diagrams(
+        configurations, diagrams = teval.get_configurations_and_diagrams_serial(
             expansion, diagrams, 2 * od.order - od.n_pts_after)
             #expansion, od.diagrams, 2 * od.order - od.n_pts_after)
         #append!(od.configurations, configurations)
@@ -245,7 +245,7 @@ function inchworm_step_bare(expansion::Expansion,
         #empty!(od.configurations)
         configurations, diagrams =
             #teval.get_configurations_and_diagrams(expansion, od.diagrams, nothing)
-            teval.get_configurations_and_diagrams(expansion, diagrams, nothing)
+            teval.get_configurations_and_diagrams_serial(expansion, diagrams, nothing)
         #append!(od.configurations, configurations)
 
         end; end; end # tmr
