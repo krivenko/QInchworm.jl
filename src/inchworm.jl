@@ -99,10 +99,12 @@ function inchworm_step(expansion::Expansion,
     result = deepcopy(zero_sector_block_matrix)
 
     orders = unique(map(od -> od.order, order_data))
-    order_contribs = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
+    #order_contribs = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
 
     for od in order_data
 
+        order_contrib = deepcopy(zero_sector_block_matrix)
+        
         for diagram in od.diagrams
 
             diagrams = [diagram]
@@ -131,10 +133,9 @@ function inchworm_step(expansion::Expansion,
         set_inchworm_node_time!.(configurations, Ref(t_w))
         set_final_node_time!.(configurations, Ref(t_f))
             
-        order_contrib = deepcopy(zero_sector_block_matrix)
-
         if od.order == 0
-            order_contribs[od.order] = teval.eval(
+            #order_contribs[od.order]
+            order_contrib += teval.eval(
                 expansion, diagrams, configurations, kd.BranchPoint[])
                 #expansion, diagrams, od.configurations, kd.BranchPoint[])
                 #expansion, od.diagrams, od.configurations, kd.BranchPoint[])
@@ -144,7 +145,7 @@ function inchworm_step(expansion::Expansion,
 
             seq = SobolSeqWith0(2 * od.order)
             if od.N_samples > 0
-                order_contribs[od.order] += qmc_inchworm_integral_root(
+                order_contrib += qmc_inchworm_integral_root(
                     #t -> teval.eval(expansion, od.diagrams, od.configurations, t),
                     #t -> teval.eval(expansion, diagrams, od.configurations, t),
                     t -> teval.eval(expansion, diagrams, configurations, t),
@@ -161,13 +162,38 @@ function inchworm_step(expansion::Expansion,
 
         end # for od.diagrams
 
+        #if true
+        if od.order > 0
+            if isa(order_contrib, Dict)
+                for (s_i, (s_f, mat)) in order_contrib
+                    mat[:] = MPI.Allreduce(mat, +, MPI.COMM_WORLD)
+                end
+            else
+                # -- For supporting the qmc_integrate.jl tests
+                order_contrib = MPI.Allreduce(order_contrib, +, MPI.COMM_WORLD)
+            end
+        end
+        #end
+
+        #if ismaster()
+        #    @show od.order
+        #    for (s_i, (s_f, mat)) in order_contrib
+        #        @show s_i, s_f, mat
+        #    end
+        #end
+
+        #if od.order > 0
+        #    exit()
+        #end
+        
+        #order_contribs[od.order] = order_contrib
+        #set_bold_ppgf_at_order!(expansion, order, τ_i, τ_f, order_contribs[order])
+        set_bold_ppgf_at_order!(expansion, od.order, τ_i, τ_f, order_contrib)
+        result += order_contrib
+
     end
 
-    for order in orders
-        set_bold_ppgf_at_order!(expansion, order, τ_i, τ_f, order_contribs[order])
-    end
-
-    sum(values(order_contribs))
+    result
 end
 
 raw"""
@@ -206,6 +232,8 @@ function inchworm_step_bare(expansion::Expansion,
 
     for od in order_data
 
+        order_contrib = deepcopy(zero_sector_block_matrix)
+
         for diagram in od.diagrams
 
             diagrams = [diagram]
@@ -232,17 +260,15 @@ function inchworm_step_bare(expansion::Expansion,
         set_initial_node_time!.(configurations, Ref(t_i))
         set_final_node_time!.(configurations, Ref(t_f))
 
-        order_contrib = deepcopy(zero_sector_block_matrix)
-
         if od.order == 0
-            order_contrib = teval.eval(
+            order_contrib += teval.eval(
                 #expansion, od.diagrams, od.configurations, kd.BranchPoint[])
                 expansion, diagrams, configurations, kd.BranchPoint[])
         else
             d = 2 * od.order
             seq = SobolSeqWith0(d)
             if od.N_samples > 0
-                order_contrib = qmc_time_ordered_integral_root(
+                order_contrib += qmc_time_ordered_integral_root(
                     #t -> teval.eval(expansion, od.diagrams, od.configurations, t),
                     t -> teval.eval(expansion, diagrams, configurations, t),
                     d,
@@ -253,12 +279,34 @@ function inchworm_step_bare(expansion::Expansion,
                 )
             end
         end
-        set_bold_ppgf_at_order!(expansion, od.order, τ_i, τ_f, order_contrib)
-            result += order_contrib
 
         end; end; end # tmr
 
         end # for od.diagrams
+
+        #if true
+        if od.order > 0
+            if isa(order_contrib, Dict)
+                for (s_i, (s_f, mat)) in order_contrib
+                    mat[:] = MPI.Allreduce(mat, +, MPI.COMM_WORLD)
+                end
+            else
+                # -- For supporting the qmc_integrate.jl tests
+                order_contrib = MPI.Allreduce(order_contrib, +, MPI.COMM_WORLD)
+            end
+        end
+        #end # false
+
+        #if ismaster()
+        #    @show od.order
+        #    for (s_i, (s_f, mat)) in order_contrib
+        #        @show s_i, s_f, mat
+        #    end
+        #end
+        
+        set_bold_ppgf_at_order!(expansion, od.order, τ_i, τ_f, order_contrib)
+        result += order_contrib
+
     end
     result
 end
@@ -523,6 +571,19 @@ function correlator_2p(expansion::Expansion,
 
         end; end # tmr
     end
+
+    if true
+    if od.order > 0
+    if isa(result, Dict)
+        for (s_i, (s_f, mat)) in result
+            mat[:] = MPI.Allreduce(mat, +, MPI.COMM_WORLD)
+        end
+    else
+        # -- For supporting the qmc_integrate.jl tests
+        result = MPI.Allreduce(result, +, MPI.COMM_WORLD)
+    end
+    end    
+    end # false
 
     result / partition_function(expansion.P)
 end

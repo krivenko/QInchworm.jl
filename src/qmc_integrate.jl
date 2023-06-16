@@ -130,14 +130,14 @@ function qmc_integral_mpi(f, init = zero(typeof(f(trans(0))));
         res += f_val * (1.0 / p(u))
     end
 
-    if isa(res, Dict)
-        for (s_i, (s_f, mat)) in res
-            mat[:] = MPI.Allreduce(mat, +, MPI.COMM_WORLD)
-        end
-    else
-        # -- For supporting the qmc_integrate.jl tests
-        res = MPI.Allreduce(res, +, MPI.COMM_WORLD)
-    end
+    #if isa(res, Dict)
+    #    for (s_i, (s_f, mat)) in res
+    #        mat[:] = MPI.Allreduce(mat, +, MPI.COMM_WORLD)
+    #    end
+    #else
+    #    # -- For supporting the qmc_integrate.jl tests
+    #    res = MPI.Allreduce(res, +, MPI.COMM_WORLD)
+    #end
 
     (p_norm / N) * res
 end
