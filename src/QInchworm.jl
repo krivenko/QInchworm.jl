@@ -5,11 +5,11 @@ using Quasi Monte Carlo and the inchworm algorithm.
 module QInchworm
 
 include("utility.jl")
+include("sector_block_matrix.jl")
 include("mpi.jl")
 include("diagrammatics.jl")
 include("spline_gf.jl")
 include("ppgf.jl")
-include("sector_block_matrix.jl")
 include("expansion.jl")
 include("configuration.jl")
 include("qmc_integrate.jl")

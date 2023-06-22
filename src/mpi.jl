@@ -2,6 +2,7 @@ module mpi
 
 using MPI: MPI
 
+using QInchworm: SectorBlockMatrix
 using QInchworm.utility: split_count, range_from_chunks_and_idx
 using QInchworm.utility: iobuffer_serialize, iobuffer_deserialize
 
@@ -46,4 +47,10 @@ function all_gather(subvec::Vector{T}; comm::MPI.Comm = MPI.COMM_WORLD) where T
     return out_vec
 end
 
+function all_reduce!(sbm::SectorBlockMatrix, op; comm::MPI.Comm = MPI.COMM_WORLD)
+    for (s_i, (s_f, mat)) in sbm
+        MPI.Allreduce!(mat, op, comm)
+    end
 end
+
+end # module mpi
