@@ -16,9 +16,9 @@ using QInchworm.ppgf: partition_function
 using QInchworm; teval = QInchworm.topology_eval
 using QInchworm.diagrammatics
 
-using QInchworm.utility: SobolSeqWith0, next!
+using QInchworm.utility: SobolSeqWith0, next!, arbitrary_skip!
 using QInchworm.utility: split_count
-using QInchworm.mpi: ismaster
+using QInchworm.mpi: ismaster, N_skip_and_N_samples_on_rank, all_reduce!
 
 using QInchworm.expansion: Expansion, set_bold_ppgf!, set_bold_ppgf_at_order!
 using QInchworm.configuration: Configuration,
@@ -78,7 +78,7 @@ order_data : Inchworm algorithm input data, one element per expansion order.
 
 Returns
 -------
-Accummulated value of the bold pseudo-particle GF.
+Accumulated value of the bold pseudo-particle GF.
 """
 function inchworm_step(expansion::Expansion,
                        c::kd.AbstractContour,
@@ -94,8 +94,6 @@ function inchworm_step(expansion::Expansion,
 
     zero_sector_block_matrix = zeros(SectorBlockMatrix, expansion.ed)
 
-    result = deepcopy(zero_sector_block_matrix)
-
     orders = unique(map(od -> od.order, order_data))
     order_contribs = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
 
@@ -110,29 +108,34 @@ function inchworm_step(expansion::Expansion,
         if od.order == 0
             fixed_nodes = Dict(1 => n_i, 2 => n_w, 3 => n_f)
             eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes)
-            order_contribs[od.order] = eval(od.topologies, kd.BranchPoint[])
+            order_contrib = eval(od.topologies, kd.BranchPoint[])
         else
-            if od.N_samples > 0
-                d_after = od.n_pts_after
-                d_before = 2 * od.order - od.n_pts_after
+            od.N_samples <= 0 && continue
 
-                fixed_nodes = Dict(1 => n_i,
-                                   d_before + 2 => n_w,
-                                   2 * od.order + 3 => n_f)
-                eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes)
+            d_after = od.n_pts_after
+            d_before = 2 * od.order - od.n_pts_after
 
-                seq = SobolSeqWith0(2 * od.order)
+            fixed_nodes = Dict(1 => n_i, d_before + 2 => n_w, 2 * od.order + 3 => n_f)
+            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes)
 
-                order_contribs[od.order] += qmc_inchworm_integral_root(
-                    t -> eval(od.topologies, t),
-                    d_before, d_after,
-                    c, t_i, t_w, t_f,
-                    init = deepcopy(zero_sector_block_matrix),
-                    seq = seq,
-                    N = od.N_samples
-                )
-            end
+            N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(od.N_samples)
+            rank_weight = N_samples_on_rank / od.N_samples
+
+            seq = SobolSeqWith0(2 * od.order)
+            arbitrary_skip!(seq, N_skip)
+
+            order_contrib = rank_weight * qmc_inchworm_integral_root(
+                t -> eval(od.topologies, t),
+                d_before, d_after,
+                c, t_i, t_w, t_f,
+                init = deepcopy(zero_sector_block_matrix),
+                seq = seq,
+                N = N_samples_on_rank
+            )
+            all_reduce!(order_contrib, +)
         end
+
+        order_contribs[od.order] += order_contrib
 
         end; end; end # tmr
 
@@ -142,7 +145,7 @@ function inchworm_step(expansion::Expansion,
         set_bold_ppgf_at_order!(expansion, order, τ_i, τ_f, order_contribs[order])
     end
 
-    sum(values(order_contribs))
+    return sum(values(order_contribs))
 end
 
 raw"""
@@ -163,7 +166,7 @@ order_data : Inchworm algorithm input data, one element per expansion order.
 
 Returns
 -------
-Accummulated value of the bold pseudo-particle GF.
+Accumulated value of the bold pseudo-particle GF.
 """
 function inchworm_step_bare(expansion::Expansion,
                             c::kd.AbstractContour,
@@ -192,31 +195,37 @@ function inchworm_step_bare(expansion::Expansion,
             eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes)
             order_contrib = eval(od.topologies, kd.BranchPoint[])
         else
-            if od.N_samples > 0
-                d = 2 * od.order
+            od.N_samples <= 0 && continue
 
-                fixed_nodes = Dict(1 => n_i, 2 * od.order + 2 => n_f)
-                eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes)
+            d = 2 * od.order
 
-                seq = SobolSeqWith0(d)
+            fixed_nodes = Dict(1 => n_i, 2 * od.order + 2 => n_f)
+            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes)
 
-                order_contrib = qmc_time_ordered_integral_root(
-                    t -> eval(od.topologies, t),
-                    d,
-                    c, t_i, t_f,
-                    init = deepcopy(zero_sector_block_matrix),
-                    seq = seq,
-                    N = od.N_samples
-                )
-            end
+            N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(od.N_samples)
+            rank_weight = N_samples_on_rank / od.N_samples
+
+            seq = SobolSeqWith0(d)
+            arbitrary_skip!(seq, N_skip)
+
+            order_contrib = rank_weight * qmc_time_ordered_integral_root(
+                t -> eval(od.topologies, t),
+                d,
+                c, t_i, t_f,
+                init = deepcopy(zero_sector_block_matrix),
+                seq = seq,
+                N = N_samples_on_rank
+            )
+            all_reduce!(order_contrib, +)
         end
+
         set_bold_ppgf_at_order!(expansion, od.order, τ_i, τ_f, order_contrib)
-            result += order_contrib
+        result += order_contrib
 
         end; end; end # tmr
 
     end
-    result
+    return result
 end
 
 raw"""
@@ -369,7 +378,7 @@ raw"""
 
     Returns
     -------
-    Accummulated value of the single-particle Matsubara GF.
+    Accummulated value of the two-point correlator.
 """
 function correlator_2p(expansion::Expansion,
                        grid::kd.ImaginaryTimeGrid,
@@ -393,37 +402,44 @@ function correlator_2p(expansion::Expansion,
         @timeit tmr "Order $(od.order)" begin
         @timeit tmr "Integration" begin
 
+        order_contrib::ComplexF64 = 0
+
         if od.order == 0
             fixed_nodes = Dict(1 => n_B, 2 => n_A, 3 => n_f)
             eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes)
-            result += tr(eval(od.topologies, kd.BranchPoint[]))
+            order_contrib = tr(eval(od.topologies, kd.BranchPoint[]))
         else
-            if od.N_samples > 0
-                d_after = od.n_pts_after
-                d_before = 2 * od.order - od.n_pts_after
+            od.N_samples <= 0 && continue
 
-                fixed_nodes = Dict(1 => n_B,
-                                   d_before + 2 => n_A,
-                                   2 * od.order + 3 => n_f)
-                eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes)
+            d_after = od.n_pts_after
+            d_before = 2 * od.order - od.n_pts_after
 
-                seq = SobolSeqWith0(2 * od.order)
+            fixed_nodes = Dict(1 => n_B, d_before + 2 => n_A, 2 * od.order + 3 => n_f)
+            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes)
 
-                result += qmc_inchworm_integral_root(
-                    t -> tr(eval(od.topologies, t)),
-                    d_before, d_after,
-                    grid.contour, t_B, t_A, t_f,
-                    init = ComplexF64(0),
-                    seq = seq,
-                    N = od.N_samples
-                )
-            end
+            N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(od.N_samples)
+            rank_weight = N_samples_on_rank / od.N_samples
+
+            seq = SobolSeqWith0(2 * od.order)
+            arbitrary_skip!(seq, N_skip)
+
+            order_contrib = rank_weight * qmc_inchworm_integral_root(
+                t -> tr(eval(od.topologies, t)),
+                d_before, d_after,
+                grid.contour, t_B, t_A, t_f,
+                init = ComplexF64(0),
+                seq = seq,
+                N = N_samples_on_rank
+            )
+            order_contrib = MPI.Allreduce(order_contrib, +, MPI.COMM_WORLD)
         end
+
+        result += order_contrib
 
         end; end # tmr
     end
 
-    result / partition_function(expansion.P)
+    return result / partition_function(expansion.P)
 end
 
 raw"""

@@ -4,7 +4,7 @@ using MPI: MPI
 
 using Keldysh; kd = Keldysh
 
-using QInchworm.utility: SobolSeqWith0, arbitrary_skip!, next!
+using QInchworm.utility: SobolSeqWith0, next!
 using QInchworm.mpi: N_skip_and_N_samples_on_rank
 
 #
@@ -100,45 +100,6 @@ function qmc_integral(f, init = zero(typeof(f(trans(0))));
         if isnothing(f_val) continue end
         res += f_val * (1.0 / p(u))
     end
-    (p_norm / N) * res
-end
-
-"""
-    MPI parallell Quasi Monte Carlo integration with warping.
-
-    `f`      Integrand.
-    `init`   Initial value of the integral.
-    `p`      Positive model function p_n(u).
-    `p_norm` Integral of p_n(u) over the u-domain.
-    `trans`  Transformation from x ∈ [0,1]^d onto the u-domain.
-    `seq`    Quasi-random sequence generator.
-    `N`      The number of points taken from the quasi-random sequence.
-"""
-function qmc_integral_mpi(f, init = zero(typeof(f(trans(0))));
-                      p, p_norm, trans, seq, N::Int)
-
-    N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(N)
-    arbitrary_skip!(seq, N_skip)
-
-    # Eq. (5)
-    res = init
-    for i = 1:N_samples_on_rank
-        x = next!(seq)
-        u = trans(x)
-        f_val = f(u)
-        if isnothing(f_val) continue end
-        res += f_val * (1.0 / p(u))
-    end
-
-    if isa(res, Dict)
-        for (s_i, (s_f, mat)) in res
-            mat[:] = MPI.Allreduce(mat, +, MPI.COMM_WORLD)
-        end
-    else
-        # -- For supporting the qmc_integrate.jl tests
-        res = MPI.Allreduce(res, +, MPI.COMM_WORLD)
-    end
-
     (p_norm / N) * res
 end
 
@@ -380,7 +341,7 @@ function qmc_time_ordered_integral_root(f,
         return u_i .+ u * ref_diff
     end
 
-    qmc_integral_mpi(init,
+    qmc_integral(init,
                  p = u -> 1.0,
                  p_norm = (ref_diff ^ d) / factorial(d),
                  trans = trans,
@@ -482,7 +443,7 @@ function qmc_inchworm_integral_root(f,
     p_norm = (ref_diff_fw ^ d_after) / factorial(d_after) *
              (ref_diff_wi ^ d_before) / factorial(d_before)
 
-    qmc_integral_mpi(init,
+    qmc_integral(init,
                  p = u -> 1.0,
                  p_norm = p_norm,
                  trans = trans,

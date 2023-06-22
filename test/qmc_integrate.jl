@@ -1,5 +1,3 @@
-using MPI; MPI.Init()
-
 using Keldysh; kd = Keldysh
 
 using QInchworm.qmc_integrate: qmc_time_ordered_integral,
