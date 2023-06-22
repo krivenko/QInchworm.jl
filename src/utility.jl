@@ -93,7 +93,7 @@ function next!(s::SobolSeqWith0)
     end
 end
 
-function arbitrary_skip(s::SobolSeq, n::Integer)
+function arbitrary_skip!(s::SobolSeq, n::Integer)
     x = Array{Float64,1}(undef, ndims(s))
     for unused = 1:n
         next!(s,x)
@@ -101,12 +101,13 @@ function arbitrary_skip(s::SobolSeq, n::Integer)
     return nothing
 end
 
-function arbitrary_skip(s::SobolSeqWith0, n::Integer)
+function arbitrary_skip!(s::SobolSeqWith0, n::Integer)
     @assert n >= 0
     if n >= 1
         s.init_pt_returned = true
-        arbitrary_skip(s.seq, n-1)
+        arbitrary_skip!(s.seq, n - 1)
     end
+    return nothing
 end
 
 """

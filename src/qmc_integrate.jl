@@ -4,7 +4,7 @@ using MPI: MPI
 
 using Keldysh; kd = Keldysh
 
-using QInchworm.utility: SobolSeqWith0, arbitrary_skip, next!
+using QInchworm.utility: SobolSeqWith0, arbitrary_skip!, next!
 using QInchworm.mpi: N_skip_and_N_samples_on_rank
 
 #
@@ -118,7 +118,7 @@ function qmc_integral_mpi(f, init = zero(typeof(f(trans(0))));
                       p, p_norm, trans, seq, N::Int)
 
     N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(N)
-    arbitrary_skip(seq, N_skip)
+    arbitrary_skip!(seq, N_skip)
 
     # Eq. (5)
     res = init
