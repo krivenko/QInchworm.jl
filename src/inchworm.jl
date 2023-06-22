@@ -527,7 +527,7 @@ function correlator_2p_depr(expansion::Expansion,
         println("N_samples (per rank) = ", N_split)
     end
 
-    @assert N_samples == 0 || N_samples == 2^Int(log2(N_samples))
+    @assert N_samples == 0 || ispow2(N_samples)
 
     τ_B = grid[1]
 
@@ -681,7 +681,7 @@ function correlator_2p(expansion::Expansion,
         println("N_samples (per rank) = ", N_split)
     end
 
-    @assert N_samples == 0 || N_samples == 2^Int(log2(N_samples))
+    @assert N_samples == 0 || ispow2(N_samples)
 
     τ_B = grid[1]
 
