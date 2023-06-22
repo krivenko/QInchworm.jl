@@ -1,8 +1,6 @@
 name = "QInchworm"
 uuid = "c1b6c5a0-2f71-4f50-a75d-692762eff855"
-authors = ["Igor Krivenko <igor.s.krivenko@gmail.com>",
-           "Hugo U. R. Strand <hugo.strand@gmail.com>",
-           "Joseph Kleinhenz <kleinhenz.joseph@gmail.com>"]
+authors = ["Igor Krivenko <igor.s.krivenko@gmail.com>", "Hugo U. R. Strand <hugo.strand@gmail.com>", "Joseph Kleinhenz <kleinhenz.joseph@gmail.com>"]
 version = "0.5.0"
 
 [deps]
@@ -11,12 +9,13 @@ Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 Keldysh = "50f2bc7e-5fd7-11e9-13c7-85fb88b4f34f"
 KeldyshED = "675b6b9c-7c2f-11e9-3bf3-dfd4d61640f7"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
-Sobol = "ed01d8cd-4d21-5b2a-85b4-cc3bdc58bad4"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 ProgressBars = "49802e3a-d2f1-5c88-81d8-b72133a6f568"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+Sobol = "ed01d8cd-4d21-5b2a-85b4-cc3bdc58bad4"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [compat]
 julia = "1.6"
+KeldyshED = "0.7"
