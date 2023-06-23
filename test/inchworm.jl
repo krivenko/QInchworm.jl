@@ -40,7 +40,7 @@ ed = ked.EDCore(H, soi)
     # -- Hybridization propagator
 
     Δ = V^2 * kd.FullTimeGF(kd.DeltaDOS(ϵ), grid)
-    Δ_rev = kd.FullTimeGF((t1, t2) -> Δ[t2, t1], grid, 1, kd.fermionic, true)
+    Δ_rev = kd.FullTimeGF((t1, t2) -> -Δ[t2, t1, false], grid, 1, kd.fermionic, true)
 
     # -- Pseudo Particle Strong Coupling Expansion
 
@@ -96,7 +96,7 @@ end
     # -- Hybridization propagator
 
     Δ = V^2 * kd.FullTimeGF(kd.DeltaDOS(ϵ), grid)
-    Δ_rev = kd.FullTimeGF((t1, t2) -> Δ[t2, t1], grid, 1, kd.fermionic, true)
+    Δ_rev = kd.FullTimeGF((t1, t2) -> -Δ[t2, t1, false], grid, 1, kd.fermionic, true)
 
     # -- Pseudo Particle Strong Coupling Expansion
 
@@ -146,7 +146,7 @@ end
     # -- Hybridization propagator
 
     Δ = V^2 * kd.ImaginaryTimeGF(kd.DeltaDOS(ϵ), grid)
-    Δ_rev = kd.ImaginaryTimeGF((t1, t2) -> Δ[t2, t1], grid, 1, kd.fermionic, true)
+    Δ_rev = kd.ImaginaryTimeGF((t1, t2) -> -Δ[t2, t1, false], grid, 1, kd.fermionic, true)
 
     # -- Pseudo Particle Strong Coupling Expansion
 
