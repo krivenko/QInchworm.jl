@@ -48,31 +48,20 @@ using QInchworm.mpi: ismaster
 
         # -- Hybridization propagator
 
-        Δ = kd.ImaginaryTimeGF(
-            (t1, t2) -> -1.0im * V^2 *
-                (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ_2, contour.β)) *
-                exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ_2),
-            grid, 1, kd.fermionic, true)
-
-        function reverse(g::kd.ImaginaryTimeGF)
-            g_rev = deepcopy(g)
-            τ_0, τ_β = first(g.grid), last(g.grid)
-            for τ in g.grid
-                g_rev[τ, τ_0] = g[τ_β, τ]
-            end
-            return g_rev
-        end
+        Δ = V^2 * kd.ImaginaryTimeGF(kd.DeltaDOS(ϵ_2), grid)
+        Δ_rev = kd.ImaginaryTimeGF((t1, t2) -> -Δ[t2, t1, false],
+                                   grid, 1, kd.fermionic, true)
 
         # -- Pseudo Particle Strong Coupling Expansion
 
         if interpolate_gfs
             ip_fwd = InteractionPair(op.c_dag(1), op.c(1), SplineInterpolatedGF(Δ))
-            ip_bwd = InteractionPair(op.c(1), op.c_dag(1), SplineInterpolatedGF(reverse(Δ)))
+            ip_bwd = InteractionPair(op.c(1), op.c_dag(1), SplineInterpolatedGF(Δ_rev))
             expansion = Expansion(ed, grid, [ip_fwd, ip_bwd], interpolate_ppgf=true)
             println("Using spline GFS")
         else
             ip_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
-            ip_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
+            ip_bwd = InteractionPair(op.c(1), op.c_dag(1), Δ_rev)
             expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
         end
 
@@ -160,33 +149,19 @@ end
 
         # -- Hybridization propagator
 
-        Δ_1 = kd.ImaginaryTimeGF(
-            (t1, t2) -> -1.0im * V_1^2 *
-                (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ_2, contour.β)) *
-                exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ_2),
-            grid, 1, kd.fermionic, true)
-
-        Δ_2 = kd.ImaginaryTimeGF(
-            (t1, t2) -> -1.0im * V_2^2 *
-                (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ_2, contour.β)) *
-                exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ_2),
-            grid, 1, kd.fermionic, true)
-
-        function reverse(g::kd.ImaginaryTimeGF)
-            g_rev = deepcopy(g)
-            τ_0, τ_β = first(g.grid), last(g.grid)
-            for τ in g.grid
-                g_rev[τ, τ_0] = g[τ_β, τ]
-            end
-            return g_rev
-        end
+        Δ_1 = V_1^2 * kd.ImaginaryTimeGF(kd.DeltaDOS(ϵ_2), grid)
+        Δ_2 = V_2^2 * kd.ImaginaryTimeGF(kd.DeltaDOS(ϵ_2), grid)
+        Δ_1_rev = kd.ImaginaryTimeGF((t1, t2) -> -Δ_1[t2, t1, false],
+                                     grid, 1, kd.fermionic, true)
+        Δ_2_rev = kd.ImaginaryTimeGF((t1, t2) -> -Δ_2[t2, t1, false],
+                                     grid, 1, kd.fermionic, true)
 
         # -- Pseudo Particle Strong Coupling Expansion
 
         ip_1_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ_1)
-        ip_1_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ_1))
+        ip_1_bwd = InteractionPair(op.c(1), op.c_dag(1), Δ_1_rev)
         ip_2_fwd = InteractionPair(op.c_dag(2), op.c(2), Δ_2)
-        ip_2_bwd = InteractionPair(op.c(2), op.c_dag(2), reverse(Δ_2))
+        ip_2_bwd = InteractionPair(op.c(2), op.c_dag(2), Δ_2_rev)
         expansion = Expansion(ed, grid, [ip_1_fwd, ip_1_bwd, ip_2_fwd, ip_2_bwd])
 
         ρ_0 = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P0), ed), ed)

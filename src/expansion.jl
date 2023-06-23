@@ -146,6 +146,80 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
     end
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
+function Expansion(
+        hamiltonian::op.OperatorExpr,
+        soi::ked.SetOfIndices,
+        grid::kd.ImaginaryTimeGrid;
+        hybridization::kd.ImaginaryTimeGF{ComplexF64, false},
+        nn_interaction::Union{kd.ImaginaryTimeGF{Float64, false}, Nothing} = nothing,
+        corr_operators::Vector{Tuple{Operator, Operator}} = Tuple{Operator, Operator}[],
+        interpolate_ppgf = false
+    )
+    @assert kd.norbitals(hybridization) == length(soi)
+
+    #
+    # Hybridization
+    #
+
+    symmetry_breakers = typeof(hamiltonian)[]
+
+    interactions = InteractionPair{kd.ImaginaryTimeGF{ComplexF64, true}}[]
+    for (idx1, n1) in pairs(soi), (idx2, n2) in pairs(soi)
+        Δ = kd.ImaginaryTimeGF(
+            (t1, t2) -> hybridization[n1, n2, t1, t2],
+            hybridization.grid, 1, kd.fermionic, true
+        )
+        iszero(Δ.mat.data) && continue
+
+        Δ_rev = kd.ImaginaryTimeGF((t1, t2) -> -Δ[t2, t1, false],
+                                   Δ.grid, 1, kd.fermionic, true)
+
+        c_dag1 = op.c_dag(idx1...)
+        c2 = op.c(idx2...)
+
+        push!(interactions, InteractionPair(c_dag1, c2, Δ))
+        push!(interactions, InteractionPair(c2, c_dag1, Δ_rev))
+
+        push!(symmetry_breakers, c_dag1 * c2)
+        push!(symmetry_breakers, c2 * c_dag1)
+    end
+
+    #
+    # NN-interactions
+    #
+
+    if nn_interaction !== nothing
+        @assert kd.norbitals(nn_interaction) == length(soi)
+
+        for (idx1, n1) in pairs(soi), (idx2, n2) in pairs(soi)
+            N1 = op.n(idx1...)
+            N2 = op.n(idx2...)
+
+            U = kd.ImaginaryTimeGF(
+                (t1, t2) -> nn_interaction[n1, n2, t1, t2],
+                nn_interaction.grid, 1, kd.fermionic, true
+            )
+
+            iszero(U.mat.data) && continue
+
+            push!(interactions, InteractionPair(N1, N2, U))
+        end
+    end
+
+    ed = ked.EDCore(hamiltonian, soi; symmetry_breakers=symmetry_breakers)
+
+    return Expansion(
+        ed,
+        grid,
+        interactions,
+        corr_operators=corr_operators,
+        interpolate_ppgf=interpolate_ppgf
+    )
+end
+
 function set_bold_ppgf!(exp::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},
                         t_i::kd.TimeGridPoint,
                         t_f::kd.TimeGridPoint,
