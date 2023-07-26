@@ -206,11 +206,15 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
 
 end
 
+@assert length(ARGS) == 1
+Nexp = parse(Int, ARGS[1])
+
 MPI.Init()
 
 ntaus = [1024 * 8 * 4]
 #N_sampless = 2 .^ (3:15)
-N_sampless = 2 .^ (10:15)
+#N_sampless = 2 .^ (10:15)
+N_sampless = 2 .^ (Nexp:Nexp)
 orderss = [0:4]
 
 if ismaster()
