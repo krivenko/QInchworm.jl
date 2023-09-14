@@ -5,11 +5,10 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm.spline_gf: SplineInterpolatedGF, update_interpolants!
 
-using QInchworm.expansion: Expansion, InteractionPair
+using QInchworm.expansion: Expansion, InteractionPair, get_diagrams_at_order
 using QInchworm.configuration: Configuration, Node, InchNode, NodePair
 using QInchworm.diagrammatics: generate_topologies
 using QInchworm; cfg = QInchworm.configuration
-using QInchworm; teval = QInchworm.topology_eval
 using QInchworm.qmc_integrate: qmc_time_ordered_integral_root
 
 import QInchworm.ppgf
@@ -94,12 +93,12 @@ end
         Δτ = -imag(step(grid, kd.imaginary_branch))
 
         # 0-order configuration
-        diag_0 = teval.get_diagrams_at_order(ppsc_exp, generate_topologies(0), 0)[1]
+        diag_0 = get_diagrams_at_order(ppsc_exp, generate_topologies(0), 0)[1]
         conf_0 = Configuration(diag_0, ppsc_exp, 0)
         cfg.set_initial_node_time!(conf_0, τ_0.bpoint)
 
         # 1-st order configurations
-        diags_1 = teval.get_diagrams_at_order(ppsc_exp, generate_topologies(1), 1)
+        diags_1 = get_diagrams_at_order(ppsc_exp, generate_topologies(1), 1)
         confs_1 = Configuration.(diags_1, Ref(ppsc_exp), 1)
         cfg.set_initial_node_time!.(confs_1, Ref(τ_0.bpoint))
 
@@ -118,7 +117,7 @@ end
             for τ_1 in tau_grid[1:fidx]
 
                 pair_node_times = [τ_f.bpoint, τ_1.bpoint]
-                teval.update_pair_node_times!.(confs_1, diags_1, Ref(pair_node_times))
+                cfg.update_pair_node_times!.(confs_1, diags_1, Ref(pair_node_times))
                 val -= Δτ^2 * cfg.eval(ppsc_exp, confs_1[1])
                 val -= Δτ^2 * cfg.eval(ppsc_exp, confs_1[2])
 
@@ -180,12 +179,12 @@ end
         τ_0, τ_beta = tau_grid[1], tau_grid[end]
 
         # 0-order configuration
-        diag_0 = teval.get_diagrams_at_order(ppsc_exp, generate_topologies(0), 0)[1]
+        diag_0 = get_diagrams_at_order(ppsc_exp, generate_topologies(0), 0)[1]
         conf_0 = Configuration(diag_0, ppsc_exp, 0)
         cfg.set_initial_node_time!(conf_0, τ_0.bpoint)
 
         # 1-st order configurations
-        diags_1 = teval.get_diagrams_at_order(ppsc_exp, generate_topologies(1), 1)
+        diags_1 = get_diagrams_at_order(ppsc_exp, generate_topologies(1), 1)
         confs_1 = Configuration.(diags_1, Ref(ppsc_exp), 1)
         cfg.set_initial_node_time!.(confs_1, Ref(τ_0.bpoint))
 
@@ -210,7 +209,7 @@ end
                 init = zero(val),
                 N = N) do τ_1
                     pair_node_times = [τ_f.bpoint, τ_1[1]]
-                    teval.update_pair_node_times!.(confs_1, diags_1, Ref(pair_node_times))
+                    cfg.update_pair_node_times!.(confs_1, diags_1, Ref(pair_node_times))
                     cfg.eval(ppsc_exp, confs_1[1]) + cfg.eval(ppsc_exp, confs_1[2])
                 end
 

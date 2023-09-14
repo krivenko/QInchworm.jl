@@ -9,10 +9,8 @@ using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm.ppgf
-using QInchworm.expansion: Expansion, InteractionPair
-
-using QInchworm.topology_eval: get_topologies_at_order,
-                               get_diagrams_at_order
+using QInchworm.diagrammatics: get_topologies_at_order
+using QInchworm.expansion: Expansion, InteractionPair, get_diagrams_at_order
 
 using QInchworm.inchworm: inchworm!
 using QInchworm.spline_gf: SplineInterpolatedGF

@@ -278,27 +278,39 @@ struct Configuration
     end
 end
 
-function set_initial_node_time!(configuration::Configuration, t_i::kd.BranchPoint)
+function set_initial_node_time!(configuration::Configuration, t_i::Time)
     @assert configuration.nodes[1].operator_ref.kind == identity_flag
     configuration.nodes[1] = Node(t_i)
 end
 
-function set_final_node_time!(configuration::Configuration, t_f::kd.BranchPoint)
+function set_final_node_time!(configuration::Configuration, t_f::Time)
     @assert configuration.nodes[end].operator_ref.kind == identity_flag
     configuration.nodes[end] = Node(t_f)
 end
 
-function set_inchworm_node_time!(configuration::Configuration, t_w::kd.BranchPoint)
+function set_inchworm_node_time!(configuration::Configuration, t_w::Time)
     @assert configuration.split_node_idx !== nothing
     @assert is_inch_node(configuration.nodes[configuration.split_node_idx])
     configuration.nodes[configuration.split_node_idx] = InchNode(t_w)
 end
 
-function set_operator_node_time!(configuration::Configuration, idx::Int, t::kd.BranchPoint)
+function set_operator_node_time!(configuration::Configuration, idx::Int, t::Time)
     @assert 1 <= idx <= 2
     @assert configuration.op_node_idx !== nothing
     op_ref = configuration.nodes[configuration.op_node_idx[idx]].operator_ref
     configuration.nodes[configuration.op_node_idx[idx]] = Node(t, op_ref)
+end
+
+function update_pair_node_times!(configuration::Configuration, diagram::Diagram, times::Vector{Time})
+    for (t_idx, n_idx) in enumerate(configuration.pair_node_idxs)
+        op_ref = configuration.nodes[n_idx].operator_ref
+        configuration.nodes[n_idx] = Node(times[t_idx], op_ref)
+    end
+
+    for (p_idx, (idx_tf, idx_ti)) in enumerate(diagram.topology.pairs)
+        int_idx = configuration.pairs[p_idx].index
+        configuration.pairs[p_idx] = NodePair(times[idx_tf], times[idx_ti], int_idx)
+    end
 end
 
 """
@@ -306,7 +318,7 @@ $(TYPEDSIGNATURES)
 
 Order on the standard keldysh contour.
 """
-Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint) = !kd.heaviside(t1, t2)
+Base.isless(t1::Time, t2::Time) = !kd.heaviside(t1, t2)
 
 function eval(exp::Expansion, pairs::Vector{NodePair}, parity::Float64)
 
@@ -480,6 +492,21 @@ function eval_acc!(value::SectorBlockMatrix, exp::Expansion, conf::Configuration
     scalar::ComplexF64 = eval(exp, conf.pairs, conf.parity)
     eval_acc!(value, scalar, exp, conf.nodes, conf.paths, conf.split_node_idx !== nothing)
     return
+end
+
+function eval(expansion::Expansion,
+    diagrams::Vector{Diagram},
+    configurations::Vector{Configuration},
+    times::Vector{Time},
+)::SectorBlockMatrix
+    value = zeros(SectorBlockMatrix, expansion.ed)
+
+    for (diagram, configuration) in zip(diagrams, configurations)
+        update_pair_node_times!(configuration, diagram, times)
+        eval_acc!(value, expansion, configuration)
+    end
+
+    return value
 end
 
 end # module configuration

@@ -14,7 +14,7 @@ using QInchworm: SectorBlockMatrix
 using QInchworm.ppgf: partition_function
 
 using QInchworm; teval = QInchworm.topology_eval
-using QInchworm.diagrammatics
+using QInchworm.diagrammatics: get_topologies_at_order
 
 using QInchworm.utility: SobolSeqWith0, next!, arbitrary_skip!
 using QInchworm.utility: split_count
@@ -285,7 +285,7 @@ function inchworm!(expansion::Expansion,
         @timeit tmr "Order $(order)" begin
         @timeit tmr "Topologies" begin
 
-        topologies = teval.get_topologies_at_order(order)
+        topologies = get_topologies_at_order(order)
 
         if ismaster()
             println("Bare order $(order), N_topo $(length(topologies))")
@@ -325,7 +325,7 @@ function inchworm!(expansion::Expansion,
         end
 
         for n_pts_after in n_pts_after_range
-            topologies = teval.get_topologies_at_order(order, n_pts_after)
+            topologies = get_topologies_at_order(order, n_pts_after)
 
             if ismaster()
                 println("Bold order $(order), n_pts_after $(n_pts_after), N_topo $(length(topologies))")
@@ -499,7 +499,7 @@ function correlator_2p(expansion::Expansion,
 
         n_pts_after_range = (order == 0) ? (0:0) : (1:(2 * order - 1))
         for n_pts_after in n_pts_after_range
-            topologies = teval.get_topologies_at_order(order, n_pts_after, with_external_arc=true)
+            topologies = get_topologies_at_order(order, n_pts_after, with_external_arc=true)
 
             if !isempty(topologies)
                 push!(order_data,

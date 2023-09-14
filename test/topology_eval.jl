@@ -7,7 +7,9 @@ using HDF5
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-using QInchworm; cfg = QInchworm.configuration; teval = QInchworm.topology_eval
+using QInchworm;
+using QInchworm.diagrammatics: get_topologies_at_order
+cfg = QInchworm.configuration; teval = QInchworm.topology_eval
 using QInchworm: SectorBlockMatrix
 
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
@@ -59,7 +61,7 @@ using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
     # -- Generate all topologies and diagrams at `order`
 
     order = 3
-    topologies = teval.get_topologies_at_order(order, 1)
+    topologies = get_topologies_at_order(order, 1)
 
     println("n_topologies = $(length(topologies))")
     for topology in topologies

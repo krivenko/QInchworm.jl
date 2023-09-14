@@ -7,8 +7,8 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm.spline_gf: SplineInterpolatedGF
 
+using QInchworm.diagrammatics: get_topologies_at_order
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
-using QInchworm.topology_eval: get_topologies_at_order
 
 using QInchworm.inchworm: ExpansionOrderInputData,
                           inchworm_step,
