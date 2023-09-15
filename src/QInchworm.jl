@@ -22,6 +22,7 @@ A quasi Monte Carlo inchworm impurity solver for multi-orbital fermionic models.
 """
 module QInchworm
 
+include("scrambled_sobol/scrambled_sobol.jl")
 include("utility.jl")
 include("sector_block_matrix.jl")
 include("mpi.jl")
