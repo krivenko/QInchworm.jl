@@ -106,17 +106,21 @@ function inchworm_step(expansion::Expansion,
         order_contrib = deepcopy(zero_sector_block_matrix)
 
         if od.order == 0
+            @timeit tmr "Setup" begin
             fixed_nodes = Dict(1 => n_i, 2 => n_w, 3 => n_f)
-            eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes)
+            eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
+            end; @timeit tmr "Eval" begin
             order_contrib = eval(od.topologies, kd.BranchPoint[])
+            end # tmr
         else
             od.N_samples <= 0 && continue
+            @timeit tmr "Setup" begin
 
             d_after = od.n_pts_after
             d_before = 2 * od.order - od.n_pts_after
 
             fixed_nodes = Dict(1 => n_i, d_before + 2 => n_w, 2 * od.order + 3 => n_f)
-            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes)
+            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes, tmr=tmr)
 
             N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(od.N_samples)
             rank_weight = N_samples_on_rank / od.N_samples
@@ -124,6 +128,7 @@ function inchworm_step(expansion::Expansion,
             seq = SobolSeqWith0(2 * od.order)
             arbitrary_skip!(seq, N_skip)
 
+            end; @timeit tmr "Eval" begin
             order_contrib = rank_weight * qmc_inchworm_integral_root(
                 t -> eval(od.topologies, t),
                 d_before, d_after,
@@ -133,6 +138,7 @@ function inchworm_step(expansion::Expansion,
                 N = N_samples_on_rank
             )
             all_reduce!(order_contrib, +)
+            end # tmr
         end
 
         order_contribs[od.order] += order_contrib
@@ -191,16 +197,20 @@ function inchworm_step_bare(expansion::Expansion,
         order_contrib = deepcopy(zero_sector_block_matrix)
 
         if od.order == 0
+            @timeit tmr "Setup" begin
             fixed_nodes = Dict(1 => n_i, 2 => n_f)
-            eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes)
+            eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
+            end; @timeit tmr "Eval" begin
             order_contrib = eval(od.topologies, kd.BranchPoint[])
+            end # tmr
         else
             od.N_samples <= 0 && continue
+            @timeit tmr "Setup" begin
 
             d = 2 * od.order
 
             fixed_nodes = Dict(1 => n_i, 2 * od.order + 2 => n_f)
-            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes)
+            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes, tmr=tmr)
 
             N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(od.N_samples)
             rank_weight = N_samples_on_rank / od.N_samples
@@ -208,6 +218,7 @@ function inchworm_step_bare(expansion::Expansion,
             seq = SobolSeqWith0(d)
             arbitrary_skip!(seq, N_skip)
 
+            end; @timeit tmr "Eval" begin
             order_contrib = rank_weight * qmc_time_ordered_integral_root(
                 t -> eval(od.topologies, t),
                 d,
@@ -217,6 +228,7 @@ function inchworm_step_bare(expansion::Expansion,
                 N = N_samples_on_rank
             )
             all_reduce!(order_contrib, +)
+            end # tmr
         end
 
         set_bold_ppgf_at_order!(expansion, od.order, τ_i, τ_f, order_contrib)
@@ -405,17 +417,21 @@ function correlator_2p(expansion::Expansion,
         order_contrib::ComplexF64 = 0
 
         if od.order == 0
+            @timeit tmr "Setup" begin
             fixed_nodes = Dict(1 => n_B, 2 => n_A, 3 => n_f)
-            eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes)
+            eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
+            end; @timeit tmr "Eval" begin
             order_contrib = tr(eval(od.topologies, kd.BranchPoint[]))
+            end # tmr
         else
             od.N_samples <= 0 && continue
+            @timeit tmr "Setup" begin
 
             d_after = od.n_pts_after
             d_before = 2 * od.order - od.n_pts_after
 
             fixed_nodes = Dict(1 => n_B, d_before + 2 => n_A, 2 * od.order + 3 => n_f)
-            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes)
+            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes, tmr=tmr)
 
             N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(od.N_samples)
             rank_weight = N_samples_on_rank / od.N_samples
@@ -423,6 +439,7 @@ function correlator_2p(expansion::Expansion,
             seq = SobolSeqWith0(2 * od.order)
             arbitrary_skip!(seq, N_skip)
 
+            end; @timeit tmr "Eval" begin
             order_contrib = rank_weight * qmc_inchworm_integral_root(
                 t -> tr(eval(od.topologies, t)),
                 d_before, d_after,
@@ -432,6 +449,7 @@ function correlator_2p(expansion::Expansion,
                 N = N_samples_on_rank
             )
             order_contrib = MPI.Allreduce(order_contrib, +, MPI.COMM_WORLD)
+            end # tmr
         end
 
         result += order_contrib
