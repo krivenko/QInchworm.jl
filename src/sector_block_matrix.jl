@@ -135,6 +135,20 @@ function LinearAlgebra.tr(A::SectorBlockMatrix)::ComplexF64
                init=zero(ComplexF64))
 end
 
+function LinearAlgebra.norm(A::SectorBlockMatrix, p::Real=2)
+    isempty(A) && return float(norm(zero(eltype(A))))
+
+    if p == 0
+        return sum(a -> norm(a[2], 0), values(A))
+    elseif p == Inf
+        return maximum(a -> norm(a[2], Inf), values(A))
+    elseif p == -Inf
+        return minimum(a -> norm(a[2], -Inf), values(A))
+    else
+        return sum(a -> norm(a[2], p)^p, values(A)) ^ (1/p)
+    end
+end
+
 """
     $(TYPEDSIGNATURES)
 
