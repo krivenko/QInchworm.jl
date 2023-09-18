@@ -37,7 +37,7 @@ using MPI: MPI
 
 using Keldysh; kd = Keldysh
 
-using QInchworm.utility: SobolSeqWith0, next!
+using QInchworm.ScrambledSobol: ScrambledSobolSeq, next!
 
 #
 # AbstractDomainTransform
@@ -592,7 +592,7 @@ function contour_integral(f,
                           c::kd.AbstractContour,
                           dt::AbstractDomainTransform;
                           init = zero(contour_function_return_type(f)),
-                          seq = SobolSeqWith0(ndims(dt)),
+                          seq = ScrambledSobolSeq(ndims(dt)),
                           N::Int)
     return qmc_integral(init,
                         trans_f=make_trans_f(dt),
@@ -630,7 +630,7 @@ function contour_integral_n_samples(f,
                                     c::kd.AbstractContour,
                                     dt::AbstractDomainTransform;
                                     init = zero(contour_function_return_type(f)),
-                                    seq = SobolSeqWith0(ndims(dt)),
+                                    seq = ScrambledSobolSeq(ndims(dt)),
                                     N_samples::Int)
     N::Int = 1
     return (qmc_integral_n_samples(init,

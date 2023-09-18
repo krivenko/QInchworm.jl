@@ -156,49 +156,6 @@ function (spline::IncrementalSpline)(z)
 end
 
 """
-    $(TYPEDEF)
-
-Sobol low discrepancy sequence including the initial point ``(0, 0, \\ldots)``.
-The need for this modified version of `Sobol.SobolSeq` is discussed in
-[JuliaMath/Sobol.jl#31](https://github.com/stevengj/Sobol.jl/issues/31).
-"""
-mutable struct SobolSeqWith0{N} <: AbstractSobolSeq{N}
-    seq::SobolSeq{N}
-    init_pt_returned::Bool
-
-    SobolSeqWith0(N::Int) = new{N}(SobolSeq(N), false)
-end
-
-"""
-    $(TYPEDSIGNATURES)
-
-Return the next point in the Sobol sequence `s`.
-"""
-function next!(s::SobolSeqWith0)
-    if s.init_pt_returned
-        return next!(s.seq)
-    else
-        s.init_pt_returned = true
-        return zeros(Float64, ndims(s.seq))
-    end
-end
-
-"""
-    $(TYPEDSIGNATURES)
-
-Skip exactly `n` points in the Sobol sequence `s`.
-"""
-function arbitrary_skip!(s::SobolSeqWith0, n::Integer)
-    @assert n >= 0
-    if n >= 1
-        s.init_pt_returned = true
-        x = Array{Float64,1}(undef, ndims(s.seq))
-        for _ = 1:(n - 1); next!(s.seq, x); end
-    end
-    return nothing
-end
-
-"""
     $(TYPEDSIGNATURES)
 
 Return a vector of `n` integers which are approximately equal and sum to `N`.

@@ -42,7 +42,7 @@ using QInchworm.ppgf: partition_function
 using QInchworm; teval = QInchworm.topology_eval
 using QInchworm.diagrammatics: get_topologies_at_order
 
-using QInchworm.utility: SobolSeqWith0, next!, arbitrary_skip!
+using QInchworm.ScrambledSobol: ScrambledSobolSeq, next!, skip!
 using QInchworm.utility: split_count
 using QInchworm.mpi: ismaster, rank_sub_range, all_reduce!
 
@@ -156,8 +156,8 @@ function inchworm_step(expansion::Expansion,
             N_range = rank_sub_range(td.N_samples)
             rank_weight = length(N_range) / td.N_samples
 
-            seq = SobolSeqWith0(2 * td.order)
-            arbitrary_skip!(seq, first(N_range) - 1)
+            seq = ScrambledSobolSeq(2 * td.order)
+            skip!(seq, first(N_range) - 1, exact=true)
             end # tmr
 
             @timeit tmr "Evaluation" begin
@@ -250,8 +250,8 @@ function inchworm_step_bare(expansion::Expansion,
             N_range = rank_sub_range(td.N_samples)
             rank_weight = length(N_range) / td.N_samples
 
-            seq = SobolSeqWith0(d)
-            arbitrary_skip!(seq, first(N_range) - 1)
+            seq = ScrambledSobolSeq(d)
+            skip!(seq, first(N_range) - 1, exact=true)
             end # tmr
 
             @timeit tmr "Evaluation" begin
@@ -504,8 +504,8 @@ function correlator_2p(expansion::Expansion,
             N_range = rank_sub_range(td.N_samples)
             rank_weight = length(N_range) / td.N_samples
 
-            seq = SobolSeqWith0(2 * td.order)
-            arbitrary_skip!(seq, first(N_range) - 1)
+            seq = ScrambledSobolSeq(2 * td.order)
+            skip!(seq, first(N_range) - 1, exact=true)
             end # tmr
 
             @timeit tmr "Evaluation" begin
