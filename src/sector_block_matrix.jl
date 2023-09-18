@@ -27,6 +27,7 @@ using DocStringExtensions
 
 using LinearAlgebra: norm
 import LinearAlgebra
+import Statistics
 
 using KeldyshED: EDCore, OperatorExpr, operator_blocks
 
@@ -113,6 +114,7 @@ function Base.:*(A::Number, B::SectorBlockMatrix)::SectorBlockMatrix
 end
 
 Base.:*(A::SectorBlockMatrix, B::Number) = B * A
+Base.:/(A::SectorBlockMatrix, B::Number) = A * (one(B) / B)
 
 function Base.:+(A::SectorBlockMatrix, B::SectorBlockMatrix)::SectorBlockMatrix
     return merge(A, B) do a, b
@@ -147,6 +149,33 @@ function Base.isapprox(A::SectorBlockMatrix, B::SectorBlockMatrix; atol::Real=0)
         !isapprox(A[k][2], B[k][2], norm=mat -> norm(mat, Inf), atol=atol) && return false
     end
     return true
+end
+
+function Statistics.var(itr::AbstractArray{SectorBlockMatrix};
+                        corrected::Bool=true,
+                        mean=nothing)
+    @assert !isempty(itr)
+    v = zero(first(itr))
+    for k in keys(first(itr))
+        mat_itr = [sbm[k][2] for sbm in itr]
+        v_k = v[k]
+        if mean !== nothing
+            mean_k = mean[k]
+            @assert mean_k[1] == first(itr)[k][1]
+            v_k = (v_k[1], v_k[2] + Statistics.var(mat_itr, corrected=corrected,
+                                                   mean=mean_k[2]))
+        else
+            v_k = (v_k[1], v_k[2] + Statistics.var(mat_itr, corrected=corrected))
+        end
+    end
+    return v
+end
+
+function Statistics.std(itr::AbstractArray{SectorBlockMatrix};
+                        corrected::Bool=true,
+                        mean=nothing)
+    return Dict(s_i => (s_f, sqrt.(mat)) for (s_i, (s_f, mat)) in
+                Statistics.var(itr, corrected=corrected, mean=mean))
 end
 
 end # module sector_block_matrix
