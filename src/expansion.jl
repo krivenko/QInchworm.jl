@@ -110,6 +110,8 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
     P::PPGF
     "Contributions to interacting propagators, per expansion diagram order"
     P_orders::Vector{PPGF}
+    "Estimated standard deviations of `P_orders`"
+    P_orders_std::Vector{PPGF}
     "List of pseudo-particle interactions"
     pairs::Vector{InteractionPair{ScalarGF}}
     "List of hybridization function determinants (not implemented yet)"
@@ -153,6 +155,7 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
         dP0 = ppgf.initial_ppgf_derivative(ed, grid.contour.β)
         P = deepcopy(P0)
         P_orders = Vector{typeof(P)}()
+        P_orders_std = Vector{typeof(P)}()
 
         if interpolate_ppgf
 
@@ -197,6 +200,7 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
             P0,
             P,
             P_orders,
+            P_orders_std,
             interaction_pairs,
             [],
             corr_operators,
@@ -367,10 +371,12 @@ function set_bold_ppgf_at_order!(
         order::Integer,
         τ_i::kd.TimeGridPoint,
         τ_f::kd.TimeGridPoint,
-        val::SectorBlockMatrix) where ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}
-    for (s_i, (s_f, mat)) in val
+        result::SectorBlockMatrix,
+        result_std::SectorBlockMatrix) where ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}
+    for (s_i, (s_f, mat)) in result
         @assert s_i == s_f # Boldification must preserve the block structure
         extend!(expansion.P_orders[order+1][s_i], mat)
+        extend!(expansion.P_orders_std[order+1][s_i], result_std[s_i][2])
     end
 end
 
@@ -391,10 +397,12 @@ function set_bold_ppgf_at_order!(expansion::Expansion,
                                  order::Integer,
                                  t_i::kd.TimeGridPoint,
                                  t_f::kd.TimeGridPoint,
-                                 val::SectorBlockMatrix)
-    for (s_i, (s_f, mat)) in val
+                                 result::SectorBlockMatrix,
+                                 result_std::SectorBlockMatrix)
+    for (s_i, (s_f, mat)) in result
         @assert s_i == s_f # Boldification must preserve the block structure
         expansion.P_orders[order+1][s_i][t_f, t_i] = mat
+        expansion.P_orders_std[order+1][s_i][t_f, t_i] = result_std[s_i][2]
     end
 end
 

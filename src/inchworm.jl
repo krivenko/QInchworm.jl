@@ -58,6 +58,8 @@ using QInchworm.configuration: Node, InchNode, OperatorNode
 using QInchworm.qmc_integrate: contour_integral,
                                RootTransform,
                                DoubleSimplexRootTransform
+using QInchworm.randomization: RandomizationParams,
+                               mean_std_from_randomization
 
 export inchworm!, correlator_2p
 
@@ -76,8 +78,10 @@ struct TopologiesInputData
     n_pts_after::Int
     "List of contributing topologies"
     topologies::Vector{teval.Topology}
-    "Numbers of qMC samples (must be a power of 2)"
+    "Number of qMC samples per sequence (should be a power of 2)"
     N_samples::Int
+    "qMC randomization parameters"
+    randomization_params::RandomizationParams
 end
 
 # http://patorjk.com/software/taag/#p=display&f=Graffiti&t=QInchWorm
@@ -125,6 +129,7 @@ function inchworm_step(expansion::Expansion,
 
     orders = unique(map(td -> td.order, top_data))
     order_contribs = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
+    order_contribs_std = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
 
     for td in top_data
 
@@ -132,15 +137,14 @@ function inchworm_step(expansion::Expansion,
         @timeit tmr "Order $(td.order)" begin
         @timeit tmr "Integration" begin
 
-        order_contrib = deepcopy(zero_sector_block_matrix)
-
         if td.order == 0
             @timeit tmr "Setup" begin
             fixed_nodes = Dict(1 => n_i, 2 => n_w, 3 => n_f)
             eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
             end # tmr
             @timeit tmr "Evaluation" begin
-            order_contrib = eval(td.topologies, kd.BranchPoint[])
+            # This evaluation result is exact, so no need to update order_contribs_std
+            order_contribs[td.order] += eval(td.topologies, kd.BranchPoint[])
             end # tmr
         else
             td.N_samples <= 0 && continue
@@ -155,35 +159,40 @@ function inchworm_step(expansion::Expansion,
 
             N_range = rank_sub_range(td.N_samples)
             rank_weight = length(N_range) / td.N_samples
-
-            seq = ScrambledSobolSeq(2 * td.order)
-            skip!(seq, first(N_range) - 1, exact=true)
             end # tmr
 
             @timeit tmr "Evaluation" begin
-            order_contrib = rank_weight * contour_integral(
-                t -> eval(td.topologies, t),
-                c,
-                trans,
-                init = deepcopy(zero_sector_block_matrix),
-                seq = seq,
-                N = length(N_range)
-            )
-            end # tmr
-
-            @timeit tmr "MPI all_reduce" begin
-            all_reduce!(order_contrib, +)
+            order_contrib_mean, order_contrib_std =
+            mean_std_from_randomization(2 * td.order, td.randomization_params) do seq
+                skip!(seq, first(N_range) - 1, exact=true)
+                res::SectorBlockMatrix = rank_weight * contour_integral(
+                    t -> eval(td.topologies, t),
+                    c,
+                    trans,
+                    init = deepcopy(zero_sector_block_matrix),
+                    seq = seq,
+                    N = length(N_range)
+                )
+                @timeit tmr "MPI all_reduce" begin
+                all_reduce!(res, +)
+                end # tmr
+                res
+            end
+            order_contribs[td.order] += order_contrib_mean
+            order_contribs_std[td.order] += order_contrib_std
             end # tmr
         end
-
-        order_contribs[td.order] += order_contrib
 
         end; end; end # tmr
 
     end
 
     for order in orders
-        set_bold_ppgf_at_order!(expansion, order, τ_i, τ_f, order_contribs[order])
+        set_bold_ppgf_at_order!(expansion,
+                                order,
+                                τ_i, τ_f,
+                                order_contribs[order],
+                                order_contribs_std[order])
     end
 
     return sum(values(order_contribs))
@@ -227,8 +236,6 @@ function inchworm_step_bare(expansion::Expansion,
         @timeit tmr "Order $(td.order)" begin
         @timeit tmr "Integration" begin
 
-        order_contrib = deepcopy(zero_sector_block_matrix)
-
         if td.order == 0
             @timeit tmr "Setup" begin
             fixed_nodes = Dict(1 => n_i, 2 => n_f)
@@ -236,6 +243,7 @@ function inchworm_step_bare(expansion::Expansion,
             end # tmr
             @timeit tmr "Evaluation" begin
             order_contrib = eval(td.topologies, kd.BranchPoint[])
+            order_contrib_std = deepcopy(zero_sector_block_matrix)
             end # tmr
         else
             td.N_samples <= 0 && continue
@@ -249,28 +257,33 @@ function inchworm_step_bare(expansion::Expansion,
 
             N_range = rank_sub_range(td.N_samples)
             rank_weight = length(N_range) / td.N_samples
-
-            seq = ScrambledSobolSeq(d)
-            skip!(seq, first(N_range) - 1, exact=true)
             end # tmr
 
             @timeit tmr "Evaluation" begin
-            order_contrib = rank_weight * contour_integral(
-                t -> eval(td.topologies, t),
-                c,
-                trans,
-                init = deepcopy(zero_sector_block_matrix),
-                seq = seq,
-                N = length(N_range)
-            )
-            end # tmr
-
-            @timeit tmr "MPI all_reduce" begin
-            all_reduce!(order_contrib, +)
+            order_contrib, order_contrib_std =
+            mean_std_from_randomization(d, td.randomization_params) do seq
+                skip!(seq, first(N_range) - 1, exact=true)
+                res::SectorBlockMatrix = rank_weight * contour_integral(
+                    t -> eval(td.topologies, t),
+                    c,
+                    trans,
+                    init = deepcopy(zero_sector_block_matrix),
+                    seq = seq,
+                    N = length(N_range)
+                )
+                @timeit tmr "MPI all_reduce" begin
+                all_reduce!(res, +)
+                end # tmr
+                res
+            end
             end # tmr
         end
 
-        set_bold_ppgf_at_order!(expansion, td.order, τ_i, τ_f, order_contrib)
+        set_bold_ppgf_at_order!(expansion,
+                                td.order,
+                                τ_i, τ_f,
+                                order_contrib,
+                                order_contrib_std)
         result += order_contrib
 
         end; end; end # tmr
@@ -286,27 +299,31 @@ Perform a complete qMC inchworm calculation of the bold propagators on the imagi
 time segment. Results of the calculation are written into `expansion.P`.
 
 # Parameters
-- `expansion`:       Strong coupling expansion problem.
-- `grid`:            Imaginary time grid of the bold propagators.
-- `orders`:          List of expansion orders to be accounted for during a regular
-                     inchworm step.
-- `orders_bare`:     List of expansion orders to be accounted for during the initial
-                     inchworm step.
-- `N_samples`:       Number of samples to be used in qMC integration. Must be a power of 2.
-- `n_pts_after_max`: Maximum number of points in the after-``\\tau_w`` region to be taken
-                     into account. By default, diagrams with all valid numbers of the
-                     after-``\\tau_w`` points are considered.
+- `expansion`:            Strong coupling expansion problem.
+- `grid`:                 Imaginary time grid of the bold propagators.
+- `orders`:               List of expansion orders to be accounted for during a regular
+                          inchworm step.
+- `orders_bare`:          List of expansion orders to be accounted for during the initial
+                          inchworm step.
+- `N_samples`:            Number of samples to be used in qMC integration. Must be a power
+                          of 2.
+- `n_pts_after_max`:      Maximum number of points in the after-``\\tau_w`` region to be
+                          taken into account. By default, diagrams with all valid numbers of
+                          the after-``\\tau_w`` points are considered.
+- `randomization_params`: Parameters of the randomized qMC integration.
 """
 function inchworm!(expansion::Expansion,
                    grid::kd.ImaginaryTimeGrid,
                    orders,
                    orders_bare,
                    N_samples::Int64;
-                   n_pts_after_max::Int64 = typemax(Int64))
+                   n_pts_after_max::Int64 = typemax(Int64),
+                   randomization_params::RandomizationParams = RandomizationParams())
 
     tmr = TimerOutput()
 
     @assert N_samples == 0 || ispow2(N_samples)
+    @assert randomization_params.N_seqs > 0
 
     if ismaster()
         comm = MPI.COMM_WORLD
@@ -325,13 +342,15 @@ function inchworm!(expansion::Expansion,
         # qMC samples = $(N_samples)
         # MPI ranks = $(comm_size)
         # qMC samples (per rank, min:max) = $(minimum(N_split)):$(maximum(N_split))
+        $(randomization_params)
         """
     end
 
-    # Extend expansion.P_orders to max of orders, orders_bare
+    # Extend expansion.P_orders and expansion.P_orders_std to max of orders, orders_bare
     max_order = maximum([maximum(orders), maximum(orders_bare)])
     for o in 1:(max_order+1)
         push!(expansion.P_orders, kd.zero(expansion.P0))
+        push!(expansion.P_orders_std, kd.zero(expansion.P0))
     end
 
     # First inchworm step
@@ -344,7 +363,18 @@ function inchworm!(expansion::Expansion,
         @timeit tmr "Topologies" begin
 
         topologies = get_topologies_at_order(order)
-        push!(top_data, TopologiesInputData(order, 2*order, topologies, N_samples))
+
+        if ismaster()
+            println("Bare order $(order), N_topo $(length(topologies))")
+        end
+
+        push!(top_data,
+              TopologiesInputData(order,
+                                  2 * order,
+                                  topologies,
+                                  N_samples,
+                                  randomization_params)
+        )
 
         end; end; end # tmr "Bare" "Order" "Topologies"
 
@@ -389,7 +419,13 @@ function inchworm!(expansion::Expansion,
 
             if !isempty(topologies)
                 push!(top_data,
-                    TopologiesInputData(order, n_pts_after, topologies, N_samples)
+                      TopologiesInputData(
+                          order,
+                          n_pts_after,
+                          topologies,
+                          N_samples,
+                          randomization_params
+                      )
                 )
             end
         end
@@ -453,14 +489,15 @@ the calculation is taken from `expansion.corr_operators[A_B_pair_idx]`.
 - `tmr`:          A `TimerOutput` object used for profiling.
 
 # Returns
-Accumulated value of the two-point correlator.
+- `corr`    : Accumulated value of the two-point correlator.
+- `corr_std`: Estimated standard deviations of the computed correlator.
 """
 function correlator_2p(expansion::Expansion,
                        grid::kd.ImaginaryTimeGrid,
                        A_B_pair_idx::Int64,
                        τ::kd.TimeGridPoint,
                        top_data::Vector{TopologiesInputData};
-                       tmr::TimerOutput = TimerOutput())::ComplexF64
+                       tmr::TimerOutput = TimerOutput())::Tuple{ComplexF64, ComplexF64}
     t_B = grid[1].bpoint # B is always placed at τ=0
     t_A = τ.bpoint
     t_f = grid[end].bpoint
@@ -471,6 +508,7 @@ function correlator_2p(expansion::Expansion,
     @assert n_f.time.ref >= n_A.time.ref >= n_B.time.ref
 
     result::ComplexF64 = 0
+    result_std::Float64 = 0
 
     for td in top_data
 
@@ -478,6 +516,7 @@ function correlator_2p(expansion::Expansion,
         @timeit tmr "Integration" begin
 
         order_contrib::ComplexF64 = 0
+        order_contrib_std::Float64 = 0
 
         if td.order == 0
             @timeit tmr "Setup" begin
@@ -486,6 +525,7 @@ function correlator_2p(expansion::Expansion,
             end # tmr
             @timeit tmr "Evaluation" begin
             order_contrib = tr(eval(td.topologies, kd.BranchPoint[]))
+            order_contrib_std = .0
             end # tmr
         else
             td.N_samples <= 0 && continue
@@ -503,33 +543,34 @@ function correlator_2p(expansion::Expansion,
 
             N_range = rank_sub_range(td.N_samples)
             rank_weight = length(N_range) / td.N_samples
-
-            seq = ScrambledSobolSeq(2 * td.order)
-            skip!(seq, first(N_range) - 1, exact=true)
             end # tmr
 
             @timeit tmr "Evaluation" begin
-            order_contrib = rank_weight * contour_integral(
-                t -> tr(eval(td.topologies, t)),
-                grid.contour,
-                trans,
-                init = ComplexF64(0),
-                seq = seq,
-                N = length(N_range)
-            )
-            end # tmr
-
-            @timeit tmr "MPI all_reduce" begin
-            order_contrib = MPI.Allreduce(order_contrib, +, MPI.COMM_WORLD)
+            order_contrib, order_contrib_std =
+            mean_std_from_randomization((2 * td.order), td.randomization_params) do seq
+                skip!(seq, first(N_range) - 1, exact=true)
+                res::ComplexF64 = rank_weight * contour_integral(
+                    t -> tr(eval(td.topologies, t)),
+                    grid.contour,
+                    trans,
+                    init = ComplexF64(0),
+                    seq = seq,
+                    N = length(N_range)
+                )
+                @timeit tmr "MPI all_reduce" begin
+                MPI.Allreduce(res, +, MPI.COMM_WORLD)
+                end # tmr
+            end
             end # tmr
         end
 
         result += order_contrib
+        result_std += order_contrib_std
 
         end; end # tmr
     end
 
-    return result / partition_function(expansion.P)
+    return (result, result_std) ./ partition_function(expansion.P)
 end
 
 """
@@ -548,17 +589,24 @@ time segment. Accumulation is performed for each pair of operators ``(A, B)`` in
 - `N_samples`: Number of samples to be used in qMC integration. Must be a power of 2.
 
 # Returns
-A list of scalar-valued GF objects containing the computed correlators, one element per a
-pair in `expansion.corr_operators`.
+- `corr`: A list of scalar-valued GF objects containing the computed correlators,
+          one element per a pair in `expansion.corr_operators`.
+- `corr_std`: A list of scalar-valued GF objects containing estimated standard deviations of
+              the computed correlators, one element per a pair in
+              `expansion.corr_operators`.
 """
 function correlator_2p(expansion::Expansion,
                        grid::kd.ImaginaryTimeGrid,
                        orders,
-                       N_samples::Int64)::Vector{kd.ImaginaryTimeGF{ComplexF64, true}}
+                       N_samples::Int64;
+                       randomization_params::RandomizationParams = RandomizationParams()
+                       )::Tuple{Vector{kd.ImaginaryTimeGF{ComplexF64, true}},
+                                Vector{kd.ImaginaryTimeGF{ComplexF64, true}}}
 
     tmr = TimerOutput()
 
     @assert N_samples == 0 || ispow2(N_samples)
+    @assert randomization_params.N_seqs > 0
     @assert grid.contour.β == expansion.P[1].grid.contour.β
 
     if ismaster()
@@ -575,6 +623,7 @@ function correlator_2p(expansion::Expansion,
         # qMC samples = $(N_samples)
         # MPI ranks = $(comm_size)
         # qMC samples (per rank, min:max) = $(minimum(N_split)):$(maximum(N_split))
+        $(randomization_params)
         """
     end
 
@@ -594,7 +643,13 @@ function correlator_2p(expansion::Expansion,
 
             if !isempty(topologies)
                 push!(top_data,
-                    TopologiesInputData(order, n_pts_after, topologies, N_samples)
+                      TopologiesInputData(
+                            order,
+                            n_pts_after,
+                            topologies,
+                            N_samples,
+                            randomization_params
+                        )
                 )
             end
         end
@@ -613,6 +668,8 @@ function correlator_2p(expansion::Expansion,
 
     # Accumulate correlators
     corr_list = kd.ImaginaryTimeGF{ComplexF64, true}[]
+    corr_std_list = kd.ImaginaryTimeGF{ComplexF64, true}[]
+
     for (op_pair_idx, (A, B)) in enumerate(expansion.corr_operators)
 
         @assert length(A) == 1 "Operator A must be a single monomial in C/C^+"
@@ -623,6 +680,7 @@ function correlator_2p(expansion::Expansion,
         ξ = (is_fermion(A) && is_fermion(B)) ? kd.fermionic : kd.bosonic
 
         push!(corr_list, kd.ImaginaryTimeGF(grid, 1, ξ, true))
+        push!(corr_std_list, kd.ImaginaryTimeGF(grid, 1, ξ, true))
 
         #
         # Fill in values
@@ -632,7 +690,8 @@ function correlator_2p(expansion::Expansion,
 
         # Only the 0-th order can contribute at τ_A = τ_B
         if top_data[1].order == 0
-            corr_list[end][τ_B, τ_B] = correlator_2p(
+            corr_list[end][τ_B, τ_B], corr_std_list[end][τ_B, τ_B] =
+            correlator_2p(
                 expansion,
                 grid,
                 op_pair_idx,
@@ -653,7 +712,8 @@ function correlator_2p(expansion::Expansion,
 
         for n in iter
             τ_A = grid[n]
-            corr_list[end][τ_A, τ_B] = correlator_2p(
+            corr_list[end][τ_A, τ_B], corr_std_list[end][τ_A, τ_B] =
+            correlator_2p(
                 expansion,
                 grid,
                 op_pair_idx,
@@ -666,7 +726,7 @@ function correlator_2p(expansion::Expansion,
 
     ismaster() && @debug string("Timed sections in correlator_2p()\n", tmr)
 
-    return corr_list
+    return (corr_list, corr_std_list)
 end
 
 end # module inchworm
