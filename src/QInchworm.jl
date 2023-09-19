@@ -32,6 +32,7 @@ include("ppgf.jl")
 include("expansion.jl")
 include("configuration.jl")
 include("qmc_integrate.jl")
+include("randomization.jl")
 include("topology_eval.jl")
 include("inchworm.jl")
 
