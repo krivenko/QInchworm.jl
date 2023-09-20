@@ -71,7 +71,7 @@ function atomic_ppgf(grid::kd.ImaginaryTimeGrid, ed::ked.EDCore)::ImaginaryTimeP
     G
 end
 
-function atomic_ppgf!(G::Vector, ed::ked.EDCore)
+function atomic_ppgf!(G::Vector, ed::ked.EDCore; Δλ::Float64 = 0.0)
     @assert length(G) == length(ed.subspaces)
 
     β = G[1].grid.contour.β
@@ -84,7 +84,7 @@ function atomic_ppgf!(G::Vector, ed::ked.EDCore)
     for (G_s, s, E, n) in zip(G, ed.subspaces, ked.energies(ed), N)
         ξ = (-1)^n[1,1] # Statistics sign
         grid = G_s.grid
-        atomic_ppgf_fill_G!(G_s, grid, E, λ, ξ)
+        atomic_ppgf_fill_G!(G_s, grid, E, λ + Δλ, ξ)
     end
 end
 
