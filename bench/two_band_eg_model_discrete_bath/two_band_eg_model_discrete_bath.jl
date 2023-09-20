@@ -20,7 +20,7 @@ using QuadGK: quadgk
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-using QInchworm.ppgf: normalize!, density_matrix
+using QInchworm.ppgf: normalize!, density_matrix, atomic_ppgf!
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.inchworm: inchworm!, correlator_2p
 using QInchworm.mpi: ismaster
@@ -177,11 +177,13 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
     #println(ips)
     
     expansion = Expansion(ed, grid, ips)
+    #atomic_ppgf!(expansion.P0, ed, Δλ=1.0)
+    atomic_ppgf!(expansion.P0, ed, Δλ=2.0)
 
     inchworm!(expansion, grid, orders, orders_bare, N_samples;
               n_pts_after_max=n_pts_after_max)
 
-    P_raw = deepcopu(expansion.P)
+    P_raw = deepcopy(expansion.P)
     normalize!(expansion.P, β)
 
     add_corr_operators!(expansion, (op.c("up", 1), op.c_dag("up", 1)))
@@ -233,7 +235,8 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
 
         for (s, p) in enumerate(expansion.P)
             grp["P_$(s)"] = p.mat.data
-            grp["P_raw_$(s)"] = P_raw[s].mat.data
+            grp["P0_$(s)"] = expansion.P0[s].mat.data
+            grp["Praw_$(s)"] = P_raw[s].mat.data
         end
         
         grp["gf_ref"] = -Δ.mat.data[1, 1, :]
