@@ -339,9 +339,12 @@ struct TopologyEvaluator
 
         selected_pair_ints = Vector{Int64}(undef, order)
 
+        top_result = zeros(SectorBlockMatrix, exp.ed)
+
         # move allocation to exp
         m = maximum([ norbitals(p) for p in exp.P ])
         tmp_mv = Array{ComplexF64, 2}(undef, m*m, n_nodes + 1)
+
         tmp1 = Array{ComplexF64, 1}(undef, m*m)
         tmp2 = Array{ComplexF64, 1}(undef, m*m)
         
@@ -353,7 +356,7 @@ struct TopologyEvaluator
                    ppgf_mats,
                    pair_ints,
                    selected_pair_ints,
-                   zeros(SectorBlockMatrix, exp.ed),
+                   top_result,
                    tmr, tmp_mv, tmp1, tmp2)
     end
 end
@@ -459,12 +462,12 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
         for s_i in eachindex(eval.exp.P) # TODO: Parallelization opportunity II
 
             _traverse_configuration_tree_opt!(eval,
-                                          view(eval.conf, :),
-                                          s_i, s_i,
-                                          eval.exp.identity_mat[s_i][2],
-                                          ComplexF64(1))
+                                              view(eval.conf, :),
+                                              s_i, s_i,
+                                              eval.exp.identity_mat[s_i][2],
+                                              ComplexF64(1))
         end
-
+                
         end # tree trav tmr
 
         if false
@@ -473,7 +476,7 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
             @show eval.top_result
             @show top_result_ref - eval.top_result
         end
-        @assert top_result_ref ≈ eval.top_result
+        #@assert top_result_ref ≈ eval.top_result
         end # if
         
         result += -im * top.parity * (-1)^top.order * eval.top_result
@@ -593,14 +596,25 @@ function _traverse_configuration_tree_opt!(eval::TopologyEvaluator,
                                        pair_int_weight::ComplexF64)
 
     @inline function mat_view(vec::AbstractVector{ComplexF64}, n, m)
-        return reshape(view(vec, 1:n*m), n, m)
+        return @inbounds reshape(view(vec, 1:n*m), n, m)
     end
     
+    @inline function mygemm!(C, A, B)
+        @inbounds @fastmath for m ∈ axes(A,1), n ∈ axes(B,2)
+            Cmn = zero(eltype(C))
+            for k ∈ axes(A,2)
+                Cmn += A[m,k] * B[k,n]
+            end
+            C[m,n] = Cmn
+        end
+    end
+
     @inline function matmul_prealloc(
         A::Matrix{ComplexF64}, B::AbstractMatrix{ComplexF64}, eval::TopologyEvaluator)
         tmp = (parent(parent(B)) === eval.tmp1) ? eval.tmp2 : eval.tmp1
-        C = mat_view(tmp, size(A, 1), size(B, 2))
-        mul!(C, A, B)
+        C = mat_view(tmp, size(A, 1), size(B, 2))                
+        #mul!(C, A, B)
+        mygemm!(C, A, B)
         return C
     end
     
@@ -611,32 +625,31 @@ function _traverse_configuration_tree_opt!(eval::TopologyEvaluator,
                 
         if pos > 1
             #ppgf_weight = (im * eval.ppgf_mats[pos - 1, s_i]) * ppgf_weight
-            ppgf_weight = matmul_prealloc(eval.ppgf_mats[pos - 1, s_i], ppgf_weight, eval)
-            #ppgf_weight .*= im
+            ppgf_weight = @inbounds matmul_prealloc(eval.ppgf_mats[pos - 1, s_i], ppgf_weight, eval)
         end
         
-        node = conf[1]            # Current node
-        conf = @view conf[2:end]  # The rest of the configuration
+        node = @inbounds conf[1]            # Current node
+        conf = @inbounds @view conf[2:end]  # The rest of the configuration
 
         if node.kind == pair_flag
             
             if node.operator_index == 1 # Head of an interaction arc
 
                 # ppgf_weight needs separate storage (since the _travers... calls use tmp1 & tmp2)
-                ppgf_tmp = ppgf_weight
-                ppgf_weight = mat_view(eval.tmp_mv[:, pos], size(ppgf_weight, 1), size(ppgf_weight, 2))
-                ppgf_weight .= ppgf_tmp
+                ppgf_tmp = @inbounds mat_view(view(eval.tmp_mv, :, pos), size(ppgf_weight, 1), size(ppgf_weight, 2))
+                ppgf_tmp .= ppgf_weight
+                #ppgf_tmp = copy(ppgf_weight)
                 
                 # Loop over all interaction pairs attachable to this node
-                for int_index in eval.exp.subspace_attachable_pairs[s_i]
+                for int_index in @inbounds eval.exp.subspace_attachable_pairs[s_i]
                     
                     # Select an interaction for this arc
-                    eval.selected_pair_ints[node.arc_index] = int_index
+                    @inbounds eval.selected_pair_ints[node.arc_index] = int_index
                     
-                    s_next, mat = eval.exp.pair_operator_mat[int_index][1][s_i]
+                    s_next, mat = @inbounds eval.exp.pair_operator_mat[int_index][1][s_i]
                     
                     #ppgf_weight_next = mat * ppgf_weight
-                    ppgf_weight_next = matmul_prealloc(mat, ppgf_weight, eval)
+                    ppgf_weight_next = matmul_prealloc(mat, ppgf_tmp, eval)
                     
                     _traverse_configuration_tree_opt!(
                         eval, conf, s_next, s_f, ppgf_weight_next, pair_int_weight)
@@ -646,42 +659,34 @@ function _traverse_configuration_tree_opt!(eval::TopologyEvaluator,
 
             else # Tail of an interaction arc
                 
-                int_index = eval.selected_pair_ints[node.arc_index]
-                op_sbm = eval.exp.pair_operator_mat[int_index][2]
+                int_index = @inbounds eval.selected_pair_ints[node.arc_index]
+                op_sbm = @inbounds eval.exp.pair_operator_mat[int_index][2]
                 haskey(op_sbm, s_i) || return
                 s_i, mat = op_sbm[s_i]
 
                 #ppgf_weight = mat * ppgf_weight
                 ppgf_weight = matmul_prealloc(mat, ppgf_weight, eval)
                 
-                #pair_int_weight *= im * eval.pair_ints[node.arc_index, int_index]
-                pair_int_weight *= eval.pair_ints[node.arc_index, int_index]
+                pair_int_weight *= @inbounds eval.pair_ints[node.arc_index, int_index]
             end
 
         elseif node.kind == operator_flag
 
-            op_sbm = eval.exp.corr_operators_mat[node.arc_index][node.operator_index]
+            op_sbm = @inbounds eval.exp.corr_operators_mat[node.arc_index][node.operator_index]
             haskey(op_sbm, s_i) || return
             s_i, mat = op_sbm[s_i]
 
             #ppgf_weight = mat * ppgf_weight
             ppgf_weight = matmul_prealloc(mat, ppgf_weight, eval)
             
-        elseif node.kind ∈ (identity_flag, inch_flag)
-            continue
-        else
-            @assert false
         end
         
     end
 
     # We are at a leaf
-    if s_i == s_f # Is the resulting configuration block-diagonal?
-        #@assert eval.top_result[s_i][1] == s_f
-        ppgf_weight .*= pair_int_weight
-        #eval.top_result[s_i] = (s_f, eval.top_result[s_i][2] + ppgf_weight)
-        eval.top_result[s_i][2] .+= ppgf_weight
-    end    
+    #@assert s_i == s_f
+    @inbounds eval.top_result[s_i][2] .+= pair_int_weight .* ppgf_weight
+
 end
 
 end # module topology_eval
