@@ -260,7 +260,8 @@ function inchworm!(expansion::Expansion,
         println("N_tau = ", length(grid))
         println("orders_bare = ", orders_bare)
         println("orders = ", orders)
-        println("n_pts_after_max = ", n_pts_after_max)
+        println("n_pts_after_max = ",
+                n_pts_after_max == typemax(Int64) ? "unrestricted" : n_pts_after_max)
         println("N_samples = ", N_samples)
         println("N_ranks = ", comm_size)
         println("N_samples (per rank) = ", N_split)
