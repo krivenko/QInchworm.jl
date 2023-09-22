@@ -172,14 +172,12 @@ function Statistics.var(itr::AbstractArray{SectorBlockMatrix};
     v = zero(first(itr))
     for k in keys(first(itr))
         mat_itr = [sbm[k][2] for sbm in itr]
-        v_k = v[k]
         if mean !== nothing
-            mean_k = mean[k]
-            @assert mean_k[1] == first(itr)[k][1]
-            v_k = (v_k[1], v_k[2] + Statistics.var(mat_itr, corrected=corrected,
-                                                   mean=mean_k[2]))
+            @assert mean[k][1] == first(itr)[k][1]
+            v[k] = (v[k][1], v[k][2] + Statistics.var(mat_itr, corrected=corrected,
+                                                      mean=mean[k][2]))
         else
-            v_k = (v_k[1], v_k[2] + Statistics.var(mat_itr, corrected=corrected))
+            v[k] = (v[k][1], v[k][2] + Statistics.var(mat_itr, corrected=corrected))
         end
     end
     return v
