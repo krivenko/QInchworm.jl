@@ -411,6 +411,7 @@ function normalize!(G::Vector{<:kd.AbstractTimeGF}, β)
     for g in G
         normalize!(g, λ)
     end
+    return λ
 end
 
 function normalize!(g::kd.AbstractTimeGF, λ)
