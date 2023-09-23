@@ -502,26 +502,6 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
 
         end;
 
-        if false
-        @timeit eval.tmr "tree" begin
-                
-        fill!(eval.top_result, 0.0)
-
-        # Traverse the configuration tree for each initial subspace
-        for s_i in eachindex(eval.exp.P) # TODO: Parallelization opportunity II
-            _traverse_configuration_tree!(eval,
-                                          view(eval.conf, :),
-                                          s_i, s_i,
-                                          eval.exp.identity_mat[s_i][2],
-                                          ComplexF64(1))
-        end
-
-        top_result_ref = deepcopy(eval.top_result)
-            
-        end; # tmr
-            
-        end # if 
-
         if true
         @timeit eval.tmr "tree (cplx opt)" begin
                 
@@ -542,11 +522,11 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
             
         end # if 
         
-        @timeit eval.tmr "fill" begin
-        fill!(eval.top_result, 0.0)
-        end # tmr
+        if true
 
         @timeit eval.tmr "tree (real opt)" begin
+
+        fill!(eval.top_result, 0.0)
 
         # Traverse the configuration tree for each initial subspace
         for s_i in eachindex(eval.exp.P) # TODO: Parallelization opportunity II
@@ -558,11 +538,44 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
                                               Float64(1))
         end
                 
+        top_result_real = deepcopy(eval.top_result)
+
         end # tree trav tmr
 
-        diff = maximum(abs(top_result_cplx - eval.top_result))
-        if diff > 1e-9
-            @show diff
+        end
+
+        if true
+        @timeit eval.tmr "tree" begin
+                
+        fill!(eval.top_result, 0.0)
+
+        # Traverse the configuration tree for each initial subspace
+        for s_i in eachindex(eval.exp.P) # TODO: Parallelization opportunity II
+            _traverse_configuration_tree!(eval,
+                                          view(eval.conf, :),
+                                          s_i, s_i,
+                                          eval.exp.identity_mat[s_i][2],
+                                          ComplexF64(1))
+        end
+
+        top_result_ref = deepcopy(eval.top_result)
+            
+        end; # tmr
+            
+        end # if 
+        
+        diff_real = maximum(abs(top_result_ref - top_result_real))
+        diff_cplx = maximum(abs(top_result_ref - top_result_cplx))
+        
+        if diff_real > 1e-9
+            @show diff_real
+            #@show top_result_ref
+            #@show top_result_real
+            #exit()
+        end
+
+        if diff_cplx > 1e-9
+            @show diff_cplx
         end
 
         #@show eval.matrix_sizes
