@@ -1,6 +1,6 @@
 module topology_eval
 
-using DataStructures: DefaultDict
+#using DataStructures: DefaultDict
 using Octavian
 
 using TimerOutputs: TimerOutput, @timeit
@@ -332,8 +332,8 @@ struct TopologyEvaluator
     corr_operators_mat::Vector{Tuple{SectorBlockMatrix, SectorBlockMatrix}}
     corr_operators_mat_real::Vector{Tuple{SectorBlockMatrixReal, SectorBlockMatrixReal}}
 
-    """ Histogram over matrix sizes """
-    matrix_sizes::DefaultDict{Tuple{Int64, Int64, Int64}, Int64}
+    #""" Histogram over matrix sizes """
+    #matrix_sizes::DefaultDict{Tuple{Int64, Int64, Int64}, Int64}
     
     function TopologyEvaluator(exp::Expansion,
                                order::Int,
@@ -403,7 +403,7 @@ struct TopologyEvaluator
         pair_operator_mat_real = [ real.(pair) for pair in exp.pair_operator_mat ]
         corr_operators_mat_real = [ real.(pair) for pair in exp.corr_operators_mat ]
 
-        matrix_sizes = DefaultDict{Tuple{Int64, Int64, Int64}, Int64}(0)
+        #matrix_sizes = DefaultDict{Tuple{Int64, Int64, Int64}, Int64}(0)
         
         return new(exp,
                    conf,
@@ -421,8 +421,8 @@ struct TopologyEvaluator
                    tmr, tmp_mv, tmp_mv_real, tmp1, tmp2, tmp1_real, tmp2_real, tmp_idx,
                    #pair_operator_mat, corr_operators_mat
                    identity_mats_real,
-                   pair_operator_mat, pair_operator_mat_real, corr_operators_mat, corr_operators_mat_real,
-                   matrix_sizes
+                   pair_operator_mat, pair_operator_mat_real, corr_operators_mat, corr_operators_mat_real
+                   #matrix_sizes
                    )
     end
 end
