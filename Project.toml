@@ -15,6 +15,7 @@ ProgressBars = "49802e3a-d2f1-5c88-81d8-b72133a6f568"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 Sobol = "ed01d8cd-4d21-5b2a-85b4-cc3bdc58bad4"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
+Octavian = "6fd5a793-0b7e-452c-907f-f8bfe9c57db4"
 
 [compat]
 julia = "1.6"
