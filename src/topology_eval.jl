@@ -1,5 +1,7 @@
 module topology_eval
 
+using Octavian
+
 using TimerOutputs: TimerOutput, @timeit
 
 using DocStringExtensions
@@ -10,7 +12,7 @@ using Keldysh; kd = Keldysh
 using QInchworm
 using QInchworm; cfg = QInchworm.configuration
 
-using QInchworm: SectorBlockMatrix
+using QInchworm: SectorBlockMatrix, SectorBlockMatrixReal, imag
 using QInchworm.expansion: Expansion
 using QInchworm.configuration: Configuration,
                                Time,
@@ -279,6 +281,7 @@ struct TopologyEvaluator
     of time points ``(t_{i+1}, t_i)``.
     """
     ppgf_mats::Array{Matrix{ComplexF64}, 2}
+    ppgf_mats_real::Array{Matrix{Float64}, 2}
 
     """
     Pair interaction arcs evaluated at all relevant pairs of time arguments.
@@ -287,6 +290,7 @@ struct TopologyEvaluator
     points corresponding to the a-th arc in a topology.
     """
     pair_ints::Array{ComplexF64, 2}
+    pair_ints_real::Array{Float64, 2}
 
     """
     Indices of pair interactions within `exp.pairs` assigned to each
@@ -302,9 +306,23 @@ struct TopologyEvaluator
 
     """ Temporary ppgf_weight storage (for reducing allocations)"""
     tmp_mv::Array{ComplexF64, 2}
-    tmp1::Array{ComplexF64, 1}
-    tmp2::Array{ComplexF64, 1}
 
+    #tmp1::Array{ComplexF64, 1}
+    #tmp2::Array{ComplexF64, 1}
+
+    tmp1::Array{Matrix{Float64}, 2}
+    tmp2::Array{Matrix{Float64}, 2}
+    #tmp1::Array{Matrix{ComplexF64}, 2}
+    #tmp2::Array{Matrix{ComplexF64}, 2}
+    tmp_idx::Ref{Int64}
+
+    "Block matrix representation of paired operators (operator_i, operator_f)"
+    pair_operator_mat::Vector{Tuple{SectorBlockMatrix, SectorBlockMatrix}}
+    pair_operator_mat_real::Vector{Tuple{SectorBlockMatrixReal, SectorBlockMatrixReal}}
+    "Block matrix representation of corr_operators"
+    corr_operators_mat::Vector{Tuple{SectorBlockMatrix, SectorBlockMatrix}}
+    corr_operators_mat_real::Vector{Tuple{SectorBlockMatrixReal, SectorBlockMatrixReal}}
+    
     function TopologyEvaluator(exp::Expansion,
                                order::Int,
                                fixed_nodes::Dict{Int, FixedNode};
@@ -335,7 +353,11 @@ struct TopologyEvaluator
 
         ppgf_mats = [Matrix{ComplexF64}(undef, norbitals(p), norbitals(p))
                      for _ in 1:(n_nodes-1), p in exp.P]
+        ppgf_mats_real = [Matrix{Float64}(undef, norbitals(p), norbitals(p))
+                     for _ in 1:(n_nodes-1), p in exp.P]
+
         pair_ints = Array{ComplexF64}(undef, order, length(exp.pairs))
+        pair_ints_real = Array{Float64}(undef, order, length(exp.pairs))
 
         selected_pair_ints = Vector{Int64}(undef, order)
 
@@ -345,8 +367,21 @@ struct TopologyEvaluator
         m = maximum([ norbitals(p) for p in exp.P ])
         tmp_mv = Array{ComplexF64, 2}(undef, m*m, n_nodes + 1)
 
-        tmp1 = Array{ComplexF64, 1}(undef, m*m)
-        tmp2 = Array{ComplexF64, 1}(undef, m*m)
+        #tmp1 = Array{ComplexF64, 1}(undef, m*m)
+        #tmp2 = Array{ComplexF64, 1}(undef, m*m)
+
+        #tmp1 = [Matrix{ComplexF64}(undef, i, j ) for i in 1:m, j in 1:m]
+        #tmp2 = [Matrix{ComplexF64}(undef, i, j ) for i in 1:m, j in 1:m]
+
+        tmp1 = [Matrix{Float64}(undef, i, j ) for i in 1:m, j in 1:m]
+        tmp2 = [Matrix{Float64}(undef, i, j ) for i in 1:m, j in 1:m]
+        tmp_idx = 1
+
+        pair_operator_mat = [ pair for pair in exp.pair_operator_mat ]
+        corr_operators_mat = [ pair for pair in exp.corr_operators_mat ]
+
+        pair_operator_mat_real = [ real.(pair) for pair in exp.pair_operator_mat ]
+        corr_operators_mat_real = [ real.(pair) for pair in exp.corr_operators_mat ]
         
         return new(exp,
                    conf,
@@ -354,10 +389,16 @@ struct TopologyEvaluator
                    top_to_conf_pos,
                    use_bold_prop,
                    ppgf_mats,
+                   ppgf_mats_real,
                    pair_ints,
+                   pair_ints_real,
                    selected_pair_ints,
                    top_result,
-                   tmr, tmp_mv, tmp1, tmp2)
+                   #tmr, tmp_mv, tmp1, tmp2)
+                   tmr, tmp_mv, tmp1, tmp2, tmp_idx,
+                   #pair_operator_mat, corr_operators_mat
+                   pair_operator_mat, pair_operator_mat_real, corr_operators_mat, corr_operators_mat_real
+                   )
     end
 end
 
@@ -397,6 +438,7 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
                 kd.interpolate!(eval.ppgf_mats[i, s], eval.exp.P0[s], time_f, time_i)
             end
             eval.ppgf_mats[i, s] .*= im
+            eval.ppgf_mats_real[i, s] = real.(eval.ppgf_mats[i, s])
         end
     end
 
@@ -429,6 +471,7 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
 
             for (p, int_pair) in enumerate(eval.exp.pairs)
                 eval.pair_ints[a, p] = im * int_pair.propagator(time_f, time_i)
+                eval.pair_ints_real[a, p] = real.(eval.pair_ints[a, p])
             end
         end
 
@@ -464,17 +507,22 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
             _traverse_configuration_tree_opt!(eval,
                                               view(eval.conf, :),
                                               s_i, s_i,
-                                              eval.exp.identity_mat[s_i][2],
-                                              ComplexF64(1))
+                                              Matrix{Float64}(real.(eval.exp.identity_mat[s_i][2])),
+                                              Float64(1))
+                                              #eval.exp.identity_mat[s_i][2],
+                                              #ComplexF64(1))
         end
                 
         end # tree trav tmr
 
         if false
-        if !(top_result_ref ≈ eval.top_result)
-            @show top_result_ref
-            @show eval.top_result
-            @show top_result_ref - eval.top_result
+        diff = maximum(abs(top_result_ref - eval.top_result))
+        #if !(top_result_ref ≈ eval.top_result)
+        if diff > 1e-9
+            #@show top_result_ref
+            #@show eval.top_result
+            #@show top_result_ref - eval.top_result
+            @show diff
         end
         #@assert top_result_ref ≈ eval.top_result
         end # if
@@ -592,8 +640,11 @@ function _traverse_configuration_tree_opt!(eval::TopologyEvaluator,
                                        conf::SubArray{Node, 1},
                                        s_i::Int64,
                                        s_f::Int64,
-                                       ppgf_weight::AbstractMatrix{ComplexF64},
-                                       pair_int_weight::ComplexF64)
+                                       ppgf_weight::Matrix{Float64},
+                                       pair_int_weight::Float64)
+                                       #ppgf_weight::AbstractMatrix,
+                                       ##ppgf_weight::AbstractMatrix{ComplexF64},
+                                       #pair_int_weight::ComplexF64)
 
     @inline function mat_view(vec::AbstractVector{ComplexF64}, n, m)
         return @inbounds reshape(view(vec, 1:n*m), n, m)
@@ -610,11 +661,27 @@ function _traverse_configuration_tree_opt!(eval::TopologyEvaluator,
     end
 
     @inline function matmul_prealloc(
-        A::Matrix{ComplexF64}, B::AbstractMatrix{ComplexF64}, eval::TopologyEvaluator)
-        tmp = (parent(parent(B)) === eval.tmp1) ? eval.tmp2 : eval.tmp1
-        C = mat_view(tmp, size(A, 1), size(B, 2))                
+        #A, B, eval::TopologyEvaluator)
+        A::Matrix{Float64}, B::Matrix{Float64}, eval::TopologyEvaluator)::Matrix{Float64}
+        #A::Matrix{ComplexF64}, B::Matrix{ComplexF64}, eval::TopologyEvaluator)
+        #A::Matrix{ComplexF64}, B::AbstractMatrix{ComplexF64}, eval::TopologyEvaluator)
+
+        #tmp = (parent(parent(B)) === eval.tmp1) ? eval.tmp2 : eval.tmp1
+        #C = mat_view(tmp, size(A, 1), size(B, 2))
+
+        if eval.tmp_idx[] == 1
+            tmp = eval.tmp2
+            eval.tmp_idx[] = 2
+        else
+            tmp = eval.tmp1
+            eval.tmp_idx[] = 1
+        end
+
+        C = tmp[size(A, 1), size(B, 2)]
+        
         #mul!(C, A, B)
-        mygemm!(C, A, B)
+        #mygemm!(C, A, B)
+        Octavian.matmul!(C, A, B)
         return C
     end
     
@@ -625,7 +692,8 @@ function _traverse_configuration_tree_opt!(eval::TopologyEvaluator,
                 
         if pos > 1
             #ppgf_weight = (im * eval.ppgf_mats[pos - 1, s_i]) * ppgf_weight
-            ppgf_weight = @inbounds matmul_prealloc(eval.ppgf_mats[pos - 1, s_i], ppgf_weight, eval)
+            #ppgf_weight = @inbounds matmul_prealloc(eval.ppgf_mats[pos - 1, s_i], ppgf_weight, eval)
+            ppgf_weight = @inbounds matmul_prealloc(eval.ppgf_mats_real[pos - 1, s_i], ppgf_weight, eval)
         end
         
         node = @inbounds conf[1]            # Current node
@@ -636,9 +704,9 @@ function _traverse_configuration_tree_opt!(eval::TopologyEvaluator,
             if node.operator_index == 1 # Head of an interaction arc
 
                 # ppgf_weight needs separate storage (since the _travers... calls use tmp1 & tmp2)
-                ppgf_tmp = @inbounds mat_view(view(eval.tmp_mv, :, pos), size(ppgf_weight, 1), size(ppgf_weight, 2))
-                ppgf_tmp .= ppgf_weight
-                #ppgf_tmp = copy(ppgf_weight)
+                #ppgf_tmp = @inbounds mat_view(view(eval.tmp_mv, :, pos), size(ppgf_weight, 1), size(ppgf_weight, 2))
+                #ppgf_tmp .= ppgf_weight
+                ppgf_tmp = copy(ppgf_weight)
                 
                 # Loop over all interaction pairs attachable to this node
                 for int_index in @inbounds eval.exp.subspace_attachable_pairs[s_i]
@@ -646,7 +714,10 @@ function _traverse_configuration_tree_opt!(eval::TopologyEvaluator,
                     # Select an interaction for this arc
                     @inbounds eval.selected_pair_ints[node.arc_index] = int_index
                     
-                    s_next, mat = @inbounds eval.exp.pair_operator_mat[int_index][1][s_i]
+                    #s_next, mat = @inbounds eval.exp.pair_operator_mat[int_index][1][s_i]
+                    #s_next, mat = @inbounds eval.pair_operator_mat[int_index][1][s_i]
+                    #mat = real.(mat)
+                    s_next, mat = @inbounds eval.pair_operator_mat_real[int_index][1][s_i]
                     
                     #ppgf_weight_next = mat * ppgf_weight
                     ppgf_weight_next = matmul_prealloc(mat, ppgf_tmp, eval)
@@ -660,19 +731,24 @@ function _traverse_configuration_tree_opt!(eval::TopologyEvaluator,
             else # Tail of an interaction arc
                 
                 int_index = @inbounds eval.selected_pair_ints[node.arc_index]
-                op_sbm = @inbounds eval.exp.pair_operator_mat[int_index][2]
+                #op_sbm = @inbounds eval.exp.pair_operator_mat[int_index][2]
+                #op_sbm = @inbounds eval.pair_operator_mat[int_index][2]
+                op_sbm = @inbounds eval.pair_operator_mat_real[int_index][2]
                 haskey(op_sbm, s_i) || return
                 s_i, mat = op_sbm[s_i]
 
                 #ppgf_weight = mat * ppgf_weight
                 ppgf_weight = matmul_prealloc(mat, ppgf_weight, eval)
                 
-                pair_int_weight *= @inbounds eval.pair_ints[node.arc_index, int_index]
+                #pair_int_weight *= @inbounds eval.pair_ints[node.arc_index, int_index]
+                pair_int_weight *= @inbounds eval.pair_ints_real[node.arc_index, int_index]
             end
 
         elseif node.kind == operator_flag
 
-            op_sbm = @inbounds eval.exp.corr_operators_mat[node.arc_index][node.operator_index]
+            #op_sbm = @inbounds eval.exp.corr_operators_mat[node.arc_index][node.operator_index]
+            #op_sbm = @inbounds eval.corr_operators_mat[node.arc_index][node.operator_index]
+            op_sbm = @inbounds eval.corr_operators_mat_real[node.arc_index][node.operator_index]
             haskey(op_sbm, s_i) || return
             s_i, mat = op_sbm[s_i]
 
