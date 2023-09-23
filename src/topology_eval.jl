@@ -305,7 +305,8 @@ struct TopologyEvaluator
     tmr::TimerOutput
 
     """ Temporary ppgf_weight storage (for reducing allocations)"""
-    tmp_mv::Array{ComplexF64, 2}
+    #tmp_mv::Array{ComplexF64, 2}
+    tmp_mv::Array{Float64, 2}
 
     #tmp1::Array{ComplexF64, 1}
     #tmp2::Array{ComplexF64, 1}
@@ -365,7 +366,8 @@ struct TopologyEvaluator
 
         # move allocation to exp
         m = maximum([ norbitals(p) for p in exp.P ])
-        tmp_mv = Array{ComplexF64, 2}(undef, m*m, n_nodes + 1)
+        #tmp_mv = Array{ComplexF64, 2}(undef, m*m, n_nodes + 1)
+        tmp_mv = Array{Float64, 2}(undef, m*m, n_nodes + 1)
 
         #tmp1 = Array{ComplexF64, 1}(undef, m*m)
         #tmp2 = Array{ComplexF64, 1}(undef, m*m)
@@ -646,7 +648,7 @@ function _traverse_configuration_tree_opt!(eval::TopologyEvaluator,
                                        ##ppgf_weight::AbstractMatrix{ComplexF64},
                                        #pair_int_weight::ComplexF64)
 
-    @inline function mat_view(vec::AbstractVector{ComplexF64}, n, m)
+    @inline function mat_view(vec::AbstractVector{T}, n, m) where T
         return @inbounds reshape(view(vec, 1:n*m), n, m)
     end
     
@@ -662,7 +664,8 @@ function _traverse_configuration_tree_opt!(eval::TopologyEvaluator,
 
     @inline function matmul_prealloc(
         #A, B, eval::TopologyEvaluator)
-        A::Matrix{Float64}, B::Matrix{Float64}, eval::TopologyEvaluator)::Matrix{Float64}
+        A::Matrix{Float64}, B::AbstractMatrix{Float64}, eval::TopologyEvaluator)::Matrix{Float64}
+        #A::Matrix{Float64}, B::Matrix{Float64}, eval::TopologyEvaluator)::Matrix{Float64}
         #A::Matrix{ComplexF64}, B::Matrix{ComplexF64}, eval::TopologyEvaluator)
         #A::Matrix{ComplexF64}, B::AbstractMatrix{ComplexF64}, eval::TopologyEvaluator)
 
@@ -704,9 +707,9 @@ function _traverse_configuration_tree_opt!(eval::TopologyEvaluator,
             if node.operator_index == 1 # Head of an interaction arc
 
                 # ppgf_weight needs separate storage (since the _travers... calls use tmp1 & tmp2)
-                #ppgf_tmp = @inbounds mat_view(view(eval.tmp_mv, :, pos), size(ppgf_weight, 1), size(ppgf_weight, 2))
-                #ppgf_tmp .= ppgf_weight
-                ppgf_tmp = copy(ppgf_weight)
+                ppgf_tmp = @inbounds mat_view(view(eval.tmp_mv, :, pos), size(ppgf_weight, 1), size(ppgf_weight, 2))
+                ppgf_tmp .= ppgf_weight
+                #ppgf_tmp = copy(ppgf_weight)
                 
                 # Loop over all interaction pairs attachable to this node
                 for int_index in @inbounds eval.exp.subspace_attachable_pairs[s_i]
