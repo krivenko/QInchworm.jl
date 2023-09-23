@@ -228,6 +228,7 @@ function inchworm_step_bare(expansion::Expansion,
                 seq = seq,
                 N = N_samples_on_rank
             )
+            end; @timeit tmr "MPI all_reduce" begin
             all_reduce!(order_contrib, +)
             end # tmr
         end
@@ -450,6 +451,7 @@ function correlator_2p(expansion::Expansion,
                 seq = seq,
                 N = N_samples_on_rank
             )
+            end; @timeit tmr "MPI all_reduce" begin
             order_contrib = MPI.Allreduce(order_contrib, +, MPI.COMM_WORLD)
             end # tmr
         end
