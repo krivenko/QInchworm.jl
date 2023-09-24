@@ -211,7 +211,7 @@ N_samples = 2^16
 nτ_list = 2 .^ (3:10)
 
 if comm_rank == 0
-    fid = h5.h5open("data_inchworm_interp.h5", "w")
+    fid = h5.h5open("data.h5", "w")
     data_g = h5.create_group(fid, "data")
     h5.attributes(data_g)["mu_bethe"] = μ_bethe
     h5.attributes(data_g)["N_samples"] = N_samples

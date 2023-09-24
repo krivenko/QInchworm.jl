@@ -4,7 +4,7 @@ using HDF5; h5 = HDF5
 using PyCall
 PdfPages = pyimport("matplotlib.backends.backend_pdf").PdfPages
 
-fid = h5.h5open("data_inchworm_interp.h5", "r")
+fid = h5.h5open("data.h5", "r")
 data_g = h5.open_group(fid, "data")
 
 μ_bethe = h5.attributes(data_g)["mu_bethe"]
