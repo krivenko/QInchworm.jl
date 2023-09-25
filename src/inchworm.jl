@@ -484,9 +484,9 @@ function correlator_2p(expansion::Expansion,
         end; end # tmr
     end
 
-    @timeit tmr "MPI all_reduce" begin
-        result = MPI.Allreduce(result, +, MPI.COMM_WORLD)
-    end # tmr
+    #@timeit tmr "MPI all_reduce" begin
+    #    result = MPI.Allreduce(result, +, MPI.COMM_WORLD)
+    #end # tmr
     
     return result / partition_function(expansion.P)
 end
@@ -613,6 +613,10 @@ function correlator_2p(expansion::Expansion,
                 tmr=tmr
             )
         end
+
+        @timeit tmr "MPI all_reduce" begin
+            MPI.Allreduce!(corr_list[end].mat.data, +, MPI.COMM_WORLD)
+        end # tmr
     end
 
     if ismaster(); show(tmr); println(); end
