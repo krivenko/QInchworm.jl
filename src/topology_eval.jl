@@ -179,9 +179,9 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
 
         for s in axes(eval.ppgf_mats, 2)
             if eval.use_bold_prop
-                eval.ppgf_mats[i, s] = eval.exp.P[s](time_f, time_i)
+                eval.ppgf_mats[i, s] = im * eval.exp.P[s](time_f, time_i)
             else
-                eval.ppgf_mats[i, s] = eval.exp.P0[s](time_f, time_i)
+                eval.ppgf_mats[i, s] = im * eval.exp.P0[s](time_f, time_i)
             end
         end
     end
@@ -209,7 +209,7 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
             end
 
             for (p, int_pair) in enumerate(eval.exp.pairs)
-                eval.pair_ints[a, p] = int_pair.propagator(time_f, time_i)
+                eval.pair_ints[a, p] = im * int_pair.propagator(time_f, time_i)
             end
         end
 
@@ -265,7 +265,7 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
                 s_next, mat = eval.exp.pair_operator_mat[int_index][1][s_i]
                 ppgf_weight_next = (pos == 1) ?
                                    mat * ppgf_weight :
-                                   mat * (im * eval.ppgf_mats[pos - 1, s_i]) * ppgf_weight
+                                   mat * eval.ppgf_mats[pos - 1, s_i] * ppgf_weight
 
                 _traverse_configuration_tree!(eval,
                                               conf_tail,
@@ -284,10 +284,10 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
                 s_next, mat = op_sbm[s_i]
                 ppgf_weight_next = (pos == 1) ?
                                    mat * ppgf_weight :
-                                   mat * (im * eval.ppgf_mats[pos - 1, s_i]) * ppgf_weight
+                                   mat * eval.ppgf_mats[pos - 1, s_i] * ppgf_weight
 
                 pair_int_weight_next =
-                    im * eval.pair_ints[node.arc_index, int_index] * pair_int_weight
+                    eval.pair_ints[node.arc_index, int_index] * pair_int_weight
 
                 _traverse_configuration_tree!(eval,
                                               conf_tail,
@@ -305,7 +305,7 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
             s_next, op_mat = op_sbm[s_i]
             ppgf_weight_next = (pos == 1) ?
                                op_mat * ppgf_weight :
-                               op_mat * (im * eval.ppgf_mats[pos - 1, s_i]) * ppgf_weight
+                               op_mat * eval.ppgf_mats[pos - 1, s_i] * ppgf_weight
             _traverse_configuration_tree!(eval,
                                           conf_tail,
                                           s_next,
@@ -318,7 +318,7 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
 
         ppgf_weight_next = (pos == 1) ?
                            ppgf_weight :
-                           (im * eval.ppgf_mats[pos - 1, s_i]) * ppgf_weight
+                           eval.ppgf_mats[pos - 1, s_i] * ppgf_weight
         _traverse_configuration_tree!(eval,
                                       conf_tail,
                                       s_i, s_f,
