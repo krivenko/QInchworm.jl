@@ -78,7 +78,9 @@ ed = ked.EDCore(H, soi)
     end
 
     value = inchworm_step(expansion, contour, τ_i, τ_w, τ_f, order_data)
-    @show value
+
+    @test value[1][2] ≈ [-2.248718254991711e-5 - 0.8986061402276607im;;]
+    @test value[2][2] ≈ [-2.0240434762456118e-5 - 0.620466992172759im;;]
 end
 
 @testset "inchworm_step_bare" begin
@@ -119,7 +121,9 @@ end
     end
 
     value = inchworm_step_bare(expansion, contour, τ_i, τ_f, order_data)
-    @show value
+
+    @test value[1][2] ≈ [0.0 - 0.9846027217878349im;;]
+    @test value[2][2] ≈ [0.0 - 0.9335734823036375im;;]
 end
 
 @testset "inchworm" begin
