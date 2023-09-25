@@ -70,8 +70,16 @@ function Base.:*(A::GenericSectorBlockMatrix, B::GenericSectorBlockMatrix)
     return C
 end
 
-function Base.:*(A::Number, B::GenericSectorBlockMatrix)
+function Base.:*(A::Real, B::GenericSectorBlockMatrix)
     C = typeof(B)()
+    for (s_i, (s_f, B_mat)) in B
+        C[s_i] = (s_f, A * B_mat)
+    end
+    return C
+end
+
+function Base.:*(A::Complex, B::GenericSectorBlockMatrix)
+    C = SectorBlockMatrix()
     for (s_i, (s_f, B_mat)) in B
         C[s_i] = (s_f, A * B_mat)
     end
