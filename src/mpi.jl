@@ -102,8 +102,27 @@ Perform the in-place MPI collective operation `Allreduce` for a [sector block ma
 The gathered vector of the same element type `T`.
 """
 function all_reduce!(sbm::SectorBlockMatrix, op; comm::MPI.Comm = MPI.COMM_WORLD)
-    for (s_i, (s_f, mat)) in sbm
-        MPI.Allreduce!(mat, op, comm)
+    # Reduce number of MPI.Allreduce! calls to one by packing all sbm sectors in one vector,
+    # allreducing the vector, and then unpacking the vector.
+
+    sector_sizes = [ prod(size(mat)) for (s_i, (s_f, mat)) in sbm ]
+    N = sum(sector_sizes)
+    v = Vector{ComplexF64}(undef, N)
+
+    e = 0
+    for (n, (s_i, (s_f, mat))) in zip(sector_sizes, sbm)
+        s = e + 1
+        e += n
+        v[s:e] .= vec(mat)
+    end
+
+    MPI.Allreduce!(v, op, comm)
+
+    e = 0
+    for (n, (s_i, (s_f, mat))) in zip(sector_sizes, sbm)
+        s = e + 1
+        e += n
+        vec(mat) .= v[s:e]
     end
 end
 
