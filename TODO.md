@@ -1,11 +1,6 @@
 TODO list for QInchworm
 =======================
 
-* Should we add another, higher-level costructor of `Expansion` that takes
-  the local Hamiltonian, a `SetOfIndices`, a (matrix-valued) hybridization
-  function and an optional time grid defaulting to that of the hybridization
-  function?
-
 * How about not storing time points in configurations?
   This way we don't have to update them before calling eval().
   Instead, we could pass a list of time points directly to eval().

@@ -24,7 +24,7 @@ using Test
 using MPI; MPI.Init()
 using HDF5
 
-using LinearAlgebra: diag, tr
+using LinearAlgebra: diag, tr, I
 
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
@@ -54,39 +54,27 @@ using QInchworm.mpi: ismaster
         μ = 0.0
         t_bethe = 0.5
 
-        # -- ED solution
+        # -- Hamiltonian
 
         H_imp = -μ * (op.n(1) + op.n(2))
+        soi = ked.Hilbert.SetOfIndices([[1], [2]])
 
-        # -- Impurity problem
+        # -- Imaginary time grid
 
         contour = kd.ImaginaryContour(β=β);
         grid = kd.ImaginaryTimeGrid(contour, nτ);
 
-        soi = ked.Hilbert.SetOfIndices([[1], [2]])
-        ed = ked.EDCore(H_imp, soi)
-
         # -- Hybridization propagator
 
         A_bethe = bethe_dos(t=t_bethe, ϵ=μ_bethe)
-        Δ = V^2 * kd.ImaginaryTimeGF(A_bethe, grid)
+        Δ = kd.ImaginaryTimeGF(grid, 2) do t1, t2
+            I(2) * V^2 * kd.dos2gf(A_bethe, β, t1.bpoint, t2.bpoint)
+        end
 
         # -- Pseudo Particle Strong Coupling Expansion
 
-        function reverse(g::kd.ImaginaryTimeGF)
-            g_rev = deepcopy(g)
-            τ_0, τ_β = first(g.grid), last(g.grid)
-            for τ in g.grid
-                g_rev[τ, τ_0] = g[τ_β, τ]
-            end
-            return g_rev
-        end
-
-        ip_1_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
-        ip_1_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
-        ip_2_fwd = InteractionPair(op.c_dag(2), op.c(2), Δ)
-        ip_2_bwd = InteractionPair(op.c(2), op.c_dag(2), reverse(Δ))
-        expansion = Expansion(ed, grid, [ip_1_fwd, ip_1_bwd, ip_2_fwd, ip_2_bwd])
+        expansion = Expansion(H_imp, soi, grid, hybridization=Δ)
+        ed = expansion.ed
 
         ρ_0 = full_hs_matrix(tofockbasis(density_matrix(expansion.P0), ed), ed)
 
