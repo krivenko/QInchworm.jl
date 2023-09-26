@@ -155,9 +155,9 @@ track of previously evaluated partial products and reuses them upon successive c
 """
 mutable struct LazyMatrixProduct{T <: Number}
     "Multipliers A_i"
-    matrices::Vector{AbstractMatrix{T}}
-    "Pre-allocated 1D buffers for partial products A_1, A_2 A_1, A_3 A_2 A_1, ..."
-    partial_prods::Array{T, 2}
+    matrices::Vector{Matrix{T}}
+    "Partial products A_1, A_2 A_1, A_3 A_2 A_1, ..."
+    partial_prods::Vector{Matrix{T}}
     "Current number of matrices in the product"
     n_mats::Int
     "Current number of evaluated partial products that are still valid"
@@ -165,18 +165,16 @@ mutable struct LazyMatrixProduct{T <: Number}
 end
 
 """
-Make a `LazyMatrixProduct` instance and pre-allocate all necessary buffers.
+Make a `LazyMatrixProduct` instance and pre-allocate all necessary containers.
 
 T          : Element type of the matrices to be multiplied.
-max_n_mats : Maximal number of matrices in the product used to pre-allocate buffers.
-max_dim    : Maximal dimension of a matrix in the product used to pre-allocate buffers.
+max_n_mats : Maximal number of matrices in the product used to pre-allocate containers.
 """
-function LazyMatrixProduct(::Type{T}, max_n_mats::Int, max_dim::Int) where {T <: Number}
+function LazyMatrixProduct(::Type{T}, max_n_mats::Int) where {T <: Number}
     @assert max_n_mats > 0
-    @assert max_dim > 0
     LazyMatrixProduct(
-        Vector{AbstractMatrix{T}}(undef, max_n_mats),
-        Array{T, 2}(undef, max_dim^2, max_n_mats),
+        Vector{Matrix{T}}(undef, max_n_mats),
+        Vector{Matrix{T}}(undef, max_n_mats),
         0, 0
     )
 end
@@ -184,7 +182,7 @@ end
 """
 Add a new matrix to the left of the product.
 """
-function Base.pushfirst!(lmp::LazyMatrixProduct{T}, A::AbstractMatrix{T}) where {T <: Number}
+function Base.pushfirst!(lmp::LazyMatrixProduct{T}, A::Matrix{T}) where {T <: Number}
     @boundscheck lmp.n_mats < length(lmp.matrices)
     lmp.n_mats += 1
     lmp.matrices[lmp.n_mats] = A
@@ -205,31 +203,20 @@ Evaluate the product.
 function eval!(lmp::LazyMatrixProduct{T}) where {T <: Number}
     @boundscheck lmp.n_mats > 0
 
-    # Second dimension of the rightmost matrix = second dimension of the whole product
-    r_dim::Int = size(lmp.matrices[1], 2)
-
     # The first partial product is simply A_1
     if lmp.n_prods == 0
-        lmp.partial_prods[1:length(lmp.matrices[1]), 1] = lmp.matrices[1][:]
+        lmp.partial_prods[1] = lmp.matrices[1]
         lmp.n_prods = 1
     end
 
     # Do the multiplication
     for n = (lmp.n_prods + 1):lmp.n_mats
-        l_dim::Int = size(lmp.matrices[n - 1], 1)
-        l_dim_new::Int = size(lmp.matrices[n], 1)
-
-        Octavian.matmul!(
-            reshape(view(lmp.partial_prods, 1:l_dim_new * r_dim, n), l_dim_new, r_dim),
-            lmp.matrices[n],
-            reshape(view(lmp.partial_prods, 1:l_dim * r_dim, n - 1), l_dim, r_dim)
-        )
+        lmp.partial_prods[n] = Octavian.matmul(lmp.matrices[n], lmp.partial_prods[n - 1])
     end
 
     lmp.n_prods = lmp.n_mats
 
-    l_dim = size(lmp.matrices[lmp.n_mats], 1)
-    return reshape(view(lmp.partial_prods, 1:l_dim * r_dim, lmp.n_prods), l_dim, r_dim)
+    return lmp.partial_prods[lmp.n_prods]
 end
 
 end # module utility

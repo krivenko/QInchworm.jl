@@ -147,9 +147,7 @@ struct TopologyEvaluator
 
         selected_pair_ints = Vector{Int64}(undef, order)
 
-        matrix_prod = LazyMatrixProduct(ComplexF64,
-                                        2 * n_nodes - 1,
-                                        maximum([norbitals(p) for p in exp.P]))
+        matrix_prod = LazyMatrixProduct(ComplexF64, 2 * n_nodes - 1)
 
         return new(exp,
                    conf,

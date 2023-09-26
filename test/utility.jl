@@ -40,13 +40,11 @@ end
 end
 
 @testset "LazyMatrixProduct" begin
-   max_dim = 8
-
    rng = MersenneTwister(123456)
-   dims = [rand(rng, 1:max_dim) for i = 1:6]
+   dims = [rand(rng, 1:8) for i = 1:6]
    A1, A2, A3, A4, A5 = [rand(rng, dims[i + 1], dims[i]) for i = 1:5]
 
-   lmp = LazyMatrixProduct(Float64, 6, max_dim)
+   lmp = LazyMatrixProduct(Float64, 6)
 
    pushfirst!(lmp, A1)
    @test eval!(lmp) == A1
