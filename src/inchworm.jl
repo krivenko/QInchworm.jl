@@ -107,7 +107,7 @@ function inchworm_step(expansion::Expansion,
 
         if od.order == 0
             fixed_nodes = Dict(1 => n_i, 2 => n_w, 3 => n_f)
-            eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes)
+            eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
             order_contrib = eval(od.topologies, kd.BranchPoint[])
         else
             od.N_samples <= 0 && continue
@@ -116,7 +116,7 @@ function inchworm_step(expansion::Expansion,
             d_before = 2 * od.order - od.n_pts_after
 
             fixed_nodes = Dict(1 => n_i, d_before + 2 => n_w, 2 * od.order + 3 => n_f)
-            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes)
+            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes, tmr=tmr)
 
             N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(od.N_samples)
             rank_weight = N_samples_on_rank / od.N_samples
@@ -132,7 +132,10 @@ function inchworm_step(expansion::Expansion,
                 seq = seq,
                 N = N_samples_on_rank
             )
+
+            @timeit eval.tmr "all_reduce!" begin
             all_reduce!(order_contrib, +)
+            end # tmr
         end
 
         order_contribs[od.order] += order_contrib
@@ -192,7 +195,7 @@ function inchworm_step_bare(expansion::Expansion,
 
         if od.order == 0
             fixed_nodes = Dict(1 => n_i, 2 => n_f)
-            eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes)
+            eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
             order_contrib = eval(od.topologies, kd.BranchPoint[])
         else
             od.N_samples <= 0 && continue
@@ -200,7 +203,7 @@ function inchworm_step_bare(expansion::Expansion,
             d = 2 * od.order
 
             fixed_nodes = Dict(1 => n_i, 2 * od.order + 2 => n_f)
-            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes)
+            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes, tmr=tmr)
 
             N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(od.N_samples)
             rank_weight = N_samples_on_rank / od.N_samples
@@ -216,7 +219,10 @@ function inchworm_step_bare(expansion::Expansion,
                 seq = seq,
                 N = N_samples_on_rank
             )
+
+            @timeit eval.tmr "all_reduce!" begin
             all_reduce!(order_contrib, +)
+            end # tmr
         end
 
         set_bold_ppgf_at_order!(expansion, od.order, τ_i, τ_f, order_contrib)
@@ -407,7 +413,7 @@ function correlator_2p(expansion::Expansion,
 
         if od.order == 0
             fixed_nodes = Dict(1 => n_B, 2 => n_A, 3 => n_f)
-            eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes)
+            eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
             order_contrib = tr(eval(od.topologies, kd.BranchPoint[]))
         else
             od.N_samples <= 0 && continue
@@ -416,7 +422,7 @@ function correlator_2p(expansion::Expansion,
             d_before = 2 * od.order - od.n_pts_after
 
             fixed_nodes = Dict(1 => n_B, d_before + 2 => n_A, 2 * od.order + 3 => n_f)
-            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes)
+            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes, tmr=tmr)
 
             N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(od.N_samples)
             rank_weight = N_samples_on_rank / od.N_samples
@@ -432,7 +438,10 @@ function correlator_2p(expansion::Expansion,
                 seq = seq,
                 N = N_samples_on_rank
             )
+
+            @timeit eval.tmr "MPI.Allreduce" begin
             order_contrib = MPI.Allreduce(order_contrib, +, MPI.COMM_WORLD)
+            end # tmr
         end
 
         result += order_contrib

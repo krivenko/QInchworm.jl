@@ -1,7 +1,8 @@
 module topology_eval
 
 using DocStringExtensions
-using LinearAlgebra
+
+using TimerOutputs: TimerOutput, @timeit
 
 using Keldysh; kd = Keldysh
 
@@ -71,6 +72,7 @@ function OperatorNode(time::kd.BranchPoint,
 end
 
 struct TopologyEvaluator
+
     "Pseudo-particle expansion problem"
     exp::Expansion
 
@@ -114,9 +116,13 @@ struct TopologyEvaluator
     """Pre-allocated matrix product evaluator"""
     matrix_prod::LazyMatrixProduct{ComplexF64}
 
+    """Internal performance timer"""
+    tmr::TimerOutput
+
     function TopologyEvaluator(exp::Expansion,
                                order::Int,
-                               fixed_nodes::Dict{Int, FixedNode})
+                               fixed_nodes::Dict{Int, FixedNode};
+                               tmr::TimerOutput = TimerOutput())
         n_nodes = 2 * order + length(fixed_nodes)
         @assert maximum(keys(fixed_nodes)) <= n_nodes
 
@@ -158,7 +164,8 @@ struct TopologyEvaluator
                    pair_ints,
                    selected_pair_ints,
                    zeros(SectorBlockMatrix, exp.ed),
-                   matrix_prod)
+                   matrix_prod,
+                   tmr)
     end
 end
 
@@ -174,6 +181,8 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
     for (pos, t) in zip(eval.top_to_conf_pos, times)
         eval.times[pos] = t
     end
+
+    @timeit eval.tmr "PPGF eval" begin
 
     # Pre-compute eval.ppgf_mats
     for i in axes(eval.ppgf_mats, 1)
@@ -194,11 +203,15 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
         end
     end
 
+    end # tmr
+
     result = zeros(SectorBlockMatrix, eval.exp.ed)
 
     for top in topologies # TODO: Parallelization opportunity I
 
         @assert length(times) == 2 * length(top.pairs)
+
+        @timeit eval.tmr "Pair interaction eval" begin
 
         # Pre-compute eval.pair_ints and place pair interaction nodes into the configuration
         for (a, arc) in enumerate(top.pairs)
@@ -221,6 +234,10 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
             end
         end
 
+        end # tmr
+
+        @timeit eval.tmr "Conf. tree traversal" begin
+
         fill!(eval.top_result, 0.0)
 
         # Traverse the configuration tree for each initial subspace
@@ -233,6 +250,8 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
         end
 
         result += -im * top.parity * (-1)^top.order * eval.top_result
+
+        end # tmr
     end
 
     return result
@@ -247,8 +266,10 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
     # Are we at a leaf?
     if isempty(conf)
         if s_i == s_f # Is the resulting configuration block-diagonal?
-            val = pair_int_weight * eval!(eval.matrix_prod)
-            eval.top_result[s_i] = (s_f, eval.top_result[s_i][2] + val)
+            @timeit eval.tmr "Matrix operations" begin
+                val = pair_int_weight * eval!(eval.matrix_prod)
+                eval.top_result[s_i] = (s_f, eval.top_result[s_i][2] + val)
+            end # tmr
         end
         return
     end
