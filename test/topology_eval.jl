@@ -83,7 +83,10 @@ using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
     xs_list = HDF5.read(fid["/xs_list"])
     HDF5.close(fid)
 
-    tev = teval.TopologyEvaluator(expansion, order, Dict(1 => n_0, 7 => n_w, 9 => n_f))
+    tev = teval.TopologyEvaluator(expansion,
+                                  order,
+                                  topologies,
+                                  Dict(1 => n_0, 7 => n_w, 9 => n_f))
 
     for sample in 1:n_samples
 
@@ -113,7 +116,7 @@ using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
         @test all([τ_i >= τ_0 for τ_i in τs[2:end]])
 
         # -- Evaluate all diagrams at `order`
-        value = tev(topologies, τs)
+        value = tev(τs)
         println("value = $value")
         values[sample, :] = [value[1][2][1, 1], value[2][2][1, 1]]
 
