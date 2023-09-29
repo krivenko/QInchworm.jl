@@ -106,12 +106,17 @@ function inchworm_step(expansion::Expansion,
         order_contrib = deepcopy(zero_sector_block_matrix)
 
         if od.order == 0
+            @timeit tmr "Setup" begin
             fixed_nodes = Dict(1 => n_i, 2 => n_w, 3 => n_f)
             eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
+            end # tmr
+            @timeit tmr "Eval" begin
             order_contrib = eval(od.topologies, kd.BranchPoint[])
+            end # tmr
         else
             od.N_samples <= 0 && continue
 
+            @timeit tmr "Setup" begin
             d_after = od.n_pts_after
             d_before = 2 * od.order - od.n_pts_after
 
@@ -123,7 +128,9 @@ function inchworm_step(expansion::Expansion,
 
             seq = SobolSeqWith0(2 * od.order)
             arbitrary_skip!(seq, N_skip)
+            end # tmr
 
+            @timeit tmr "Evaluation" begin
             order_contrib = rank_weight * qmc_inchworm_integral_root(
                 t -> eval(od.topologies, t),
                 d_before, d_after,
@@ -132,8 +139,9 @@ function inchworm_step(expansion::Expansion,
                 seq = seq,
                 N = N_samples_on_rank
             )
+            end # tmr
 
-            @timeit eval.tmr "all_reduce!" begin
+            @timeit tmr "MPI all_reduce" begin
             all_reduce!(order_contrib, +)
             end # tmr
         end
@@ -194,12 +202,17 @@ function inchworm_step_bare(expansion::Expansion,
         order_contrib = deepcopy(zero_sector_block_matrix)
 
         if od.order == 0
+            @timeit tmr "Setup" begin
             fixed_nodes = Dict(1 => n_i, 2 => n_f)
             eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
+            end # tmr
+            @timeit tmr "Evaluation" begin
             order_contrib = eval(od.topologies, kd.BranchPoint[])
+            end # tmr
         else
             od.N_samples <= 0 && continue
 
+            @timeit tmr "Setup" begin
             d = 2 * od.order
 
             fixed_nodes = Dict(1 => n_i, 2 * od.order + 2 => n_f)
@@ -210,7 +223,9 @@ function inchworm_step_bare(expansion::Expansion,
 
             seq = SobolSeqWith0(d)
             arbitrary_skip!(seq, N_skip)
+            end # tmr
 
+            @timeit tmr "Evaluation" begin
             order_contrib = rank_weight * qmc_time_ordered_integral_root(
                 t -> eval(od.topologies, t),
                 d,
@@ -219,8 +234,9 @@ function inchworm_step_bare(expansion::Expansion,
                 seq = seq,
                 N = N_samples_on_rank
             )
+            end # tmr
 
-            @timeit eval.tmr "all_reduce!" begin
+            @timeit tmr "MPI all_reduce" begin
             all_reduce!(order_contrib, +)
             end # tmr
         end
@@ -412,12 +428,17 @@ function correlator_2p(expansion::Expansion,
         order_contrib::ComplexF64 = 0
 
         if od.order == 0
+            @timeit tmr "Setup" begin
             fixed_nodes = Dict(1 => n_B, 2 => n_A, 3 => n_f)
             eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
+            end # tmr
+            @timeit tmr "Evaluation" begin
             order_contrib = tr(eval(od.topologies, kd.BranchPoint[]))
+            end # tmr
         else
             od.N_samples <= 0 && continue
 
+            @timeit tmr "Setup" begin
             d_after = od.n_pts_after
             d_before = 2 * od.order - od.n_pts_after
 
@@ -429,7 +450,9 @@ function correlator_2p(expansion::Expansion,
 
             seq = SobolSeqWith0(2 * od.order)
             arbitrary_skip!(seq, N_skip)
+            end # tmr
 
+            @timeit tmr "Evaluation" begin
             order_contrib = rank_weight * qmc_inchworm_integral_root(
                 t -> tr(eval(od.topologies, t)),
                 d_before, d_after,
@@ -438,8 +461,9 @@ function correlator_2p(expansion::Expansion,
                 seq = seq,
                 N = N_samples_on_rank
             )
+            end # tmr
 
-            @timeit eval.tmr "MPI.Allreduce" begin
+            @timeit tmr "MPI all_reduce" begin
             order_contrib = MPI.Allreduce(order_contrib, +, MPI.COMM_WORLD)
             end # tmr
         end
@@ -505,7 +529,8 @@ function correlator_2p(expansion::Expansion,
     order_data = ExpansionOrderInputData[]
     for order in orders
 
-        @timeit tmr "Order $(order)" begin; @timeit tmr "Topologies" begin
+        @timeit tmr "Order $(order)" begin
+        @timeit tmr "Topologies" begin
 
         n_pts_after_range = (order == 0) ? (0:0) : (1:(2 * order - 1))
         for n_pts_after in n_pts_after_range

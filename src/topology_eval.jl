@@ -181,8 +181,6 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
         eval.times[pos] = t
     end
 
-    @timeit eval.tmr "PPGF eval" begin
-
     # Pre-compute eval.ppgf_mats
     for i in axes(eval.ppgf_mats, 1)
         time_i = eval.times[i]
@@ -203,15 +201,11 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
         end
     end
 
-    end # tmr
-
     result_mats = [zeros(ComplexF64, norbitals(p), norbitals(p)) for p in eval.exp.P]
 
     for top in topologies # TODO: Parallelization opportunity I
 
         @assert length(times) == 2 * length(top.pairs)
-
-        @timeit eval.tmr "Pair interaction eval" begin
 
         # Pre-compute eval.pair_ints and place pair interaction nodes into the configuration
         for (a, arc) in enumerate(top.pairs)
@@ -234,9 +228,7 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
             end
         end
 
-        end # tmr
-
-        @timeit eval.tmr "Conf. tree traversal" begin
+        @timeit eval.tmr "Tree traversal" begin
 
         fill!.(eval.top_result_mats, 0.0)
 
@@ -276,9 +268,7 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
     # Are we at a leaf?
     if pos > length(eval.conf)
         if s_i == s_f # Is the resulting configuration block-diagonal?
-            @timeit eval.tmr "Matrix operations" begin
-                eval.top_result_mats[s_i] .+= pair_int_weight * eval!(eval.matrix_prod)
-            end # tmr
+            eval.top_result_mats[s_i] .+= pair_int_weight * eval!(eval.matrix_prod)
         end
         return
     end
