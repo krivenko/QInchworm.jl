@@ -110,7 +110,7 @@ function inchworm_step(expansion::Expansion,
             fixed_nodes = Dict(1 => n_i, 2 => n_w, 3 => n_f)
             eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
             end # tmr
-            @timeit tmr "Eval" begin
+            @timeit tmr "Evaluation" begin
             order_contrib = eval(od.topologies, kd.BranchPoint[])
             end # tmr
         else
