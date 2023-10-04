@@ -97,11 +97,12 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
     """
     $(TYPEDSIGNATURES)
     """
-    function Expansion(ed::ked.EDCore,
-                       grid::kd.AbstractTimeGrid,
-                       interaction_pairs::Vector{InteractionPair{ScalarGF}};
-                       corr_operators::Vector{Tuple{Operator, Operator}} = Tuple{Operator, Operator}[],
-                       interpolate_ppgf = false) where ScalarGF
+    function Expansion(
+            ed::ked.EDCore,
+            grid::kd.AbstractTimeGrid,
+            interaction_pairs::Vector{InteractionPair{ScalarGF}};
+            corr_operators::Vector{Tuple{Operator, Operator}} = Tuple{Operator, Operator}[],
+            interpolate_ppgf = false) where ScalarGF
         P0 = ppgf.atomic_ppgf(grid, ed)
         dP0 = ppgf.initial_ppgf_derivative(ed, grid.contour.β)
         P = deepcopy(P0)
@@ -109,11 +110,12 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
 
         if interpolate_ppgf
 
-            #P0 = [SplineInterpolatedGF(P0_s) for P0_s in P0]
-            #P = [SplineInterpolatedGF(P_s, τ_max=grid[2]) for P_s in P]
-
-            P0_interp = [IncSplineImaginaryTimeGF(P0_s, dP0_s) for (P0_s, dP0_s) in zip(P0, dP0)]
-            P_interp = [IncSplineImaginaryTimeGF(P_s, dP0_s) for (P_s, dP0_s) in zip(P, dP0)]
+            P0_interp = [
+                IncSplineImaginaryTimeGF(P0_s, dP0_s) for (P0_s, dP0_s) in zip(P0, dP0)
+            ]
+            P_interp = [
+                IncSplineImaginaryTimeGF(P_s, dP0_s) for (P_s, dP0_s) in zip(P, dP0)
+            ]
 
             # -- Fill up P0 with all values
             for (s, p0_interp) in enumerate(P0_interp)
@@ -204,7 +206,7 @@ function Expansion(
     # NN-interactions
     #
 
-    if nn_interaction !== nothing
+    if !isnothing(nn_interaction)
         @assert kd.norbitals(nn_interaction) == length(soi)
 
         for (idx1, n1) in pairs(soi), (idx2, n2) in pairs(soi)
@@ -233,13 +235,13 @@ function Expansion(
     )
 end
 
-function set_bold_ppgf!(exp::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},
-                        t_i::kd.TimeGridPoint,
-                        t_f::kd.TimeGridPoint,
-                        result::SectorBlockMatrix) where ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}
+function set_bold_ppgf!(
+        exp::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},
+        t_i::kd.TimeGridPoint,
+        t_f::kd.TimeGridPoint,
+        result::SectorBlockMatrix) where ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}
     for (s_i, (s_f, mat)) in result
-        # Boldification must preserve the block structure
-        @assert s_i == s_f
+        @assert s_i == s_f # Boldification must preserve the block structure
         extend!(exp.P[s_i], mat)
     end
 end
@@ -255,26 +257,25 @@ function set_bold_ppgf!(exp::Expansion,
     end
 end
 
-function set_bold_ppgf_at_order!(exp::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},
-                                 order,
-                                 t_i::kd.TimeGridPoint,
-                                 t_f::kd.TimeGridPoint,
-                                 result::SectorBlockMatrix) where ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}
+function set_bold_ppgf_at_order!(
+        exp::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},
+        order::Integer,
+        t_i::kd.TimeGridPoint,
+        t_f::kd.TimeGridPoint,
+        result::SectorBlockMatrix) where ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}
     for (s_i, (s_f, mat)) in result
-        # Boldification must preserve the block structure
-        @assert s_i == s_f
+        @assert s_i == s_f # Boldification must preserve the block structure
         extend!(exp.P_orders[order+1][s_i], mat)
     end
 end
 
 function set_bold_ppgf_at_order!(exp::Expansion,
-                                 order,
+                                 order::Integer,
                                  t_i::kd.TimeGridPoint,
                                  t_f::kd.TimeGridPoint,
                                  result::SectorBlockMatrix)
     for (s_i, (s_f, mat)) in result
-        # Boldification must preserve the block structure
-        @assert s_i == s_f
+        @assert s_i == s_f # Boldification must preserve the block structure
         exp.P_orders[order+1][s_i][t_f, t_i] = mat
     end
 end
@@ -287,7 +288,8 @@ function add_corr_operators!(exp::Expansion, ops::Tuple{Operator, Operator})
     )
 end
 
-""" Get all diagrams as combinations of a `Topology` and a list of pseudo particle interaction indices
+"""
+Get all diagrams as combinations of a `Topology` and a list of pseudo particle interaction indices
 
 Parameters
 ----------
@@ -298,19 +300,21 @@ order     : Inch worm perturbation order
 Returns
 -------
 
-diagrams : Vector with tuples of topologies and pseudo particle interaction indicies
-
+diagrams : Vector with tuples of topologies and pseudo particle interaction indices
 """
 function get_diagrams_at_order(
     expansion::Expansion, topologies::Vector{Topology}, order::Int64
     )::Vector{Diagram}
 
-    # -- Generate all `order` lenght vector of combinations of pseudo particle interaction pair indices
-    pair_idx_range = 1:length(expansion.pairs) # range of allowed pp interaction pair indices
-    pair_idxs_combinations = collect(Iterators.product(repeat([pair_idx_range], outer=[order])...))
+    # Generate all `order` lenght vector of combinations of pseudo particle interaction
+    # pair indices
+    pair_idx_range = 1:length(expansion.pairs) # range of allowed interaction pair indices
+    pair_idxs_combinations = collect(Iterators.product(
+        repeat([pair_idx_range], outer=[order])...)
+    )
 
-    diagrams = vec([ Diagram(topology, pair_idxs) for (topology, pair_idxs) in
-            collect(Iterators.product(topologies, pair_idxs_combinations)) ])
+    diagrams = vec([Diagram(topology, pair_idxs) for (topology, pair_idxs) in
+            collect(Iterators.product(topologies, pair_idxs_combinations))])
 
     return diagrams
 end

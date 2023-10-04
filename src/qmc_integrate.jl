@@ -8,18 +8,16 @@ using QInchworm.utility: SobolSeqWith0, next!
 using QInchworm.mpi: N_skip_and_N_samples_on_rank
 
 #
-# I use the notations introduced in https://arxiv.org/pdf/2002.12372.pdf.
+# Notations used gere are introduced in https://arxiv.org/pdf/2002.12372.pdf
 #
 
 """
     Make the model function p_d(u) out of h_i(v).
 """
-function make_model_function(c::kd.AbstractContour,
-                             t_f::kd.BranchPoint,
-                             h::Vector)
+function make_model_function(c::kd.AbstractContour, t_f::kd.BranchPoint, h::Vector)
     u_f = kd.get_ref(c, t_f)
     # Eq. (6)
-    u::Vector{Float64} -> begin
+    return u::Vector{Float64} -> begin
         # Transformation u -> v
         v = similar(u)
         v[1] = u_f - u[1]
@@ -29,9 +27,6 @@ function make_model_function(c::kd.AbstractContour,
     end
 end
 
-# TODO: Bind make_exp_model_function(), exp_p_norm() and make_exp_trans()
-# together.
-
 """
     Make p_d(u) from the exponential h(v).
 """
@@ -39,14 +34,9 @@ function make_exp_model_function(c::kd.AbstractContour,
                                  t_f::kd.BranchPoint,
                                  τ::Real,
                                  d::Int)
-    # FIXME
-    #make_model_function(c, t_f, repeat([v -> exp(-v/τ)], d))
-
     u_f = kd.get_ref(c, t_f)
     # Eq. (6)
-    u::Vector{Float64} -> begin
-        # Transformation u -> v
-
+    return u::Vector{Float64} -> begin # Transformation u -> v
         # Simplification: \sum_i exp(-v_i / τ) = exp(-(u_f - u[end]) / τ)
         exp(-(u_f - u[end]) / τ)
     end
@@ -97,7 +87,7 @@ function qmc_integral(f, init = zero(typeof(f(trans(0))));
         x = next!(seq)
         u = trans(x)
         f_val = f(u)
-        if isnothing(f_val) continue end
+        isnothing(f_val) && continue
         res += f_val * (1.0 / p(u))
     end
     (p_norm / N) * res
@@ -128,7 +118,7 @@ function qmc_integral_n_samples(f, init = zero(typeof(f(trans(0))));
         x = next!(seq)
         u = trans(x)
         f_val = f(u)
-        if isnothing(f_val) continue end
+        isnothing(f_val) && continue
         res += f_val * (1.0 / p(u))
         i += 1
     end
@@ -144,7 +134,7 @@ const branch_direction = Dict(
 """
     Detect the return type of a function applied to a vector of branch points.
 """
-function contour_function_return_type(f)
+function contour_function_return_type(f::Function)
     Base.return_types(f, (Vector{kd.BranchPoint},))[1]
 end
 
@@ -175,7 +165,7 @@ function qmc_time_ordered_integral(f,
                                    seq = SobolSeqWith0(d),
                                    τ::Real,
                                    N::Int)
-    @assert kd.heaviside(c, t_f, t_i)
+    @boundscheck kd.heaviside(c, t_f, t_i)
 
     # Model function, its norm and the x -> u transformation
     p_d = make_exp_model_function(c, t_f, τ, d)
@@ -186,17 +176,16 @@ function qmc_time_ordered_integral(f,
 
     N_samples::Int = 0
 
-    (qmc_integral(init,
-                 p = p_d,
-                 p_norm = p_d_norm,
-                 trans = trans,
-                 seq = seq,
-                 N = N) do refs
+    return (qmc_integral(init,
+                         p = p_d,
+                         p_norm = p_d_norm,
+                         trans = trans,
+                         seq = seq,
+                         N = N) do refs
         refs[end] < u_i && return nothing # Discard irrelevant reference values
         N_samples += 1
         t_points = [c(r) for r in refs]
-        coeff = prod(t -> branch_direction[t.domain], t_points)
-        coeff * f(t_points)
+        return prod(t -> branch_direction[t.domain], t_points) * f(t_points)
     end, N_samples)
 end
 
@@ -230,7 +219,7 @@ function qmc_time_ordered_integral_n_samples(
     seq = SobolSeqWith0(d),
     τ::Real,
     N_samples::Int)
-    @assert kd.heaviside(c, t_f, t_i)
+    @boundscheck kd.heaviside(c, t_f, t_i)
 
     # Model function, its norm and the x -> u transformation
     p_d = make_exp_model_function(c, t_f, τ, d)
@@ -241,17 +230,16 @@ function qmc_time_ordered_integral_n_samples(
 
     N::Int = 0
 
-    (qmc_integral_n_samples(init,
-                            p = p_d,
-                            p_norm = p_d_norm,
-                            trans = trans,
-                            seq = seq,
-                            N_samples = N_samples) do refs
+    return (qmc_integral_n_samples(init,
+                                   p = p_d,
+                                   p_norm = p_d_norm,
+                                   trans = trans,
+                                   seq = seq,
+                                   N_samples = N_samples) do refs
         N += 1
         refs[end] < u_i && return nothing # Discard irrelevant reference values
         t_points = [c(r) for r in refs]
-        coeff = prod(t -> branch_direction[t.domain], t_points)
-        coeff * f(t_points)
+        return prod(t -> branch_direction[t.domain], t_points) * f(t_points)
     end, N)
 end
 
@@ -280,7 +268,7 @@ function qmc_time_ordered_integral_sort(f,
                                         init = zero(contour_function_return_type(f)),
                                         seq = SobolSeqWith0(d),
                                         N::Int)
-    @assert kd.heaviside(c, t_f, t_i)
+    @boundscheck kd.heaviside(c, t_f, t_i)
 
     # x -> u transformation
     u_i = kd.get_ref(c, t_i)
@@ -288,15 +276,14 @@ function qmc_time_ordered_integral_sort(f,
     ref_diff = u_f - u_i
     trans = x -> u_i .+ sort(x, rev=true) * ref_diff
 
-    qmc_integral(init,
-                 p = u -> 1.0,
-                 p_norm = (ref_diff ^ d) / factorial(d),
-                 trans = trans,
-                 seq = seq,
-                 N = N) do refs
+    return qmc_integral(init,
+                        p = u -> 1.0,
+                        p_norm = (ref_diff ^ d) / factorial(d),
+                        trans = trans,
+                        seq = seq,
+                        N = N) do refs
         t_points = [c(r) for r in refs]
-        coeff = prod(t -> branch_direction[t.domain], t_points)
-        coeff * f(t_points)
+        return prod(t -> branch_direction[t.domain], t_points) * f(t_points)
     end
 end
 
@@ -325,7 +312,7 @@ function qmc_time_ordered_integral_root(f,
                                         init = zero(contour_function_return_type(f)),
                                         seq = SobolSeqWith0(d),
                                         N::Int)
-    @assert kd.heaviside(c, t_f, t_i)
+    @boundscheck kd.heaviside(c, t_f, t_i)
 
     # x -> u transformation
     u_i = kd.get_ref(c, t_i)
@@ -341,15 +328,14 @@ function qmc_time_ordered_integral_root(f,
         return u_i .+ u * ref_diff
     end
 
-    qmc_integral(init,
-                 p = u -> 1.0,
-                 p_norm = (ref_diff ^ d) / factorial(d),
-                 trans = trans,
-                 seq = seq,
-                 N = N) do refs
+    return qmc_integral(init,
+                        p = u -> 1.0,
+                        p_norm = (ref_diff ^ d) / factorial(d),
+                        trans = trans,
+                        seq = seq,
+                        N = N) do refs
         t_points = [c(r) for r in refs]
-        coeff = prod(t -> branch_direction[t.domain], t_points)
-        coeff * f(t_points)
+        return prod(t -> branch_direction[t.domain], t_points) * f(t_points)
     end
 end
 
@@ -398,10 +384,10 @@ function qmc_inchworm_integral_root(f,
                                     init = zero(contour_function_return_type(f)),
                                     seq = SobolSeqWith0(d_before + d_after),
                                     N::Int)
-    @assert kd.heaviside(c, t_w, t_i)
-    @assert kd.heaviside(c, t_f, t_w)
-    @assert d_before >= 0
-    @assert d_after >= 1
+    @boundscheck kd.heaviside(c, t_w, t_i)
+    @boundscheck kd.heaviside(c, t_f, t_w)
+    @boundscheck d_before >= 0
+    @boundscheck d_after >= 1
 
     u_i = kd.get_ref(c, t_i)
     u_w = kd.get_ref(c, t_w)
@@ -411,10 +397,6 @@ function qmc_inchworm_integral_root(f,
     ref_diff_fw = u_f - u_w
 
     d = d_before + d_after
-
-    # QUESTION: Currently we apply the two-piece transformation to the same
-    # quasi-random sequence of points in d dimensions. Would it make more sense
-    # to use two independent sequences with dimensions d_after and d_before?
 
     u = Vector{Float64}(undef, d)
     # x -> u transformation
@@ -443,15 +425,14 @@ function qmc_inchworm_integral_root(f,
     p_norm = (ref_diff_fw ^ d_after) / factorial(d_after) *
              (ref_diff_wi ^ d_before) / factorial(d_before)
 
-    qmc_integral(init,
-                 p = u -> 1.0,
-                 p_norm = p_norm,
-                 trans = trans,
-                 seq = seq,
-                 N = N) do refs
+    return qmc_integral(init,
+                        p = u -> 1.0,
+                        p_norm = p_norm,
+                        trans = trans,
+                        seq = seq,
+                        N = N) do refs
         t_points = [c(r) for r in refs]
-        coeff = prod(t -> branch_direction[t.domain], t_points)
-        coeff * f(t_points)
+        return prod(t -> branch_direction[t.domain], t_points) * f(t_points)
     end
 end
 

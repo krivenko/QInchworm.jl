@@ -7,7 +7,6 @@ using KeldyshED; ked = KeldyshED;
 import KeldyshED: partition_function
 
 using QInchworm.spline_gf: SplineInterpolatedGF
-using QInchworm.mpi: ismaster
 
 export FullTimePPGF, ImaginaryTimePPGF
 export atomic_ppgf
@@ -19,7 +18,7 @@ Get matrix representation of operator expression in each sector
 NB! Requires that the operator expression does not mix symmetry sectors
 """
 function operator_matrix_representation(
-    op_expr::ked.OperatorExpr{S}, ed::ked.EDCore) where {S <: Number}
+    op_expr::ked.OperatorExpr{S}, ed::ked.EDCore)::Vector{Matrix{S}} where {S <: Number}
 
     op = ked.Operator{ked.FullHilbertSpace, S}(op_expr, ed.full_hs.soi)
 
@@ -27,7 +26,7 @@ function operator_matrix_representation(
     for (sidx, subspace) in enumerate(ed.subspaces)
         op_matrix = Matrix{S}(undef, length(subspace), length(subspace))
         i_state = ked.StateVector{ked.HilbertSubspace, S}(subspace)
-        for i in 1:length(subspace)
+        for i in eachindex(subspace)
             i_state[i] = one(S)
             f_state = op * i_state
             op_matrix[:, i] = f_state.amplitudes
@@ -35,11 +34,11 @@ function operator_matrix_representation(
         end
         push!(op_sector_matrices, op_matrix)
     end
-    op_sector_matrices
+    return op_sector_matrices
 end
 
 function total_density_operator(ed::ked.EDCore)
-    sum([ ked.Operators.n(label...) for (label, i) in ed.full_hs.soi ])
+    return sum([ked.Operators.n(label...) for (label, i) in ed.full_hs.soi])
 end
 
 # N.B. We cannot use FullTimeGF instead of GenericTimeGF here,
@@ -62,19 +61,19 @@ for a time-independent problem defined by the EDCore instance.
 function atomic_ppgf(grid::kd.FullTimeGrid, ed::ked.EDCore)::FullTimePPGF
     G = [kd.GenericTimeGF(grid, length(s)) for s in ed.subspaces]
     atomic_ppgf!(G, ed)
-    G
+    return G
 end
 
 function atomic_ppgf(grid::kd.ImaginaryTimeGrid, ed::ked.EDCore)::ImaginaryTimePPGF
     G = [kd.ImaginaryTimeGF(grid, length(s)) for s in ed.subspaces]
     atomic_ppgf!(G, ed)
-    G
+    return G
 end
 
 function atomic_ppgf!(G::Vector, ed::ked.EDCore; Δλ::Float64 = 0.0)
     @assert length(G) == length(ed.subspaces)
 
-    β = G[1].grid.contour.β
+    β = first(G).grid.contour.β
     Z = partition_function(ed, β)
     λ = log(Z) / β # Pseudo-particle chemical potential (enforcing Tr[G0(β)]=Tr[ρ]=1)
 
@@ -88,11 +87,15 @@ function atomic_ppgf!(G::Vector, ed::ked.EDCore; Δλ::Float64 = 0.0)
     end
 end
 
-function atomic_ppgf_fill_G!(G_s::kd.AbstractTimeGF{T, scalar} where {T, scalar}, grid::kd.AbstractTimeGrid, E, λ, ξ)
+function atomic_ppgf_fill_G!(G_s::kd.AbstractTimeGF{T, scalar} where {T, scalar},
+                             grid::kd.AbstractTimeGrid,
+                             E,
+                             λ,
+                             ξ)
     β = G_s.grid.contour.β
     z_β = grid[kd.imaginary_branch][end]
     Threads.@threads for z1 in grid
-	for z2 in grid[1:z1.cidx]
+	    for z2 in grid[1:z1.cidx]
             Δz = z1.bpoint.val - z2.bpoint.val
             if z1.bpoint.domain == kd.forward_branch &&
                 z2.bpoint.domain != kd.forward_branch
@@ -100,11 +103,15 @@ function atomic_ppgf_fill_G!(G_s::kd.AbstractTimeGF{T, scalar} where {T, scalar}
             end
             sign = ξ^(z1.cidx > z_β.cidx && z_β.cidx >= z2.cidx)
             G_s[z1, z2] = -im * sign * Diagonal(exp.(-im * Δz * (E .+ λ)))
-	end
+	    end
     end
 end
 
-function atomic_ppgf_fill_G!(G_s::kd.ImaginaryTimeGF{T, scalar} where {T, scalar}, grid::kd.ImaginaryTimeGrid, E, λ, ξ)
+function atomic_ppgf_fill_G!(G_s::kd.ImaginaryTimeGF{T, scalar} where {T, scalar},
+                             grid::kd.ImaginaryTimeGrid,
+                             E,
+                             λ,
+                             ξ)
     z2 = grid[kd.imaginary_branch][1]
     z_β = grid[kd.imaginary_branch][end]
     for z1 in grid
@@ -127,7 +134,7 @@ the pseudo-particle Green's function sandwitched in between.
 """
 function operator_product(ed::ked.EDCore, G, s_i::Integer, z_i, z_f, vertices)
 
-    length(vertices) == 0 && return G[s_i][z_f, z_i], s_i
+    length(vertices) == 0 && return (G[s_i][z_f, z_i], s_i)
 
     s_a = s_i
     (z_a, c_a, o_a) = vertices[1]
@@ -141,7 +148,7 @@ function operator_product(ed::ked.EDCore, G, s_i::Integer, z_i, z_f, vertices)
         matrix = c_a > 0 ? ked.cdag_matrix : ked.c_matrix
 
         s_b = connection(ed, o_a, s_a)
-        s_b === nothing && return zero(prod0), -1
+        isnothing(s_b) && return zero(prod0), -1
 
         m_ba = matrix(ed, o_a, s_a)
 
@@ -156,25 +163,29 @@ function operator_product(ed::ked.EDCore, G, s_i::Integer, z_i, z_f, vertices)
         s_a = s_b
     end
 
-    prod, s_a
+    return (prod, s_a)
 end
 
 """
 Compute the first order pseudo-particle diagram contribution to
 the single-particle Green's function g_{o1, o2}(z, z')
 """
-function first_order_spgf(ppgf::FullTimePPGF, ed::ked.EDCore, o1, o2)::kd.FullTimeGF
+function first_order_spgf(ppgf::FullTimePPGF,
+                          ed::ked.EDCore,
+                          o1, o2)::kd.FullTimeGF
     @assert length(ppgf) == length(ed.subspaces)
-    g = kd.FullTimeGF(ppgf[1].grid, 1, kd.fermionic, true)
+    g = kd.FullTimeGF(first(ppgf).grid, 1, kd.fermionic, true)
     first_order_spgf!(g, ppgf, ed, o1, o2)
-    g
+    return g
 end
 
-function first_order_spgf(ppgf::ImaginaryTimePPGF, ed::ked.EDCore, o1, o2)::kd.ImaginaryTimeGF
+function first_order_spgf(ppgf::ImaginaryTimePPGF,
+                          ed::ked.EDCore,
+                          o1, o2)::kd.ImaginaryTimeGF
     @assert length(ppgf) == length(ed.subspaces)
-    g = kd.ImaginaryTimeGF(ppgf[1].grid, 1, kd.fermionic, true)
+    g = kd.ImaginaryTimeGF(first(ppgf).grid, 1, kd.fermionic, true)
     first_order_spgf!(g, ppgf, ed, o1, o2)
-    g
+    return g
 end
 
 function first_order_spgf!(g, ppgf, ed::ked.EDCore, o1, o2)
@@ -198,7 +209,8 @@ function first_order_spgf!(g, ppgf, ed::ked.EDCore, o1, o2)
         v1, v2 = sort([v1, v2], by = x -> x[1].cidx, rev=true)
 
         # -- Determine start and end time on twisted contour
-        if z1.bpoint.domain == kd.imaginary_branch && z2.bpoint.domain == kd.imaginary_branch
+        if z1.bpoint.domain == kd.imaginary_branch &&
+           z2.bpoint.domain == kd.imaginary_branch
             # Equilibrium start at τ = 0 and end at τ = β
             real_time = false
             tau_grid = grid[kd.imaginary_branch]
@@ -208,7 +220,8 @@ function first_order_spgf!(g, ppgf, ed::ked.EDCore, o1, o2)
             real_time = true
 
             z_max = sort([z1, z2],
-                by = x -> real(x.bpoint.val) - (x.bpoint.domain == kd.imaginary_branch))[end]
+                by = x -> real(x.bpoint.val) - (x.bpoint.domain == kd.imaginary_branch)
+            )[end]
 
             if z_max.bpoint.domain == kd.forward_branch
                 z_f = z_max
@@ -232,7 +245,7 @@ end
 
 function check_ppgf_real_time_symmetries(G::FullTimePPGF, ed)
     @assert length(G) == length(ed.subspaces)
-    grid = G[1].grid
+    grid = first(G).grid
 
     grid_bwd = grid[kd.backward_branch]
     zb_i, zb_f = grid_bwd[1], grid_bwd[end]
@@ -244,18 +257,18 @@ function check_ppgf_real_time_symmetries(G::FullTimePPGF, ed)
 
     for zb_1 in grid_bwd
         for zb_2 in grid_bwd[1:zb_1.cidx]
-            @assert zb_1.cidx >= zb_2.cidx
+            zb_1.cidx >= zb_2.cidx || return false
 
             zf_1 = grid[zf_f.cidx - zb_1.cidx + 1]
             zf_2 = grid[zf_f.cidx - zb_2.cidx + 1]
 
-            @assert zb_1.bpoint.val ≈ zf_1.bpoint.val
-            @assert zb_2.bpoint.val ≈ zf_2.bpoint.val
+            zb_1.bpoint.val ≈ zf_1.bpoint.val || return false
+            zb_2.bpoint.val ≈ zf_2.bpoint.val || return false
 
-            @assert zf_2.cidx >= zf_1.cidx
+            zf_2.cidx >= zf_1.cidx || return false
 
             for g_s in G
-                @assert g_s[zb_1, zb_2] ≈ -conj(g_s[zf_2, zf_1])
+                g_s[zb_1, zb_2] ≈ -conj(g_s[zf_2, zf_1]) || return false
             end
         end
     end
@@ -268,11 +281,11 @@ function check_ppgf_real_time_symmetries(G::FullTimePPGF, ed)
             zf_2 = grid[zf_f.cidx - (zb_1.cidx - zb_i.cidx)]
             zb_2 = grid[zb_f.cidx - (zf_1.cidx - zf_i.cidx)]
 
-            @assert zf_1.bpoint.val ≈ zb_2.bpoint.val
-            @assert zb_1.bpoint.val ≈ zf_2.bpoint.val
+            zf_1.bpoint.val ≈ zb_2.bpoint.val || return false
+            zb_1.bpoint.val ≈ zf_2.bpoint.val || return false
 
             for g_s in G
-                @assert g_s[zf_1, zb_1] ≈ -conj(g_s[zf_2, zb_2])
+                g_s[zf_1, zb_1] ≈ -conj(g_s[zf_2, zb_2]) || return false
             end
         end
     end
@@ -289,15 +302,15 @@ function check_ppgf_real_time_symmetries(G::FullTimePPGF, ed)
     for zf in grid_bwd
 
         zb = grid[zf_f.cidx - zf.cidx + 1]
-        @assert zf.bpoint.val ≈ zb.bpoint.val
+        zf.bpoint.val ≈ zb.bpoint.val || return false
 
         for τ in grid[kd.imaginary_branch]
             τ_β = grid[z_β.cidx - (τ.cidx - z_0.cidx)]
-            @assert τ_β.bpoint.val ≈ -im*β - τ.bpoint.val
+            τ_β.bpoint.val ≈ -im*β - τ.bpoint.val || return false
 
             for (sidx, g_s) in enumerate(G)
                 ξ = (-1)^N[sidx][1, 1]
-                @assert g_s[τ, zf] ≈ -ξ * conj(g_s[zb, τ_β])
+                g_s[τ, zf] ≈ -ξ * conj(g_s[zb, τ_β]) || return false
             end
         end
     end
@@ -319,7 +332,7 @@ function ppgf_real_time_initial_conditions!(G::FullTimePPGF, ed::ked.EDCore)
     N_op = total_density_operator(ed)
     N = operator_matrix_representation(N_op, ed)
 
-    grid = G[1].grid
+    grid = first(G).grid
     zb0 = grid[kd.backward_branch][end]
     zf0 = grid[kd.forward_branch][1]
     τ_0 = grid[kd.imaginary_branch][1]
@@ -333,11 +346,13 @@ function ppgf_real_time_initial_conditions!(G::FullTimePPGF, ed::ked.EDCore)
     end
 end
 
-""" Set real-time ppgf symmetry connected time pairs
+"""
+Set real-time ppgf symmetry connected time pairs
 
-NB! times has to be in the inching region with z2 ∈ backward_branch. """
+NB! times has to be in the inching region with z2 ∈ backward_branch.
+"""
 function set_ppgf_symmetric!(G_s::FullTimePPGF, n, z1, z2, val)
-     grid = G_s.grid
+    grid = G_s.grid
 
     grid_bwd = grid[kd.backward_branch]
     zb_i, zb_f = grid_bwd[1], grid_bwd[end]
@@ -372,8 +387,8 @@ function set_ppgf_symmetric!(G_s::FullTimePPGF, n, z1, z2, val)
     G_s[z1, z2] = val
 end
 
-function partition_function(G::Vector{<:kd.AbstractTimeGF})
-    sum(G, init = 0im) do G_s
+function partition_function(G::Vector{<:kd.AbstractTimeGF})::ComplexF64
+    return sum(G, init = 0im) do G_s
         tau_grid = G_s.grid[kd.imaginary_branch]
         τ0, β = tau_grid[1], tau_grid[end]
         im * tr(G_s[β, τ0])
@@ -381,7 +396,9 @@ function partition_function(G::Vector{<:kd.AbstractTimeGF})
 end
 
 """Set all time translation invariant values of the Matsubara branch"""
-function set_matsubara!(g::kd.GenericTimeGF{T, scalar, kd.FullTimeGrid} where {T, scalar}, τ, value)
+function set_matsubara!(g::kd.GenericTimeGF{T, scalar, kd.FullTimeGrid} where {T, scalar},
+                        τ,
+                        value)
     tau_grid = g.grid[kd.imaginary_branch]
 
     τ_0 = tau_grid[1]
@@ -423,14 +440,11 @@ function normalize!(g::kd.AbstractTimeGF, λ)
 end
 
 function initial_ppgf_derivative(ed::ked.EDCore, β::Float64)
-    Z = sum([ sum(exp.(-β * eig.eigenvalues)) for eig in ed.eigensystems ])
-    #if ismaster(); @show Z; end
+    Z = sum([sum(exp.(-β * eig.eigenvalues)) for eig in ed.eigensystems])
     λ = log(Z) / β
-    #if ismaster(); @show λ; end
 
     dP = []
     for eig in ed.eigensystems
-        #if ismaster(); @show eig.eigenvalues; end
         dP_s = -im * diagm(-eig.eigenvalues .- λ)
         push!(dP, dP_s)
     end
@@ -439,14 +453,14 @@ end
 
 function density_matrix(P::Vector{<:kd.AbstractTimeGF})
     @assert !isempty(P)
-    τ_0, τ_β = kd.branch_bounds(P[1].grid, kd.imaginary_branch)
+    τ_0, τ_β = kd.branch_bounds(first(P).grid, kd.imaginary_branch)
     return [1im * P_s[τ_β, τ_0] for P_s in P]
 end
 
 function reduced_ppgf(P::Vector{<:kd.AbstractTimeGF},
                       ed::ked.EDCore,
                       target_soi::ked.SetOfIndices)
-    ked.partial_trace(ked.tofockbasis(P, ed), ed, target_soi)
+    return ked.partial_trace(ked.tofockbasis(P, ed), ed, target_soi)
 end
 
 end # module ppgf

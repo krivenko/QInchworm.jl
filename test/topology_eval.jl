@@ -14,6 +14,8 @@ using QInchworm: SectorBlockMatrix
 
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 
+Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint) = !kd.heaviside(t1, t2)
+
 @testset "topology_to_config" begin
 
     # -- Single state pseudo particle expansion

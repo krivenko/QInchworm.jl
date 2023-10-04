@@ -7,7 +7,6 @@ using TimerOutputs: TimerOutput, @timeit
 using Keldysh; kd = Keldysh
 
 using QInchworm
-using QInchworm; cfg = QInchworm.configuration
 
 using QInchworm: SectorBlockMatrix
 using QInchworm.expansion: Expansion

@@ -6,11 +6,11 @@ using QInchworm: SectorBlockMatrix
 using QInchworm.utility: split_count, range_from_chunks_and_idx
 using QInchworm.utility: iobuffer_serialize, iobuffer_deserialize
 
-function ismaster(comm::MPI.Comm = MPI.COMM_WORLD)
+function ismaster(comm::MPI.Comm = MPI.COMM_WORLD)::Bool
     return MPI.Comm_rank(comm) == 0
 end
 
-function N_skip_and_N_samples_on_rank(N_samples; comm::MPI.Comm = MPI.COMM_WORLD)
+function N_skip_and_N_samples_on_rank(N_samples::Integer; comm::MPI.Comm = MPI.COMM_WORLD)
     comm_rank = MPI.Comm_rank(comm)
     comm_size = MPI.Comm_size(comm)
     N_split = split_count(N_samples, comm_size)
@@ -19,14 +19,14 @@ function N_skip_and_N_samples_on_rank(N_samples; comm::MPI.Comm = MPI.COMM_WORLD
     return N_skip, N_samples_on_rank
 end
 
-function rank_sub_range(n; comm::MPI.Comm = MPI.COMM_WORLD)
+function rank_sub_range(n::Integer; comm::MPI.Comm = MPI.COMM_WORLD)
     comm_size = MPI.Comm_size(comm)
     comm_rank = MPI.Comm_rank(comm) # zero based indexing
     chunks = split_count(n, comm_size)
     return range_from_chunks_and_idx(chunks, comm_rank + 1)
 end
 
-function all_gather(subvec::Vector{T}; comm::MPI.Comm = MPI.COMM_WORLD) where T
+function all_gather(subvec::Vector{T}; comm::MPI.Comm = MPI.COMM_WORLD)::Vector{T} where T
     data_raw = iobuffer_serialize(subvec)
     data_size = length(data_raw)
 

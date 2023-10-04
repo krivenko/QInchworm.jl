@@ -289,7 +289,7 @@ function inchworm!(expansion::Expansion,
         println("N_samples (per rank) = ", N_split)
     end
 
-    @assert N_samples == 0 || N_samples == 2^Int(log2(N_samples))
+    @assert N_samples == 0 || ispow2(N_samples)
 
     # Extend expansion.P_orders to max of orders, orders_bare
     max_order = maximum([maximum(orders), maximum(orders_bare)])
@@ -326,7 +326,8 @@ function inchworm!(expansion::Expansion,
                                 grid.contour,
                                 grid[1],
                                 grid[2],
-                                order_data, tmr=tmr)
+                                order_data,
+                                tmr=tmr)
     set_bold_ppgf!(expansion, grid[1], grid[2], result)
 
     if ismaster(); println("= Bold Diagrams ========"); end
@@ -351,7 +352,8 @@ function inchworm!(expansion::Expansion,
             topologies = get_topologies_at_order(order, n_pts_after)
 
             if ismaster()
-                println("Bold order $(order), n_pts_after $(n_pts_after), N_topo $(length(topologies))")
+                N_topo = length(topologies)
+                println("Bold order $(order), n_pts_after $(n_pts_after), N_topo $(N_topo)")
             end
 
             if !isempty(topologies)
@@ -543,7 +545,8 @@ function correlator_2p(expansion::Expansion,
             end
 
             if ismaster()
-                println("order $(order), n_pts_after $(n_pts_after), N_topo $(length(topologies))")
+                N_topo = length(topologies)
+                println("order $(order), n_pts_after $(n_pts_after), N_topo $(N_topo)")
             end
         end
 
@@ -551,7 +554,7 @@ function correlator_2p(expansion::Expansion,
 
     end
 
-    # Accummulate correlators
+    # Accumulate correlators
     corr_list = kd.ImaginaryTimeGF{ComplexF64, true}[]
     for (op_pair_idx, (A, B)) in enumerate(expansion.corr_operators)
 

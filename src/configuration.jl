@@ -135,7 +135,8 @@ struct Determinant
 end
 
 function get_pair_node_idxs(nodes::Vector{Node})::Vector{Int}
-    reverse([idx for (idx, node) in enumerate(nodes) if node.operator_ref.kind == pair_flag])
+    return [idx for (idx, node) in enumerate(nodes)
+            if node.operator_ref.kind == pair_flag] |> reverse
 end
 
 const Path = Vector{Tuple{Int, Int}}
@@ -190,7 +191,7 @@ struct Configuration
 
         n_i, n_w, n_f = Node(t_0), InchNode(t_0), Node(t_0)
 
-        inch_node_idx = (d_before === nothing) ? nothing : (d_before + 2)
+        inch_node_idx = isnothing(d_before) ? nothing : (d_before + 2)
 
         pairs = [ NodePair(t_0, t_0, diagram.pair_idxs[idx])
                   for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
@@ -208,7 +209,7 @@ struct Configuration
         reverse!(pairnodes)
 
         if length(pairnodes) > 0
-            if inch_node_idx !== nothing
+            if !isnothing(inch_node_idx)
                 nodes = vcat([n_i],
                              pairnodes[1:d_before],
                              [n_w],
@@ -218,7 +219,7 @@ struct Configuration
                 nodes = vcat([n_i], pairnodes, [n_f])
             end
         else
-            nodes = (inch_node_idx !== nothing) ? [n_i, n_w, n_f] : [n_i, n_f]
+            nodes = !isnothing(inch_node_idx) ? [n_i, n_w, n_f] : [n_i, n_f]
         end
 
         paths = get_paths(exp, nodes)
@@ -240,7 +241,10 @@ struct Configuration
     d_before :      Number of pair nodes before the split node.
     op_pair_index : Index of the C / C^+ operator pair within exp.corr_operators.
     """
-    function Configuration(diagram::Diagram, exp::Expansion, d_before::Int, op_pair_index::Int)
+    function Configuration(diagram::Diagram,
+                           exp::Expansion,
+                           d_before::Integer,
+                           op_pair_index::Integer)
         # All nodes are initially placed at the start of the contour
         t_0 = first(exp.P).grid.contour(0.0)
 
@@ -248,12 +252,12 @@ struct Configuration
         n_c = OperatorNode(t_0, op_pair_index, 1)
         n_f = Node(t_0)
 
-        pairs = [ NodePair(t_0, t_0, diagram.pair_idxs[idx])
-            for (idx, (a, b)) in enumerate(diagram.topology.pairs) ]
+        pairs = [NodePair(t_0, t_0, diagram.pair_idxs[idx])
+                 for (idx, (a, b)) in enumerate(diagram.topology.pairs)]
         parity = diagram.topology.parity
 
         n = 2 * diagram.topology.order
-        pairnodes = [ Node(t_0) for i in 1:n ]
+        pairnodes = [Node(t_0) for i in 1:n]
 
         for (idx, (f_idx, i_idx)) in enumerate(diagram.topology.pairs)
             p_idx = diagram.pair_idxs[idx]
@@ -264,7 +268,11 @@ struct Configuration
         reverse!(pairnodes)
 
         if length(pairnodes) > 0
-            nodes = vcat([n_cdag], pairnodes[1:d_before], [n_c], pairnodes[d_before+1:end], [n_f])
+            nodes = vcat([n_cdag],
+                         pairnodes[1:d_before],
+                         [n_c],
+                         pairnodes[d_before+1:end],
+                         [n_f])
         else
             nodes = [n_cdag, n_c, n_f]
         end
@@ -274,7 +282,14 @@ struct Configuration
         paths = get_paths(exp, nodes)
         pair_node_idxs = get_pair_node_idxs(nodes)
 
-        return new(nodes, pairs, parity, [], paths, split_node_idx, (1, d_before + 2), pair_node_idxs)
+        return new(nodes,
+                   pairs,
+                   parity,
+                   [],
+                   paths,
+                   split_node_idx,
+                   (1, d_before + 2),
+                   pair_node_idxs)
     end
 end
 
@@ -289,14 +304,14 @@ function set_final_node_time!(configuration::Configuration, t_f::Time)
 end
 
 function set_inchworm_node_time!(configuration::Configuration, t_w::Time)
-    @assert configuration.split_node_idx !== nothing
+    @assert !isnothing(configuration.split_node_idx)
     @assert is_inch_node(configuration.nodes[configuration.split_node_idx])
     configuration.nodes[configuration.split_node_idx] = InchNode(t_w)
 end
 
-function set_operator_node_time!(configuration::Configuration, idx::Int, t::Time)
-    @assert 1 <= idx <= 2
-    @assert configuration.op_node_idx !== nothing
+function set_operator_node_time!(configuration::Configuration, idx::Integer, t::Time)
+    @boundscheck 1 <= idx <= 2
+    @assert !isnothing(configuration.op_node_idx)
     op_ref = configuration.nodes[configuration.op_node_idx[idx]].operator_ref
     configuration.nodes[configuration.op_node_idx[idx]] = Node(t, op_ref)
 end
@@ -313,20 +328,12 @@ function update_pair_node_times!(configuration::Configuration, diagram::Diagram,
     end
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Order on the standard keldysh contour.
-"""
-Base.isless(t1::Time, t2::Time) = !kd.heaviside(t1, t2)
-
 function eval(exp::Expansion, pairs::Vector{NodePair}, parity::Float64)
 
     order = length(pairs)
     val::ComplexF64 = parity * (-1)^order
 
     for pair in pairs
-        #@assert pair.time_f >= pair.time_i
         val *= im * exp.pairs[pair.index].propagator(pair.time_f, pair.time_i)
     end
     return val
@@ -335,14 +342,16 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Returns the [`SectorBlockMatrix`](@ref) representation of the many-body operator at the given `node::Node'.
+Returns the [`SectorBlockMatrix`](@ref) representation of the many-body operator at
+the given `node::Node'.
 """
 function get_block_matrix(exp::Expansion, node::Node)::SectorBlockMatrix
-    if node.operator_ref.kind == pair_flag
-        return exp.pair_operator_mat[node.operator_ref.interaction_index][node.operator_ref.operator_index]
-    elseif node.operator_ref.kind == operator_flag
-        return exp.corr_operators_mat[node.operator_ref.interaction_index][node.operator_ref.operator_index]
-    elseif node.operator_ref.kind == identity_flag || is_inch_node(node)
+    op_ref = node.operator_ref
+    if op_ref.kind == pair_flag
+        return exp.pair_operator_mat[op_ref.interaction_index][op_ref.operator_index]
+    elseif op_ref.kind == operator_flag
+        return exp.corr_operators_mat[op_ref.interaction_index][op_ref.operator_index]
+    elseif op_ref.kind == identity_flag || is_inch_node(node)
         return exp.identity_mat
     else
         throw(BoundsError())
@@ -352,9 +361,11 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Returns the [`SectorBlockMatrix`](@ref) representation of the pseudo particle propagator evaluated at the times `z1` and `z2`.
+Returns the [`SectorBlockMatrix`](@ref) representation of the pseudo particle propagator
+evaluated at the times `z1` and `z2`.
 """
-function sector_block_matrix_from_ppgf(z2::Time, z1::Time, P::Vector{MatrixGF}) where {
+function sector_block_matrix_from_ppgf(z2::Time, z1::Time,
+                                       P::Vector{MatrixGF})::SectorBlockMatrix where {
     MatrixGF <: kd.AbstractTimeGF{ComplexF64, false}}
     M = SectorBlockMatrix()
     for (sidx, p) in enumerate(P)
@@ -387,7 +398,7 @@ end
 
 function get_paths(exp::Expansion, nodes::Vector{Node})::Vector{Path}
 
-    operators = [ get_block_matrix(exp, node) for node in nodes ]
+    operators = [get_block_matrix(exp, node) for node in nodes]
     N_sectors = length(exp.P)
 
     paths = Path[]
@@ -407,12 +418,14 @@ function get_paths(exp::Expansion, nodes::Vector{Node})::Vector{Path}
     return paths
 end
 
-function eval(exp::Expansion, nodes::Vector{Node}, paths::Vector{Path}, has_split_node::Bool)
+function eval(exp::Expansion,
+              nodes::Vector{Node},
+              paths::Vector{Path},
+              has_split_node::Bool)::SectorBlockMatrix
 
     val = SectorBlockMatrix()
 
     for path in paths
-
         prev_node = first(nodes)
         first_s_i, s_f = first(path)
         mat = get_block_matrix(exp, first(nodes))[first_s_i][2]
@@ -422,9 +435,8 @@ function eval(exp::Expansion, nodes::Vector{Node}, paths::Vector{Path}, has_spli
             s_i, s_f = path[nidx + 1]
             op_mat = get_block_matrix(exp, node)[s_i][2]
 
-            #@assert node.time >= prev_node.time
-
-            P_interp = has_split_node ? exp.P[s_i](node.time, prev_node.time) : exp.P0[s_i](node.time, prev_node.time)
+            P_interp = has_split_node ? exp.P[s_i](node.time, prev_node.time) :
+                                        exp.P0[s_i](node.time, prev_node.time)
 
             mat = im * op_mat * P_interp * mat
 
@@ -444,7 +456,6 @@ function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
     P = has_split_node ? exp.P : exp.P0
 
     @inbounds for path in paths
-
         prev_node = first(nodes)
         S_i, S_f = first(path)
         mat = get_block_matrix(exp, first(nodes))[S_i][2]
@@ -454,16 +465,12 @@ function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
             s_i, s_f = path[nidx + 1]
             op_mat = get_block_matrix(exp, node)[s_i][2]
 
-            #@assert !(node.time < prev_node.time)
-            #@assert node.time >= prev_node.time # BROKEN FIXME ?
-
             if node.time.ref >= prev_node.time.ref
                 P_interp = P[s_i](node.time, prev_node.time)
             else
                 # Fix for equal time nodes where order is flipped
                 # from float roundoff
-                #@assert (node.time.ref - prev_node.time.ref) > -1e-10
-                P_interp = P[s_i](prev_node.time, node.time) # reversed node order
+                P_interp = P[s_i](prev_node.time, node.time)
             end
 
             mat = im * op_mat * P_interp * mat
@@ -484,14 +491,12 @@ Evaluate the configuration `conf` in the pseud-particle expansion `exp`.
 """
 function eval(exp::Expansion, conf::Configuration)::SectorBlockMatrix
     return eval(exp, conf.pairs, conf.parity) *
-           eval(exp, conf.nodes, conf.paths, conf.split_node_idx !== nothing)
+           eval(exp, conf.nodes, conf.paths, !isnothing(conf.split_node_idx))
 end
-
 
 function eval_acc!(value::SectorBlockMatrix, exp::Expansion, conf::Configuration)
     scalar::ComplexF64 = eval(exp, conf.pairs, conf.parity)
-    eval_acc!(value, scalar, exp, conf.nodes, conf.paths, conf.split_node_idx !== nothing)
-    return
+    eval_acc!(value, scalar, exp, conf.nodes, conf.paths, !isnothing(conf.split_node_idx))
 end
 
 function eval(expansion::Expansion,

@@ -1,6 +1,5 @@
 """
-Fermionic quantum impurity problem solving
-using Quasi Monte Carlo and the inchworm algorithm.
+A quasi Monte Carlo inchworm impurity solver for multi-orbital fermionic models.
 """
 module QInchworm
 
