@@ -2,30 +2,10 @@ module diagrammatics
 
 using DocStringExtensions
 
-using LinearAlgebra: det
+using Combinatorics: levicivita, doublefactorial
+
 
 const PairVector = Vector{Pair{Int,Int}}
-
-# TODO implement a fast calculation here
-"""
-$(TYPEDSIGNATURES)
-
-Returns sign of the permutation ``x``
-
-Sign is computed by calculating the determinant of the permutation matrix.
-Does not check if ``x`` is a valid permutation.
-"""
-function parity_slow(x::Vector{Int})::Int
-    n = length(x)
-
-    P = zeros(Int, n, n)
-
-    for (i, j) in enumerate(x)
-        P[i, j] = 1
-    end
-
-    return Int(det(P))
-end
 
 """
 $(TYPEDEF)
@@ -49,13 +29,13 @@ struct Topology
 end
 
 function Topology(pairs::PairVector)
-    p = parity_slow(collect(Iterators.flatten(pairs)))
+    p = levicivita(collect(Iterators.flatten(pairs)))
     return Topology(pairs, p)
 end
 
 function Base.isvalid(t::Topology)
     perm = collect(Iterators.flatten(t.pairs))
-    return ((t.parity == parity_slow(perm)) && (sort!(perm) == 1:(2*t.order)))
+    return ((t.parity == levicivita(perm)) && (sort!(perm) == 1:(2*t.order)))
 end
 
 function sortpair(p::Pair{T,T}) where {T}
@@ -112,24 +92,6 @@ Returns the parity of the permutation matrix of the topolgy.
 """
 function parity(top::Topology)::Int
     return top.parity
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Returns the parity of the permutation matrix of the topology.
-
-"""
-function parity_slow(top::Topology)::Int
-    n = top.order
-    P = zeros(Int, 2n, 2n)
-    for i = 1:n
-        j1, j2 = top.pairs[i]
-        P[2i-1, j1] = 1
-        P[2i-0, j2] = 1
-    end
-    parity = LinearAlgebra.det(P)
-    return parity
 end
 
 """
@@ -303,17 +265,6 @@ Return topologies of order ``n``, efficiently computing the permutation sign for
 function generate_topologies(n::Int)
     empty_top = Topology(PairVector(), 1)
     return generate_topologies_impl(empty_top, collect(1:(2*n)))
-end
-
-"""
-$(SIGNATURES)
-
-Return double factorial ``n!!``
-"""
-function double_factorial(n)
-    n == 0 && return 1
-    n == 1 && return 1
-    return n * double_factorial(n - 2)
 end
 
 function get_topologies_at_order(order::Int64,

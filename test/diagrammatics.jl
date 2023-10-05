@@ -1,12 +1,11 @@
+using Combinatorics: doublefactorial
+
 using QInchworm.diagrammatics
 
 @testset "diagrammatics" begin
-  @test diagrammatics.double_factorial.(2:2:10) == [2, 8, 48, 384, 3840]
-  @test diagrammatics.double_factorial.(1:2:10) == [1, 3, 15, 105, 945]
-
   for n = 1:7
     partitions = diagrammatics.pair_partitions(n)
-    @test length(partitions) == diagrammatics.double_factorial(2n - 1)
+    @test length(partitions) == doublefactorial(2n - 1)
 
     for p in partitions
       # test if we have generated valid partition
