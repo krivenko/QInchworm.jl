@@ -1,3 +1,5 @@
+using Test
+
 using Keldysh; kd = Keldysh
 
 using QInchworm.spline_gf: SplineInterpolatedGF,
@@ -7,19 +9,17 @@ using QInchworm.spline_gf: SplineInterpolatedGF,
 @testset "spline_gf" begin
 
     β = 10.
-    ntau = 6
+    nτ = 6
     ϵ = +0.1 # Energy level
+
+    dos = kd.DeltaDOS(ϵ)
 
     @testset "Imaginary time GF" begin
         contour = kd.ImaginaryContour(β=β);
-        grid = kd.ImaginaryTimeGrid(contour, ntau);
-
-        G_func = (t1, t2) -> -1.0im *
-            (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ, contour.β)) *
-            exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ)
+        grid = kd.ImaginaryTimeGrid(contour, nτ);
 
         @testset "scalar = true" begin
-            G = kd.ImaginaryTimeGF(G_func, grid, 1, kd.fermionic, true)
+            G = kd.ImaginaryTimeGF(dos, grid)
             G_int = SplineInterpolatedGF(deepcopy(G))
 
             @test eltype(G_int) == ComplexF64
@@ -98,8 +98,10 @@ using QInchworm.spline_gf: SplineInterpolatedGF,
         end
 
         @testset "scalar = false" begin
-            G = kd.ImaginaryTimeGF((t1, t2) -> ones(2, 2) * G_func(t1, t2),
-                                   grid, 2, kd.fermionic, false)
+            G = kd.ImaginaryTimeGF(grid, 2) do t1, t2
+                ones(2, 2) * kd.dos2gf(dos, β, t1.bpoint, t2.bpoint)
+            end
+
             G_int = SplineInterpolatedGF(deepcopy(G))
 
             @test eltype(G_int) == ComplexF64

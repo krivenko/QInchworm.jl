@@ -32,12 +32,10 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.inchworm: inchworm!
-using QInchworm.mpi: ismaster
 
-@testset "bethe" begin
+@testset "Bethe" verbose=true begin
 
-    # -- Reference results from DLR calculations
-
+    # Reference results from DLR calculations
     ref_fid = HDF5.h5open((@__DIR__) * "/bethe.h5", "r")
 
     ρ_exa = HDF5.read(ref_fid["/rho/exact"])
@@ -54,24 +52,24 @@ using QInchworm.mpi: ismaster
         μ = 0.0
         t_bethe = 0.5
 
-        # -- Hamiltonian
+        # Hamiltonian
 
         H_imp = -μ * (op.n(1) + op.n(2))
         soi = ked.Hilbert.SetOfIndices([[1], [2]])
 
-        # -- Imaginary time grid
+        # Imaginary time grid
 
-        contour = kd.ImaginaryContour(β=β);
-        grid = kd.ImaginaryTimeGrid(contour, nτ);
+        contour = kd.ImaginaryContour(β=β)
+        grid = kd.ImaginaryTimeGrid(contour, nτ)
 
-        # -- Hybridization propagator
+        # Hybridization propagator
 
         A_bethe = bethe_dos(t=t_bethe, ϵ=μ_bethe)
         Δ = kd.ImaginaryTimeGF(grid, 2) do t1, t2
             I(2) * V^2 * kd.dos2gf(A_bethe, β, t1.bpoint, t2.bpoint)
         end
 
-        # -- Pseudo Particle Strong Coupling Expansion
+        # Pseudo Particle Strong Coupling Expansion
 
         expansion = Expansion(H_imp, soi, grid, hybridization=Δ)
         ed = expansion.ed
@@ -88,52 +86,34 @@ using QInchworm.mpi: ismaster
         diff_tca = maximum(abs.(ρ_wrm - ρ_tca))
         diff_exa = maximum(abs.(ρ_wrm - ρ_exa))
 
-        if ismaster()
-            @show real(diag(ρ_0))
-            @show real(diag(ρ_nca))
-            @show real(diag(ρ_oca))
-            @show real(diag(ρ_tca))
-            @show real(diag(ρ_exa))
-            @show real(diag(ρ_wrm))
-
-            @show tr(ρ_wrm)
-            @show ρ_wrm[2, 2] - ρ_wrm[3, 3]
-
-            @show diff_nca
-            @show diff_oca
-            @show diff_tca
-            @show diff_exa
-        end
-
         return real(diag(ρ_wrm)), diff_exa, diff_nca, diff_oca, diff_tca
     end
 
-    @testset "ph_symmetry" begin
+    @testset "PH symmetry" begin
         nτ = 3
         N_samples = 2^4
         μ_bethe = 0.0
 
         tests = [
-            (0:0, 0:0), # ok
-            (0:1, 0:0), # ok
-            (0:0, 0:1), # ok
-            (0:2, 0:0), # ok
-            (0:0, 0:2), # ok
-            (0:3, 0:0), # ok
-            (0:0, 0:3), # ok
-            (0:4, 0:0), # ok
-            (0:0, 0:4), # ok
+            (0:0, 0:0),
+            (0:1, 0:0),
+            (0:0, 0:1),
+            (0:2, 0:0),
+            (0:0, 0:2),
+            (0:3, 0:0),
+            (0:0, 0:3),
+            (0:4, 0:0),
+            (0:0, 0:4)
             ]
 
         for (orders_bare, orders) in tests
-            @show orders_bare, orders
             ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
                 run_bethe(nτ, orders, orders_bare, N_samples, μ_bethe)
             @test ρ ≈ [0.25, 0.25, 0.25, 0.25]
         end
     end
 
-    @testset "order1" begin
+    @testset "order 1" begin
         nτ = 128
         orders = 0:1
         N_samples = 8 * 2^5
@@ -142,13 +122,15 @@ using QInchworm.mpi: ismaster
         ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
             run_bethe(nτ, orders, orders, N_samples, μ_bethe)
 
+        @test sum(ρ) ≈ 1
+        @test ρ[2] ≈ ρ[3]
         @test diffs_nca < 2e-3
         @test diffs_nca < diffs_oca
         @test diffs_nca < diffs_tca
         @test diffs_nca < diffs_exa
     end
 
-    @testset "order2" begin
+    @testset "order 2" begin
         nτ = 128
         orders = 0:2
         N_samples = 8 * 2^5
@@ -157,13 +139,15 @@ using QInchworm.mpi: ismaster
         ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
             run_bethe(nτ, orders, orders, N_samples, μ_bethe)
 
+        @test sum(ρ) ≈ 1
+        @test ρ[2] ≈ ρ[3]
         @test diffs_oca < 4e-3
         @test diffs_oca < diffs_nca
         @test diffs_oca < diffs_tca
         @test diffs_oca < diffs_exa
     end
 
-    @testset "order3" begin
+    @testset "order 3" begin
         nτ = 128
         orders = 0:3
         N_samples = 8 * 2^5
@@ -172,6 +156,8 @@ using QInchworm.mpi: ismaster
         ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca =
             run_bethe(nτ, orders, orders, N_samples, μ_bethe)
 
+        @test sum(ρ) ≈ 1
+        @test ρ[2] ≈ ρ[3]
         @test diffs_tca < 4e-3
         @test diffs_tca < diffs_nca
         @test diffs_tca < diffs_oca

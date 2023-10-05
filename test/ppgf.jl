@@ -1,3 +1,5 @@
+using Test
+
 using LinearAlgebra: Diagonal, ones, tr
 
 using Keldysh; kd = Keldysh;
@@ -10,7 +12,7 @@ using QInchworm.ppgf: atomic_ppgf,
                       first_order_spgf,
                       check_ppgf_real_time_symmetries
 
-@testset "atomic ppgf" begin
+@testset "Atomic PPGF" begin
 
     β = 10.
 
@@ -19,8 +21,9 @@ using QInchworm.ppgf: atomic_ppgf,
     B = +0.0 # Magnetic field
     μ = -0.1 # Chemical potential
 
+    tmax = 30.
     nt = 10
-    ntau = 10
+    nτ = 10
 
     # Hubbard-atom Hamiltonian
 
@@ -40,7 +43,7 @@ using QInchworm.ppgf: atomic_ppgf,
     ed = ked.EDCore(H, soi)
     ρ = ked.density_matrix(ed, β)
 
-    # Check that atomic G0(β, 0) is proportinal to ρ
+    # Check that atomic G0(β, 0) is proportional to ρ
     function check_consistency_with_density_matrix(G0, ρ)
         for (G0_s, ρ_s) in zip(G0, ρ)
             t_0, t_beta = kd.branch_bounds(G0_s.grid, kd.imaginary_branch)
@@ -48,9 +51,9 @@ using QInchworm.ppgf: atomic_ppgf,
         end
     end
 
-    # Compute Tr[ρ c^+_1 c_2] using ED ρ and ppgf G0 cf spgf
+    # Compute Tr[ρ c^+_1 c_2] using ED ρ and PPGF G0 cf SPGF
     function check_consistency_n(G0, ed)
-        grid = G0[1].grid
+        grid = first(G0).grid
         t_0, t_beta = kd.branch_bounds(grid, kd.imaginary_branch)
 
         g_ref = ked.computegf(ed, grid, d, d);
@@ -65,7 +68,7 @@ using QInchworm.ppgf: atomic_ppgf,
         for (sidx1, s) in enumerate(ed.subspaces)
 
             sidx2 = ked.c_connection(ed, idx1, sidx1)
-            sidx2 === nothing && continue
+            isnothing(sidx2) && continue
 
             sidx3 = ked.cdag_connection(ed, idx2, sidx2)
             sidx3 != sidx1 && continue
@@ -81,7 +84,7 @@ using QInchworm.ppgf: atomic_ppgf,
         @test n_G0 ≈ n_ref
     end
 
-    # Check spgf from ED and 1st order Inch
+    # Check SPGF from ED and 1st order Inch
     function check_consistency_first_order_spgf(G0, ed)
         grid = G0[1].grid
         for (o1, o2) in [(u, u), (u, d), (d, u), (d, d)]
@@ -94,8 +97,8 @@ using QInchworm.ppgf: atomic_ppgf,
     end
 
     @testset "Twisted Kadanoff-Baym-Keldysh contour" begin
-        contour = kd.twist(kd.FullContour(tmax=30., β=β))
-        grid = kd.FullTimeGrid(contour, nt, ntau)
+        contour = kd.twist(kd.FullContour(tmax=tmax, β=β))
+        grid = kd.FullTimeGrid(contour, nt, nτ)
 
         # Atomic propagator G0
         G0 = atomic_ppgf(grid, ed)
@@ -125,7 +128,7 @@ using QInchworm.ppgf: atomic_ppgf,
 
     @testset "Imaginary time" begin
         contour = kd.ImaginaryContour(β=β)
-        grid = kd.ImaginaryTimeGrid(contour, ntau)
+        grid = kd.ImaginaryTimeGrid(contour, nτ)
 
         # Atomic propagator G0
         G0 = atomic_ppgf(grid, ed)

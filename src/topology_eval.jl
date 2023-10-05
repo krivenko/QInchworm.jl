@@ -25,6 +25,8 @@ using QInchworm.diagrammatics: Topology,
 
 using QInchworm.utility: LazyMatrixProduct, eval!
 
+Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint) = !kd.heaviside(t1, t2)
+
 struct Node
     "Interaction type of operator"
     kind::InteractionEnum

@@ -32,11 +32,10 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.inchworm: inchworm!, correlator_2p
-using QInchworm.mpi: ismaster
 
-@testset "bethe_gf" begin
+@testset "Bethe GF" verbose=true begin
 
-    # -- Reference results from DLR calculations
+    # Reference results from DLR calculations
 
     ref_fid = HDF5.h5open((@__DIR__) * "/bethe.h5", "r")
 
@@ -58,24 +57,24 @@ using QInchworm.mpi: ismaster
         μ = 0.0
         t_bethe = 0.5
 
-        # -- Hamiltonian
+        # Hamiltonian
 
         H_imp = -μ * (op.n(1) + op.n(2))
         soi = ked.Hilbert.SetOfIndices([[1], [2]])
 
-        # -- Imaginary time grid
+        # Imaginary time grid
 
         contour = kd.ImaginaryContour(β=β);
         grid = kd.ImaginaryTimeGrid(contour, nτ);
 
-        # -- Hybridization propagator
+        # Hybridization propagator
 
         A_bethe = bethe_dos(t=t_bethe, ϵ=μ_bethe)
         Δ = kd.ImaginaryTimeGF(grid, 2) do t1, t2
             I(2) * V^2 * kd.dos2gf(A_bethe, β, t1.bpoint, t2.bpoint)
         end
 
-        # -- Pseudo Particle Strong Coupling Expansion
+        # Pseudo Particle Strong Coupling Expansion
 
         expansion = Expansion(H_imp, soi, grid, hybridization=Δ)
         ed = expansion.ed
@@ -92,23 +91,6 @@ using QInchworm.mpi: ismaster
         diff_tca = maximum(abs.(ρ_wrm - ρ_tca))
         diff_exa = maximum(abs.(ρ_wrm - ρ_exa))
 
-        if ismaster()
-            @show real(diag(ρ_0))
-            @show real(diag(ρ_nca))
-            @show real(diag(ρ_oca))
-            @show real(diag(ρ_tca))
-            @show real(diag(ρ_exa))
-            @show real(diag(ρ_wrm))
-
-            @show tr(ρ_wrm)
-            @show ρ_wrm[2, 2] - ρ_wrm[3, 3]
-
-            @show diff_nca
-            @show diff_oca
-            @show diff_tca
-            @show diff_exa
-        end
-
         add_corr_operators!(expansion, (op.c(1), op.c_dag(1)))
         g = -correlator_2p(expansion, grid, orders_gf, N_samples)
 
@@ -116,18 +98,12 @@ using QInchworm.mpi: ismaster
         diff_g_oca = maximum(abs.(g_oca - g[1].mat.data[1, 1, :]))
         diff_g_tca = maximum(abs.(g_tca - g[1].mat.data[1, 1, :]))
 
-        if ismaster()
-            @show diff_g_nca
-            @show diff_g_oca
-            @show diff_g_tca
-        end
-
         return real(diag(ρ_wrm)),
                diff_exa, diff_nca, diff_oca, diff_tca,
                diff_g_nca, diff_g_oca, diff_g_tca
     end
 
-    @testset "order1" begin
+    @testset "order 1" begin
         nτ = 128
         orders = 0:1
         orders_gf = 0:0
@@ -136,6 +112,9 @@ using QInchworm.mpi: ismaster
 
         ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca, diff_g_nca, diff_g_oca, diff_g_tca =
             run_bethe_gf(nτ, orders, orders, orders_gf, N_samples, μ_bethe)
+
+        @test sum(ρ) ≈ 1
+        @test ρ[2] ≈ ρ[3]
 
         @test diffs_nca < 2e-3
         @test diffs_nca < diffs_oca
@@ -146,7 +125,7 @@ using QInchworm.mpi: ismaster
         @test diff_g_nca < diff_g_oca
     end
 
-    @testset "order2" begin
+    @testset "order 2" begin
         nτ = 128
         orders = 0:2
         orders_gf = 0:1
@@ -155,6 +134,9 @@ using QInchworm.mpi: ismaster
 
         ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca, diff_g_nca, diff_g_oca, diff_g_tca =
             run_bethe_gf(nτ, orders, orders, orders_gf, N_samples, μ_bethe)
+
+        @test sum(ρ) ≈ 1
+        @test ρ[2] ≈ ρ[3]
 
         @test diffs_oca < 2e-3
         @test diffs_oca < diffs_nca
@@ -165,9 +147,7 @@ using QInchworm.mpi: ismaster
         @test diff_g_oca < diff_g_nca
     end
 
-    @testset "order3" begin
-        return # Third order calculation takes some considerable time, skip by default
-
+    @test_skip @testset "order 3" begin
         nτ = 128
         orders = 0:3
         orders_gf = 0:2
@@ -176,6 +156,9 @@ using QInchworm.mpi: ismaster
 
         ρ, diffs_exa, diffs_nca, diffs_oca, diffs_tca, diff_g_nca, diff_g_oca, diff_g_tca =
             run_bethe_gf(nτ, orders, orders, orders_gf, N_samples, μ_bethe)
+
+        @test sum(ρ) ≈ 1
+        @test ρ[2] ≈ ρ[3]
 
         @test diffs_tca < 2e-3
         @test diffs_tca < diffs_nca

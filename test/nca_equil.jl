@@ -1,4 +1,4 @@
-using MPI; MPI.Init()
+using Test
 
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
@@ -31,7 +31,7 @@ end
 
 function reverse_gf(g)
     g_rev = deepcopy(g)
-    τ_0, τ_β = first(g.grid), last(g.grid)
+    τ_0, τ_β = g.grid[1], g.grid[end]
     for τ in g.grid
         g_rev[τ, τ_0] = g[τ_β, τ]
     end
@@ -39,7 +39,7 @@ function reverse_gf(g)
 end
 
 function reverse_gf(
-    g::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, scalar}, T, scalar} where {T, scalar},
+    g::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, scalar}, T, scalar} where {T, scalar}
     )
     g_rev = deepcopy(g)
     τ_0, τ_β = first(g.grid), last(g.grid)
@@ -49,39 +49,30 @@ function reverse_gf(
     return g_rev
 end
 
-@testset "nca_equil" begin
+@testset "Equilibrium NCA" verbose=true begin
 
-    # -- Single state
-
+    # Single state
     β = 10.
     μ = +0.1 # Chemical potential
     ϵ = +0.1 # Bath energy level
     V = -0.1 # Hybridization
 
-    # -- Discretization
-
-    nt = 10
-    ntau = 30
+    # Discretization
     tmax = 1.
+    nt = 10
+    nτ= 30
 
-    # -- Quasi Monte Carlo
+    # Quasi Monte Carlo
     N = 2^13
 
-    # -- Exact Diagonalization
+    # Exact Diagonalization
 
     H = - μ * op.n("0")
     soi = ked.Hilbert.SetOfIndices([["0"]]);
     ed = ked.EDCore(H, soi)
     ρ = ked.density_matrix(ed, β)
 
-    # -----------------------------------------------
-    # -- 1st order inching on the imaginary branch --
-    # -----------------------------------------------
-
-    # -----------------------------
-    # -- Riemann sum integration --
-    # -----------------------------
-
+    """1st order inching on the imaginary branch: Riemann sum integration"""
     function run_nca_equil_tests_riemann(contour, grid, Δ, interpolate_ppgf=false)
 
         ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
@@ -115,12 +106,10 @@ end
             cfg.set_final_node_time!.(confs_1, Ref(τ_f.bpoint))
 
             for τ_1 in tau_grid[1:fidx]
-
                 pair_node_times = [τ_f.bpoint, τ_1.bpoint]
                 cfg.update_pair_node_times!.(confs_1, diags_1, Ref(pair_node_times))
                 val -= Δτ^2 * cfg.eval(ppsc_exp, confs_1[1])
                 val -= Δτ^2 * cfg.eval(ppsc_exp, confs_1[2])
-
             end
 
             for (s, P_s) in enumerate(ppsc_exp.P)
@@ -133,26 +122,21 @@ end
         ppgf.normalize!(ppsc_exp.P, β)
 
         Z = ppgf.partition_function(ppsc_exp.P)
+
+        # Regression tests
         @test Z ≈ 1.0
-        λ = log(Z) / β
-
-        # ---------------------
-        # -- Regression test --
-        # ---------------------
-
         @test ppsc_exp.P[1][τ_beta, τ_0] + ppsc_exp.P[2][τ_beta, τ_0] ≈ [-im]
         @test ppsc_exp.P[1][τ_beta, τ_0][1, 1] ≈ 0.0 - 0.7127769872093338im
         @test ppsc_exp.P[2][τ_beta, τ_0][1, 1] ≈ 0.0 - 0.2872230127906664im
 
         interpolate_ppgf && return
 
-        # -- Single particle Green's function
-
+        # Single particle Green's function
         g = ppgf.first_order_spgf(ppsc_exp.P, ed, 1, 1)
 
-        # ---------------------------------------
-        # -- Reference calculation of the spgf --
-        # ---------------------------------------
+        #
+        # Reference calculation of the SPGF
+        #
 
         H_ref = - μ * op.n("0") + ϵ * op.n("1") +
                 V * op.c_dag("1") * op.c("0") + V * op.c_dag("0") * op.c("1")
@@ -165,10 +149,7 @@ end
         @test isapprox(g[:matsubara], g_ref[:matsubara], atol=0.05)
     end
 
-    # -----------------------------------
-    # -- Quasi Monte Carlo integration --
-    # -----------------------------------
-
+    """1st order inching on the imaginary branch: Quasi Monte Carlo integration"""
     function run_nca_equil_tests_qmc(contour, grid, Δ, interpolate_ppgf=false)
 
         ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
@@ -228,54 +209,38 @@ end
 
         @test ppsc_exp.P[1][τ_beta, τ_0] + ppsc_exp.P[2][τ_beta, τ_0] ≈ [-im]
         @test isapprox(ppsc_exp.P[1][τ_beta, τ_0][1, 1],
-                    0.0 - 0.6821011169782484im,
-                    atol=1e-3)
+                       0.0 - 0.6821011169782484im,
+                       atol=1e-3)
         @test isapprox(ppsc_exp.P[2][τ_beta, τ_0][1, 1],
-                    0.0 - 0.3178988830217517im,
-                    atol=1e-3)
+                       0.0 - 0.3178988830217517im,
+                       atol=1e-3)
     end
 
     @testset "Imaginary time" begin
         contour = kd.ImaginaryContour(β=β)
-        grid = kd.ImaginaryTimeGrid(contour, ntau)
+        grid = kd.ImaginaryTimeGrid(contour, nτ)
 
-        # -- Hybridization propagator
-
-        Δ = kd.ImaginaryTimeGF(
-            (t1, t2) -> -1.0im * V^2 *
-                (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ, contour.β)) *
-                exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ),
-            ComplexF64, grid, 1, kd.fermionic, true)
+        # Hybridization propagator
+        Δ = kd.ImaginaryTimeGF(kd.DeltaDOS([ϵ], [V^2]), grid)
 
         run_nca_equil_tests_riemann(contour, grid, Δ, false)
         run_nca_equil_tests_qmc(contour, grid, Δ, false)
 
-        # #############################################################
-        # NOT WORKING! Fix me, when going to higher order interpolants.
-        # #############################################################
-
-        #run_nca_equil_tests_riemann(contour, grid, SplineInterpolatedGF(Δ), true)
-        #run_nca_equil_tests_qmc(contour, grid, SplineInterpolatedGF(Δ), true)
+        #FIXME: when going to higher order interpolants
+        @test_skip run_nca_equil_tests_riemann(contour, grid, SplineInterpolatedGF(Δ), true)
+        @test_skip run_nca_equil_tests_qmc(contour, grid, SplineInterpolatedGF(Δ), true)
     end
 
-    # ####################################################
-    # NOT WORKING! Fix me, when generalizing to real time.
-    # ####################################################
-
-    @testset "Twisted Kadanoff-Baym-Keldysh contour" begin
+    #FIXME when generalizing to real time
+    @test_skip @testset "Twisted Kadanoff-Baym-Keldysh contour" begin
         contour = kd.twist(kd.FullContour(tmax=tmax, β=β))
-        grid = kd.FullTimeGrid(contour, nt, ntau)
+        grid = kd.FullTimeGrid(contour, nt, nτ)
 
-        # -- Hybridization propagator
+        # Hybridization propagator
+        Δ = kd.FullTimeGF(kd.DeltaDOS([ϵ], [V^2]), grid)
 
-        Δ = kd.FullTimeGF(
-            (t1, t2) -> -1.0im * V^2 *
-                (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ, contour.β)) *
-                exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ),
-            grid, 1, kd.fermionic, true)
-
-        #run_nca_equil_tests_riemann(contour, grid, Δ)
-        #run_nca_equil_tests_qmc(contour, grid, Δ)
+        @test_skip run_nca_equil_tests_riemann(contour, grid, Δ)
+        @test_skip run_nca_equil_tests_qmc(contour, grid, Δ)
     end
 
 end

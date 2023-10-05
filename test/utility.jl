@@ -1,3 +1,5 @@
+using Test
+
 using Keldysh; kd = Keldysh
 
 using Interpolations: interpolate, scale, BSpline, Cubic, OnGrid
@@ -42,32 +44,32 @@ end
 @testset "LazyMatrixProduct" begin
    rng = MersenneTwister(123456)
    dims = [rand(rng, 1:8) for i = 1:6]
-   A1, A2, A3, A4, A5 = [rand(rng, dims[i + 1], dims[i]) for i = 1:5]
+   A = [rand(rng, dims[i + 1], dims[i]) for i = 1:5]
 
    lmp = LazyMatrixProduct(Float64, 6)
 
-   pushfirst!(lmp, A1)
-   @test eval!(lmp) == A1
+   pushfirst!(lmp, A[1])
+   @test eval!(lmp) == A[1]
 
-   pushfirst!(lmp, A2)
-   pushfirst!(lmp, A3)
-   pushfirst!(lmp, A4)
-   pushfirst!(lmp, A5)
+   pushfirst!(lmp, A[2])
+   pushfirst!(lmp, A[3])
+   pushfirst!(lmp, A[4])
+   pushfirst!(lmp, A[5])
 
-   @test eval!(lmp) ≈ A5 * A4 * A3 * A2 * A1
-   @test eval!(lmp) ≈ A5 * A4 * A3 * A2 * A1
+   @test eval!(lmp) ≈ A[5] * A[4] * A[3] * A[2] * A[1]
+   @test eval!(lmp) ≈ A[5] * A[4] * A[3] * A[2] * A[1]
 
    popfirst!(lmp, 2)
-   @test eval!(lmp) ≈ A3 * A2 * A1
+   @test eval!(lmp) ≈ A[3] * A[2] * A[1]
 
    popfirst!(lmp)
-   @test eval!(lmp) ≈ A2 * A1
+   @test eval!(lmp) ≈ A[2] * A[1]
 
-   pushfirst!(lmp, A3)
-   pushfirst!(lmp, A4)
-   @test eval!(lmp) ≈ A4 * A3 * A2 * A1
+   pushfirst!(lmp, A[3])
+   pushfirst!(lmp, A[4])
+   @test eval!(lmp) ≈ A[4] * A[3] * A[2] * A[1]
 
    popfirst!(lmp, 3)
-   @test eval!(lmp) == A1
-   @test eval!(lmp) == A1
+   @test eval!(lmp) == A[1]
+   @test eval!(lmp) == A[1]
 end

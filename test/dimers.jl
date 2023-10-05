@@ -1,22 +1,18 @@
 using Test
 
 using MPI; MPI.Init()
-using HDF5
 
 using LinearAlgebra: diag
 
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-using QInchworm.expansion: Expansion, InteractionPair, get_diagrams_at_order
-using QInchworm.diagrammatics: get_topologies_at_order
-
-using QInchworm.ppgf
 using QInchworm.spline_gf: SplineInterpolatedGF
+using QInchworm.ppgf
+using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.inchworm: inchworm!
-using QInchworm.mpi: ismaster
 
-@testset "dimer" begin
+@testset "Dimer" verbose=true begin
 
     function run_dimer(nτ, orders, orders_bare, N_samples; interpolate_gfs=false)
 
@@ -24,14 +20,14 @@ using QInchworm.mpi: ismaster
         ϵ_1, ϵ_2 = 0.5, 2.0
         V = 0.5
 
-        # -- ED solution
+        # ED solution
 
         H_dimer = ϵ_1 * op.n(1) + ϵ_2 * op.n(2) +
-                  V * ( op.c_dag(1) * op.c(2) + op.c_dag(2) * op.c(1) )
+                  V * (op.c_dag(1) * op.c(2) + op.c_dag(2) * op.c(1))
         soi_dimer = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
         ed_dimer = KeldyshED.EDCore(H_dimer, soi_dimer)
 
-        # -- Impurity problem
+        # Impurity problem
 
         contour = kd.ImaginaryContour(β=β);
         grid = kd.ImaginaryTimeGrid(contour, nτ);
@@ -45,19 +41,18 @@ using QInchworm.mpi: ismaster
         P0_dimer = ppgf.atomic_ppgf(grid, ed_dimer)
         P_red = ppgf.reduced_ppgf(P0_dimer, ed_dimer, soi)
 
-        # -- Hybridization propagator
+        # Hybridization propagator
 
         Δ = V^2 * kd.ImaginaryTimeGF(kd.DeltaDOS(ϵ_2), grid)
         Δ_rev = kd.ImaginaryTimeGF((t1, t2) -> -Δ[t2, t1, false],
                                    grid, 1, kd.fermionic, true)
 
-        # -- Pseudo Particle Strong Coupling Expansion
+        # Pseudo Particle Strong Coupling Expansion
 
         if interpolate_gfs
             ip_fwd = InteractionPair(op.c_dag(1), op.c(1), SplineInterpolatedGF(Δ))
             ip_bwd = InteractionPair(op.c(1), op.c_dag(1), SplineInterpolatedGF(Δ_rev))
             expansion = Expansion(ed, grid, [ip_fwd, ip_bwd], interpolate_ppgf=true)
-            println("Using spline GFS")
         else
             ip_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
             ip_bwd = InteractionPair(op.c(1), op.c_dag(1), Δ_rev)
@@ -69,7 +64,7 @@ using QInchworm.mpi: ismaster
         inchworm!(expansion, grid, orders, orders_bare, N_samples)
 
         if interpolate_gfs
-            P = [ p.GF for p in expansion.P ]
+            P = [p.GF for p in expansion.P]
             ppgf.normalize!(P, β)
             ρ_wrm = full_hs_matrix(ppgf.density_matrix(P), ed)
         else
@@ -77,47 +72,37 @@ using QInchworm.mpi: ismaster
             ρ_wrm = full_hs_matrix(ppgf.density_matrix(expansion.P), ed)
         end
 
-        if ismaster()
-            @show real(diag(ρ_0))
-            @show real(diag(ρ_ref))
-            @show real(diag(ρ_wrm))
-        end
-
         return maximum(abs.(ρ_ref - ρ_wrm))
     end
 
-    @testset "order1" begin
+    @testset "order 1" begin
         nτ = 32
         orders = 0:1
         N_samples = 8 * 2^4
 
         diff_interp = run_dimer(nτ, orders, orders, N_samples, interpolate_gfs=true)
-        @show diff_interp
         @test diff_interp < 1e-4
 
         diff_linear = run_dimer(nτ, orders, orders, N_samples, interpolate_gfs=false)
-        @show diff_linear
         @test diff_linear < 1e-4
     end
 
-    @testset "order3" begin
+    @testset "order 3" begin
         nτ = 32
         orders = 0:3
         N_samples = 8 * 2^4
 
         diff_interp = run_dimer(nτ, orders, orders, N_samples, interpolate_gfs=true)
-        @show diff_interp
         @test diff_interp < 1e-4
 
         diff_linear = run_dimer(nτ, orders, orders, N_samples, interpolate_gfs=false)
-        @show diff_linear
         @test diff_linear < 1e-4
     end
 end
 
-@testset "hubbard_dimer" begin
+@testset "Hubbard dimer" verbose=true begin
 
-    function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
+    function run_hubbard_dimer(nτ, orders, orders_bare, N_samples)
 
         β = 1.0
         U = 4.0
@@ -125,7 +110,7 @@ end
         V_1 = 0.5
         V_2 = 0.5
 
-        # -- ED solution
+        # ED solution
 
         H_imp = U * op.n(1) * op.n(2) + ϵ_1 * (op.n(1) + op.n(2))
 
@@ -136,17 +121,17 @@ end
         soi_dimer = KeldyshED.Hilbert.SetOfIndices([[1], [2], [3], [4]])
         ed_dimer = KeldyshED.EDCore(H_dimer, soi_dimer)
 
-        # -- Impurity problem
+        # Impurity problem
 
-        contour = kd.ImaginaryContour(β=β);
-        grid = kd.ImaginaryTimeGrid(contour, ntau);
+        contour = kd.ImaginaryContour(β=β)
+        grid = kd.ImaginaryTimeGrid(contour, nτ)
 
         soi = KeldyshED.Hilbert.SetOfIndices([[1], [2]])
         ed = KeldyshED.EDCore(H_imp, soi)
 
         ρ_ref = reduced_density_matrix(ed_dimer, soi, β)
 
-        # -- Hybridization propagator
+        # Hybridization propagator
 
         Δ_1 = V_1^2 * kd.ImaginaryTimeGF(kd.DeltaDOS(ϵ_2), grid)
         Δ_2 = V_2^2 * kd.ImaginaryTimeGF(kd.DeltaDOS(ϵ_2), grid)
@@ -155,7 +140,7 @@ end
         Δ_2_rev = kd.ImaginaryTimeGF((t1, t2) -> -Δ_2[t2, t1, false],
                                      grid, 1, kd.fermionic, true)
 
-        # -- Pseudo Particle Strong Coupling Expansion
+        # Pseudo Particle Strong Coupling Expansion
 
         ip_1_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ_1)
         ip_1_bwd = InteractionPair(op.c(1), op.c_dag(1), Δ_1_rev)
@@ -170,33 +155,24 @@ end
         ppgf.normalize!(expansion.P, β)
         ρ_wrm = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P), ed), ed)
 
-        if ismaster()
-            @show real(diag(ρ_0))
-            @show real(diag(ρ_ref))
-            @show real(diag(ρ_wrm))
-        end
-
         return maximum(abs.(ρ_ref - ρ_wrm))
     end
 
-    @testset "order1" begin
+    @testset "order 1" begin
         nτ = 32
         orders = 0:1
         N_samples = 8 * 2^5
 
         diff = run_hubbard_dimer(nτ, orders, orders, N_samples)
-        @show diff
         @test diff < 1e-4
     end
 
-    @testset "order2" begin
+    @testset "order 2" begin
         nτ = 32
         orders = 0:2
         N_samples = 8 * 2^5
 
         diff = run_hubbard_dimer(nτ, orders, orders, N_samples)
-        @show diff
         @test diff < 1e-4
     end
-
 end

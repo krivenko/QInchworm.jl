@@ -1,7 +1,5 @@
 #!/usr/bin/env julia
 
-using Test
-
 include("utility.jl")
 include("spline_gf.jl")
 include("ppgf.jl")

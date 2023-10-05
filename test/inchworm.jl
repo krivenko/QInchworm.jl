@@ -16,15 +16,16 @@ using QInchworm.inchworm: ExpansionOrderInputData,
                           inchworm!,
                           correlator_2p
 
-# -- Single state pseudo particle expansion
+# Single state pseudo particle expansion
 
 β = 10.
 μ = +0.1 # Chemical potential
 ϵ = +0.1 # Bath energy level
 V = -0.1 # Hybridization
-nt = 10
-ntau = 20
+
 tmax = 1.
+nt = 10
+nτ = 20
 
 H = - μ * op.n("0")
 soi = ked.Hilbert.SetOfIndices([["0"]])
@@ -32,15 +33,15 @@ ed = ked.EDCore(H, soi)
 ρ = ked.density_matrix(ed, β)
 
 @testset "inchworm_step" begin
-    contour = kd.twist(kd.FullContour(tmax=tmax, β=β));
-    grid = kd.FullTimeGrid(contour, nt, ntau);
+    contour = kd.twist(kd.FullContour(tmax=tmax, β=β))
+    grid = kd.FullTimeGrid(contour, nt, nτ)
 
-    # -- Hybridization propagator
+    # Hybridization propagator
 
     Δ = V^2 * kd.FullTimeGF(kd.DeltaDOS(ϵ), grid)
     Δ_rev = kd.FullTimeGF((t1, t2) -> -Δ[t2, t1, false], grid, 1, kd.fermionic, true)
 
-    # -- Pseudo Particle Strong Coupling Expansion
+    # Pseudo Particle Strong Coupling Expansion
 
     ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
     ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), Δ_rev)
@@ -71,7 +72,7 @@ ed = ked.EDCore(H, soi)
             topologies = get_topologies_at_order(order, n_pts_after)
             if !isempty(topologies)
                 push!(order_data,
-                        ExpansionOrderInputData(order, n_pts_after, topologies, N_samples)
+                      ExpansionOrderInputData(order, n_pts_after, topologies, N_samples)
                 )
             end
         end
@@ -85,14 +86,14 @@ end
 
 @testset "inchworm_step_bare" begin
     contour = kd.twist(kd.FullContour(tmax=tmax, β=β));
-    grid = kd.FullTimeGrid(contour, nt, ntau);
+    grid = kd.FullTimeGrid(contour, nt, nτ);
 
-    # -- Hybridization propagator
+    # Hybridization propagator
 
     Δ = V^2 * kd.FullTimeGF(kd.DeltaDOS(ϵ), grid)
     Δ_rev = kd.FullTimeGF((t1, t2) -> -Δ[t2, t1, false], grid, 1, kd.fermionic, true)
 
-    # -- Pseudo Particle Strong Coupling Expansion
+    # Pseudo Particle Strong Coupling Expansion
 
     ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
     ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), Δ_rev)
@@ -128,14 +129,14 @@ end
 
 @testset "inchworm" begin
     contour = kd.ImaginaryContour(β=β);
-    grid = kd.ImaginaryTimeGrid(contour, ntau);
+    grid = kd.ImaginaryTimeGrid(contour, nτ);
 
-    # -- Hybridization propagator
+    # Hybridization propagator
 
     Δ = V^2 * kd.ImaginaryTimeGF(kd.DeltaDOS(ϵ), grid)
     Δ_rev = kd.ImaginaryTimeGF((t1, t2) -> -Δ[t2, t1, false], grid, 1, kd.fermionic, true)
 
-    # -- Pseudo Particle Strong Coupling Expansion
+    # Pseudo Particle Strong Coupling Expansion
 
     ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), SplineInterpolatedGF(Δ))
     ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), SplineInterpolatedGF(Δ_rev))
@@ -146,12 +147,9 @@ end
     N_samples = 2^8
 
     inchworm!(expansion, grid, orders, orders_bare, N_samples)
-    @show expansion.P
 
-    # -- Single-particle GF
+    # Single-particle GF
 
     add_corr_operators!(expansion, (op.c("0"), op.c_dag("0")))
     g = -correlator_2p(expansion, grid, orders, N_samples)
-
-    @show g
 end
