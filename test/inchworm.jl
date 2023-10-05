@@ -1,6 +1,7 @@
 using Test
 
 using MPI; MPI.Init()
+using HDF5
 
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
@@ -15,6 +16,17 @@ using QInchworm.inchworm: ExpansionOrderInputData,
                           inchworm_step_bare,
                           inchworm!,
                           correlator_2p
+
+# If true, write calculation results into inchworm.h5
+const write_h5 = false
+
+function test_or_write(fid, name, value)
+    if write_h5
+        HDF5.write(fid, name, value)
+    else
+        @test value ≈ HDF5.read(fid, name)
+    end
+end
 
 # Single state pseudo particle expansion
 
@@ -80,8 +92,11 @@ ed = ked.EDCore(H, soi)
 
     value = inchworm_step(expansion, contour, τ_i, τ_w, τ_f, order_data)
 
-    @test value[1][2] ≈ [-2.248718254991711e-5 - 0.8986061402276607im;;]
-    @test value[2][2] ≈ [-2.0240434762456118e-5 - 0.620466992172759im;;]
+    HDF5.h5open((@__DIR__) * "/inchworm.h5", write_h5 ? "cw" : "r") do fid
+        for s = 1:2
+            test_or_write(fid, "/inchworm_step/value/$(s)", value[s][2])
+        end
+    end
 end
 
 @testset "inchworm_step_bare" begin
@@ -123,8 +138,11 @@ end
 
     value = inchworm_step_bare(expansion, contour, τ_i, τ_f, order_data)
 
-    @test value[1][2] ≈ [0.0 - 0.9846027217878349im;;]
-    @test value[2][2] ≈ [0.0 - 0.9335734823036375im;;]
+    HDF5.h5open((@__DIR__) * "/inchworm.h5", write_h5 ? "cw" : "r") do fid
+        for s = 1:2
+            test_or_write(fid, "/inchworm_step_bare/value/$(s)", value[s][2])
+        end
+    end
 end
 
 @testset "inchworm" begin
@@ -152,4 +170,11 @@ end
 
     add_corr_operators!(expansion, (op.c("0"), op.c_dag("0")))
     g = -correlator_2p(expansion, grid, orders, N_samples)
+
+    HDF5.h5open((@__DIR__) * "/inchworm.h5", write_h5 ? "cw" : "r") do fid
+        for s = 1:2
+            test_or_write(fid, "/inchworm/P/$(s)", expansion.P[s].GF.mat.data)
+        end
+        test_or_write(fid, "/inchworm/g", g[1].mat.data)
+    end
 end
