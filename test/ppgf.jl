@@ -43,17 +43,17 @@ using QInchworm.ppgf: atomic_ppgf,
     ed = ked.EDCore(H, soi)
     ρ = ked.density_matrix(ed, β)
 
-    # Check that atomic G0(β, 0) is proportional to ρ
-    function check_consistency_with_density_matrix(G0, ρ)
-        for (G0_s, ρ_s) in zip(G0, ρ)
-            t_0, t_beta = kd.branch_bounds(G0_s.grid, kd.imaginary_branch)
-            @test ρ_s ≈ im * G0_s[t_beta, t_0]
+    # Check that atomic P0(β, 0) is proportional to ρ
+    function check_consistency_with_density_matrix(P0, ρ)
+        for (P0_s, ρ_s) in zip(P0, ρ)
+            t_0, t_beta = kd.branch_bounds(P0_s.grid, kd.imaginary_branch)
+            @test ρ_s ≈ im * P0_s[t_beta, t_0]
         end
     end
 
-    # Compute Tr[ρ c^+_1 c_2] using ED ρ and PPGF G0 cf SPGF
-    function check_consistency_n(G0, ed)
-        grid = first(G0).grid
+    # Compute Tr[ρ c^+_1 c_2] using ED ρ and PPGF P0 cf SPGF
+    function check_consistency_n(P0, ed)
+        grid = first(P0).grid
         t_0, t_beta = kd.branch_bounds(grid, kd.imaginary_branch)
 
         g_ref = ked.computegf(ed, grid, d, d);
@@ -63,7 +63,7 @@ using QInchworm.ppgf: atomic_ppgf,
         idx2 = d
 
         n_rho::Complex = 0.
-        n_G0::Complex = 0.
+        n_P0::Complex = 0.
 
         for (sidx1, s) in enumerate(ed.subspaces)
 
@@ -77,18 +77,18 @@ using QInchworm.ppgf: atomic_ppgf,
             m_2 = ked.cdag_matrix(ed, idx2, sidx2)
 
             n_rho += tr(ρ[sidx1] * m_2 * m_1)
-            n_G0 += tr(im * G0[sidx1][t_beta, t_0] * m_2 * m_1 )
+            n_P0 += tr(im * P0[sidx1][t_beta, t_0] * m_2 * m_1 )
         end
 
         @test n_rho ≈ n_ref
-        @test n_G0 ≈ n_ref
+        @test n_P0 ≈ n_ref
     end
 
     # Check SPGF from ED and 1st order Inch
-    function check_consistency_first_order_spgf(G0, ed)
-        grid = G0[1].grid
+    function check_consistency_first_order_spgf(P0, ed)
+        grid = first(P0).grid
         for (o1, o2) in [(u, u), (u, d), (d, u), (d, d)]
-            g = first_order_spgf(G0, ed, o1, o2);
+            g = first_order_spgf(P0, ed, o1, o2);
             g_ref = ked.computegf(ed, grid, o1, o2);
             for z1 in grid, z2 in grid
                 @test isapprox(g[z1, z2], g_ref[z1, z2], atol=1e-12, rtol=1-12)
@@ -100,11 +100,11 @@ using QInchworm.ppgf: atomic_ppgf,
         contour = kd.twist(kd.FullContour(tmax=tmax, β=β))
         grid = kd.FullTimeGrid(contour, nt, nτ)
 
-        # Atomic propagator G0
-        G0 = atomic_ppgf(grid, ed)
-        @test check_ppgf_real_time_symmetries(G0, ed)
+        # Atomic propagator P0
+        P0 = atomic_ppgf(grid, ed)
+        @test check_ppgf_real_time_symmetries(P0, ed)
 
-        check_consistency_with_density_matrix(G0, ρ)
+        check_consistency_with_density_matrix(P0, ρ)
 
         # Check that propagation from
         # - t on fwd branch over t_max
@@ -114,27 +114,27 @@ using QInchworm.ppgf: atomic_ppgf,
         zb_max = grid[kd.backward_branch][1]
         zf_max = grid[kd.forward_branch][end]
 
-        for (sidx, G_s) in enumerate(G0)
+        for (sidx, P_s) in enumerate(P0)
             for (zb, zf) in zip(reverse(grid[kd.backward_branch]), grid[kd.forward_branch])
-                prod = im^2 * G_s[zb, zb_max] * G_s[zf_max, zf]
+                prod = im^2 * P_s[zb, zb_max] * P_s[zf_max, zf]
                 I = Diagonal(ones(size(prod, 1)))
                 @test prod ≈ I
             end
         end
 
-        check_consistency_n(G0, ed)
-        check_consistency_first_order_spgf(G0, ed)
+        check_consistency_n(P0, ed)
+        check_consistency_first_order_spgf(P0, ed)
     end
 
     @testset "Imaginary time" begin
         contour = kd.ImaginaryContour(β=β)
         grid = kd.ImaginaryTimeGrid(contour, nτ)
 
-        # Atomic propagator G0
-        G0 = atomic_ppgf(grid, ed)
+        # Atomic propagator P0
+        P0 = atomic_ppgf(grid, ed)
 
-        check_consistency_with_density_matrix(G0, ρ)
-        check_consistency_n(G0, ed)
-        check_consistency_first_order_spgf(G0, ed)
+        check_consistency_with_density_matrix(P0, ρ)
+        check_consistency_n(P0, ed)
+        check_consistency_first_order_spgf(P0, ed)
     end
 end

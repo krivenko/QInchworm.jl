@@ -63,9 +63,9 @@ function make_second_order_diag(; nt, nτ, tmax, τ_w_pos, verbose = false)
 
     if verbose
         plt.figure()
-        plt.title("Ĝ(τ)")
-        for (idx, G_s) in enumerate(ppsc_exp.P0)
-            vals = [G_s(τ.bpoint, τ0.bpoint) for τ in τ_grid]
+        plt.title(raw"$\hat P(τ)$")
+        for (idx, P_s) in enumerate(ppsc_exp.P0)
+            vals = [P_s(τ.bpoint, τ0.bpoint) for τ in τ_grid]
             τ_vals = [-imag(τ.bpoint.val) for τ in τ_grid]
             vals = vcat(vals...)
             plt.plot(τ_vals, imag.(vals), "-", label="\$G^{0}_$idx\$")
