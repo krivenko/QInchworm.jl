@@ -46,7 +46,7 @@ function semi_circular_g_tau(times, t, h, β)
     return g_out
 end
 
-function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_max)
+function run_bethe(nτ, orders, orders_bare, orders_gf, N_samples, n_pts_after_max)
 
     β = 10.0
     μ = 0.0
@@ -61,7 +61,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
     # -- Impurity problem
 
     contour = kd.ImaginaryContour(β=β);
-    grid = kd.ImaginaryTimeGrid(contour, ntau);
+    grid = kd.ImaginaryTimeGrid(contour, nτ);
 
     soi = ked.Hilbert.SetOfIndices([[1]])
     ed = ked.EDCore(H_imp, soi)
@@ -103,14 +103,14 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
     # ==
     if ismaster()
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, vcat(g[1].mat.data...))))
-        filename = "data_order_$(orders)_ntau_$(ntau)_N_samples_$(N_samples)_md5_$(id).h5"
+        filename = "data_order_$(orders)_ntau_$(nτ)_N_samples_$(N_samples)_md5_$(id).h5"
 
         @show filename
         fid = h5.h5open(filename, "w")
         grp = h5.create_group(fid, "data")
 
         h5.attributes(grp)["beta"] = β
-        h5.attributes(grp)["ntau"] = ntau
+        h5.attributes(grp)["ntau"] = nτ
         h5.attributes(grp)["n_pts_after_max"] = n_pts_after_max
         h5.attributes(grp)["N_samples"] = N_samples
 
@@ -165,7 +165,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
         gr = g_int.(τ_ref)
 
         plt.subplot(subp...); subp[end] += 1;
-        plt.title("ntau = $(length(τ)), N_samples = $N_samples")
+        plt.title("nτ = $(length(τ)), N_samples = $N_samples")
         plt.plot(τ, imag(g[1].mat.data[1, 1, :]), "--", label="InchW")
         plt.plot(τ, -imag(Δ.mat.data[1, 1, :])/V^2, "--", label="Bethe")
         plt.xlabel(raw"$\tau$")
@@ -174,7 +174,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
         plt.ylim(bottom=0)
 
         plt.tight_layout()
-        plt.savefig("figure_ntau_$(ntau)_N_samples_$(N_samples)_orders_$(orders).pdf")
+        plt.savefig("figure_ntau_$(nτ)_N_samples_$(N_samples)_orders_$(orders).pdf")
         #plt.show()
     end
 end
@@ -184,7 +184,7 @@ end
 @assert length(ARGS) == 4
 
 order = parse(Int, ARGS[1])
-ntau = parse(Int, ARGS[2])
+nτ = parse(Int, ARGS[2])
 N_samples = parse(Int, ARGS[3])
 n_pts_after_max = parse(Int, ARGS[4])
 
@@ -195,7 +195,7 @@ end
 order_gf = order - 1
 
 if ismaster()
-    println("order $(order) ntau $(ntau) N_samples $(N_samples) n_pts_after_max $(n_pts_after_max)")
+    println("order $(order) nτ $(nτ) N_samples $(N_samples) n_pts_after_max $(n_pts_after_max)")
 end
 
 #exit()
@@ -203,7 +203,7 @@ end
 orders = 0:order
 orders_gf = 0:order_gf
 
-run_bethe(ntau, orders, orders, orders_gf, N_samples, n_pts_after_max)
+run_bethe(nτ, orders, orders, orders_gf, N_samples, n_pts_after_max)
 
 exit()
 
@@ -218,11 +218,11 @@ for o = [7]
     #for o = [6, 7, 8]
     orders = 0:o
     orders_gf = 0:(o-1)
-    #for ntau = [64, 128, 256]
-    for ntau = [16]
+    #for nτ = [64, 128, 256]
+    for nτ = [16]
         #for N_samples = 32 * 2 .^ (0:10)
         for N_samples = [8*2^0]
-            run_bethe(ntau, orders, orders, orders_gf, N_samples, n_pts_after_max)
+            run_bethe(nτ, orders, orders, orders_gf, N_samples, n_pts_after_max)
         end
     end
 end

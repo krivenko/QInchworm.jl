@@ -1,5 +1,3 @@
-# TODO: What do we do with this file? Is it sill used?
-
 using MPI; MPI.Init()
 
 using LinearAlgebra: diagm
@@ -35,7 +33,7 @@ using QInchworm.mpi: ismaster
 using PyPlot; plt = PyPlot # DEBUG
 
 
-function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
+function run_dimer(nτ, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     #@time begin
 
@@ -93,7 +91,6 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
 
     #end
-    #println("Dens mat")
 
     #@test ρ_12_red1 ≈ ρ_1
     #@test ρ_12_red2 ≈ ρ_2
@@ -101,7 +98,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     # -- Propagators
 
     contour = kd.ImaginaryContour(β=β);
-    grid = kd.ImaginaryTimeGrid(contour, ntau);
+    grid = kd.ImaginaryTimeGrid(contour, nτ);
 
     #@time begin
 
@@ -236,7 +233,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     if ismaster()
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, P1)))
-        filename = "data_dimer_ntau_$(ntau)_maxorder_$(max_order)_Nsamples_$(N_samples)_md5_$(id).h5"
+        filename = "data_dimer_ntau_$(nτ)_maxorder_$(max_order)_Nsamples_$(N_samples)_md5_$(id).h5"
 
         @show filename
         fid = h5.h5open(filename, "w")
@@ -249,7 +246,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
         h5.attributes(g)["e2"] = ϵ_2
 
         h5.attributes(g)["maxorder"] = max_order
-        h5.attributes(g)["ntau"] = ntau
+        h5.attributes(g)["ntau"] = nτ
         h5.attributes(g)["N_samples"] = N_samples
         h5.attributes(g)["diff"] = diff
 
@@ -285,7 +282,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     subp = [4, 1, 1]
 
     plt.subplot(subp...); subp[end] += 1
-    plt.title("ntau = $ntau, N_samples = $N_samples, ordes = $orders, diff = $diff")
+    plt.title("nτ = $nτ, N_samples = $N_samples, ordes = $orders, diff = $diff")
     #plt.plot(τ, real(S_1[1].data[1, 1, :, 1]), "-", label="S_1[1]")
     #plt.plot(τ, real(S_1[2].data[1, 1, :, 1]), "-", label="S_1[2]")
     plt.plot(τ, real(S_1[1].mat.data[1, 1, :]), "-", label="S_1[1]")
@@ -340,7 +337,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     plt.grid(true)
 
     plt.tight_layout()
-    plt.savefig("figure_ntau_$(ntau)_N_samples_$(N_samples)_orders_$(orders).pdf")
+    plt.savefig("figure_nτ_$(nτ)_N_samples_$(N_samples)_orders_$(orders).pdf")
     #plt.show()
 
     end # -----  VIZ
@@ -353,20 +350,20 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
 end
 
 
-#ntau = 128
-#ntau = 256
-#ntau = 512
-#ntau = 1024
-#ntau = 1024 * 2
-#ntaus = [1024*2, 1024*4, 1024*8]
-#ntaus = [1024*2*8, 1024*4*8, 1024*8*8]
-ntaus = [1024*16*2, 1024*16*4, 1024*16*8]
-#ntaus = [256, 512, 1024]
-#ntau = 1024 * 4
-#ntau = 1024 * 4 * 2 * 2
-#ntau = 1024 * 4 * 2 * 2 * 2
-#ntau = 32768
-#ntau = 65536
+#nτ = 128
+#nτ = 256
+#nτ = 512
+#nτ = 1024
+#nτ = 1024 * 2
+#nτs = [1024*2, 1024*4, 1024*8]
+#nτs = [1024*2*8, 1024*4*8, 1024*8*8]
+nτs = [1024*16*2, 1024*16*4, 1024*16*8]
+#nτs = [256, 512, 1024]
+#nτ = 1024 * 4
+#nτ = 1024 * 4 * 2 * 2
+#nτ = 1024 * 4 * 2 * 2 * 2
+#nτ = 32768
+#nτ = 65536
 #N_samples = 2^7
 #N_samples = 2^10
 #N_samples = 2^14
@@ -387,8 +384,8 @@ N_sampless = collect( 2 .^ (9:12) )
 #N_sampless = [2^2, 2^3, 2^4]
 
 diffs = [
-    run_dimer(ntau, orders, orders, N_samples, interpolate_gfs=false)
-    for N_samples in N_sampless, orders in orderss, ntau in ntaus ]
+    run_dimer(nτ, orders, orders, N_samples, interpolate_gfs=false)
+    for N_samples in N_sampless, orders in orderss, nτ in nτs ]
 
 exit()
 
@@ -398,7 +395,7 @@ exit()
 orderss = [0:0]
 
 diffs = [
-    run_dimer(ntau, orders, orders, N_samples, interpolate_gfs=false)
+    run_dimer(nτ, orders, orders, N_samples, interpolate_gfs=false)
     for orders in orderss ]
 
 if ismaster()
@@ -406,7 +403,7 @@ if ismaster()
     ord = [ maximum(o) for o in orderss ]
 
     plt.figure(figsize=(6, 6))
-    plt.title("ntau = $ntau, N_samples = $N_samples")
+    plt.title("nτ = $nτ, N_samples = $N_samples")
     plt.plot(ord, diffs, "o-")
     plt.semilogy([], [])
     plt.xlabel("Max order")
@@ -414,5 +411,5 @@ if ismaster()
     plt.grid(true)
     plt.tight_layout()
     #plt.legend(loc="best")
-    plt.savefig("figure_dimer_convergence_ntau_$(ntau)_N_samples_$(N_samples).pdf")
+    plt.savefig("figure_dimer_convergence_ntau_$(nτ)_N_samples_$(N_samples).pdf")
 end

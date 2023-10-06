@@ -23,7 +23,7 @@ for filename in filenames
     push!(data, d)
 end
 
-# Merge datasets with equal ntau
+# Merge datasets with equal nτ
 
 merged_data = Dict()
 for d in data
@@ -70,8 +70,8 @@ diff_keys = diff_keys_cf_exact
 
 data_keys = sort(collect(keys(merged_data)))
 @show data_keys
-ntaus = [ key[1] for key in data_keys ]
-@show ntaus
+nτs = [ key[1] for key in data_keys ]
+@show nτs
 
 # -- Use difference corresponding to order
 
@@ -89,7 +89,7 @@ end
 @show rel_diffs
 @show diffs
 
-# Plot for all ntau
+# Plot for all nτ
 
 fig = plt.figure(figsize=(3.24, 6.0*1.25))
 
@@ -114,7 +114,7 @@ styles = Dict(
 for key in sort(collect(keys(merged_data)))
 
     d = merged_data[key]
-    ntau = d["ntau"]
+    nτ = d["ntau"]
     order_max = maximum(d["orders"])
 
     if order_max < 4
@@ -139,11 +139,11 @@ for key in sort(collect(keys(merged_data)))
     diffs = d[dkey]
 
     style = styles[order_max]
-    color = haskey(colors, ntau) ? colors[ntau] : nothing
+    color = haskey(colors, nτ) ? colors[nτ] : nothing
 
-    if color === nothing
-        #label= raw"$N_{\tau}$" * " = $ntau, max(order) = $order_max"
-        label= raw"$N_{\tau}$" * " = $ntau"
+    if isnothing(color)
+        #label= raw"$N_{\tau}$" * " = $nτ, max(order) = $order_max"
+        label= raw"$N_{\tau}$" * " = $nτ"
 
         l = plt.plot([], [], label=label)
         color = l[1].get_color()
@@ -152,12 +152,12 @@ for key in sort(collect(keys(merged_data)))
 
     #plt.loglog(N, rel_diffs, style * "-", color=color,
     plt.loglog(N, diffs, style * "-", color=color,
-                   #label=raw"$N_{\tau}$" * " = $ntau, max(order) = $order_max",
+                   #label=raw"$N_{\tau}$" * " = $nτ, max(order) = $order_max",
                    alpha=0.75, markersize=4, lw=0.5)
     #plt.plot(N[end], rel_diffs[end], "s", color=color, alpha=0.75)
     plt.plot(N[end], diffs[end], "s", color=color, alpha=0.75)
 
-    colors[ntau] = color
+    colors[nτ] = color
 
     plt.legend(fontsize=7, loc="best", ncol=2, labelspacing=0.1)
     plt.xlabel(raw"$N_{QQMC, tot} / N_{\tau}$", labelpad=0.1)
@@ -186,20 +186,20 @@ end
 
 #styles = Dict(1=>".-", 2=>"x-", 3=>"+-")
 for (order_max, style) in styles
-    ntaus_o = [ ntau for (i, ntau) in enumerate(ntaus) if data_keys[i][2] == order_max ]
+    nτs_o = [ nτ for (i, nτ) in enumerate(nτs) if data_keys[i][2] == order_max ]
     rel_diffs_o = [ rel_diff for (i, rel_diff) in enumerate(rel_diffs) if data_keys[i][2] == order_max ]
-    #plt.loglog(ntaus_o, rel_diffs_o, "-", color="gray")
+    #plt.loglog(nτs_o, rel_diffs_o, "-", color="gray")
     diffs_o = [ diff for (i, diff) in enumerate(diffs) if data_keys[i][2] == order_max ]
-    plt.loglog(ntaus_o, diffs_o, "-", color="gray")
+    plt.loglog(nτs_o, diffs_o, "-", color="gray")
 end
 
 for i in eachindex(data_keys)
-    ntau, order_max = data_keys[i]
-    color = colors[ntau]
+    nτ, order_max = data_keys[i]
+    color = colors[nτ]
     #style = Dict(1=>".-", 2=>"x-", 3=>"+-")[order_max]
     style = styles[order_max]
-    #plt.loglog(ntau, rel_diffs[i], style, alpha=0.75, color=color)
-    plt.loglog(ntau, diffs[i], style, alpha=0.75, color=color)
+    #plt.loglog(nτ, rel_diffs[i], style, alpha=0.75, color=color)
+    plt.loglog(nτ, diffs[i], style, alpha=0.75, color=color)
 end
 
 #plt.plot([1e1, 1e2], [1e-1, 1e-3], "-k", lw=3, alpha=0.25)

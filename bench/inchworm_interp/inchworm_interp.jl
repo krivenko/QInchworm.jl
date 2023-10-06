@@ -98,7 +98,7 @@ function reverse(g::kd.ImaginaryTimeGF)
     return g_rev
 end
 
-function run_hubbard_dimer(ntau, orders, orders_bare, N_samples, μ_bethe, interpolation)
+function run_hubbard_dimer(nτ, orders, orders_bare, N_samples, μ_bethe, interpolation)
 
     β = 10.0
     V = 0.5
@@ -112,7 +112,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples, μ_bethe, inter
     # -- Impurity problem
 
     contour = kd.ImaginaryContour(β=β);
-    grid = kd.ImaginaryTimeGrid(contour, ntau);
+    grid = kd.ImaginaryTimeGrid(contour, nτ);
 
     soi = ked.Hilbert.SetOfIndices([[1], [2]])
     ed = ked.EDCore(H_imp, soi)

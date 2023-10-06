@@ -77,7 +77,7 @@ function get_ρ_tca(ρ_wrm)
     return ρ_from_ρ_ref(ρ_wrm , rho_tca)
 end
 
-function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
+function run_hubbard_dimer(nτ, orders, orders_bare, N_samples)
 
     β = 10.0
     V = 0.5
@@ -92,7 +92,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
     # -- Impurity problem
 
     contour = kd.ImaginaryContour(β=β);
-    grid = kd.ImaginaryTimeGrid(contour, ntau);
+    grid = kd.ImaginaryTimeGrid(contour, nτ);
 
     soi = ked.Hilbert.SetOfIndices([[1], [2]])
     ed = ked.EDCore(H_imp, soi)
@@ -171,7 +171,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
     return diff_exa, diff_nca, diff_oca, diff_tca
 end
 
-function run_ntau_calc(ntau::Integer, orders, N_sampless)
+function run_nτ_calc(nτ::Integer, orders, N_sampless)
 
     comm_root = 0
     comm = MPI.COMM_WORLD
@@ -187,25 +187,25 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
     diffs_tca = Array{Float64}(undef, length(N_sampless))
 
     diff_0_exa, diff_0_nca, diff_0_oca, diff_0_tca =
-        run_hubbard_dimer(ntau, orders, orders_bare, 0)
+        run_hubbard_dimer(nτ, orders, orders_bare, 0)
 
     for (idx, N_samples) in enumerate(N_sampless)
         diffs_exa[idx], diffs_nca[idx], diffs_oca[idx], diffs_tca[idx] =
-            run_hubbard_dimer(ntau, orders, orders_bare, N_samples)
+            run_hubbard_dimer(nτ, orders, orders_bare, N_samples)
     end
 
     if comm_rank == comm_root
 
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, diffs_exa)))
         max_order = maximum(orders)
-        filename = "data_FH_dimer_ntau_$(ntau)_maxorder_$(max_order)_md5_$(id).h5"
+        filename = "data_FH_dimer_ntau_$(nτ)_maxorder_$(max_order)_md5_$(id).h5"
 
         @show filename
         fid = h5.h5open(filename, "w")
 
         g = h5.create_group(fid, "data")
 
-        h5.attributes(g)["ntau"] = ntau
+        h5.attributes(g)["ntau"] = nτ
         h5.attributes(g)["diff_0_exa"] = diff_0_exa
         h5.attributes(g)["diff_0_nca"] = diff_0_nca
         h5.attributes(g)["diff_0_oca"] = diff_0_oca
@@ -228,22 +228,22 @@ end
 
 MPI.Init()
 
-#ntaus = 2 .^ (3:12)
-#ntaus = 2 .^ (4:8)
-ntaus = 2 .^ (4:12)
+#nτs = 2 .^ (3:12)
+#nτs = 2 .^ (4:8)
+nτs = 2 .^ (4:12)
 N_sampless = 2 .^ (4:15)
 orderss = [0:2, 0:3]
 
 if ismaster()
-    @show ntaus
+    @show nτs
     @show N_sampless
     @show orderss
 end
 
 # exit()
 
-for ntau in ntaus
+for nτ in nτs
     for orders in orderss
-        run_ntau_calc(ntau, orders, N_sampless)
+        run_nτ_calc(nτ, orders, N_sampless)
     end
 end

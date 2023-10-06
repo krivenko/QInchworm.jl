@@ -42,7 +42,7 @@ function semi_circular_g_tau(times, t, h, β)
     return g_out
 end
 
-function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
+function run_dimer(nτ, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     if ismaster(); @show interpolate_gfs; end
 
@@ -60,7 +60,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     # -- Impurity problem
 
     contour = kd.ImaginaryContour(β=β);
-    grid = kd.ImaginaryTimeGrid(contour, ntau);
+    grid = kd.ImaginaryTimeGrid(contour, nτ);
 
     H = μ * op.n(1)
     soi = ked.Hilbert.SetOfIndices([[1]])
@@ -152,7 +152,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     return diff, pto_hist
 end
 
-function run_ntau_calc(ntau::Integer, orders, N_sampless)
+function run_nτ_calc(nτ::Integer, orders, N_sampless)
 
     comm_root = 0
     comm = MPI.COMM_WORLD
@@ -161,10 +161,10 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
 
     orders_bare = orders
 
-    diff_0, pto_hist_0 = run_dimer(ntau, orders, orders_bare, 0, interpolate_gfs=false)
+    diff_0, pto_hist_0 = run_dimer(nτ, orders, orders_bare, 0, interpolate_gfs=false)
 
     diffs_pto_hists = [
-        run_dimer(ntau, orders, orders_bare,
+        run_dimer(nτ, orders, orders_bare,
                   N_samples, interpolate_gfs=false)
               for N_samples in N_sampless ]
 
@@ -176,14 +176,14 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
 
         max_order = maximum(orders)
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, diffs)))
-        filename = "data_bethe_ntau_$(ntau)_maxorder_$(max_order)_md5_$(id).h5"
+        filename = "data_bethe_ntau_$(nτ)_maxorder_$(max_order)_md5_$(id).h5"
 
         @show filename
         fid = h5.h5open(filename, "w")
 
         g = h5.create_group(fid, "data")
 
-        h5.attributes(g)["ntau"] = ntau
+        h5.attributes(g)["ntau"] = nτ
         h5.attributes(g)["diff_0"] = diff_0
 
         g["orders"] = collect(orders)
@@ -202,12 +202,12 @@ end
 
 MPI.Init()
 
-ntaus = [1024 * 8 * 4]
+nτs = [1024 * 8 * 4]
 N_sampless = 2 .^ (3:15)
 orderss = [0:4]
 
 if ismaster()
-    @show ntaus
+    @show nτs
     @show N_sampless
     @show orderss
 end
@@ -215,7 +215,7 @@ end
 #exit()
 
 for orders in orderss
-    for ntau in ntaus
-        run_ntau_calc(ntau, orders, N_sampless)
+    for nτ in nτs
+        run_nτ_calc(nτ, orders, N_sampless)
     end
 end

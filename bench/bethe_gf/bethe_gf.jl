@@ -98,7 +98,7 @@ end
 
 include("data_gf.jl")
 
-function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
+function run_hubbard_dimer(nτ, orders, orders_bare, orders_gf, N_samples)
 
     #β = 1.0
     β = 10.0
@@ -117,7 +117,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
     # -- Impurity problem
 
     contour = kd.ImaginaryContour(β=β);
-    grid = kd.ImaginaryTimeGrid(contour, ntau);
+    grid = kd.ImaginaryTimeGrid(contour, nτ);
 
     soi = ked.Hilbert.SetOfIndices([[1], [2]])
     ed = ked.EDCore(H_imp, soi)
@@ -266,7 +266,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
     gr = g_int.(τ_ref)
 
     plt.subplot(subp...); subp[end] += 1;
-    plt.title("ntau = $(length(τ)), N_samples = $N_samples")
+    plt.title("nτ = $(length(τ)), N_samples = $N_samples")
     plt.plot(τ_ref, imag(get_g_nca()), label="NCA ref")
     plt.plot(τ_ref, imag(get_g_oca()), label="OCA ref")
     plt.plot(τ_ref, imag(get_g_tca()), label="TCA ref")
@@ -276,7 +276,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
     plt.legend(loc="best")
 
     plt.subplot(subp...); subp[end] += 1;
-    plt.title("ntau = $(length(τ)), N_samples = $N_samples")
+    plt.title("nτ = $(length(τ)), N_samples = $N_samples")
     plt.plot(τ_ref, abs.(gr - imag(get_g_nca())), label="NCA ref")
     plt.plot(τ_ref, abs.(gr - imag(get_g_oca())), label="OCA ref")
     plt.plot(τ_ref, abs.(gr - imag(get_g_tca())), label="TCA ref")
@@ -286,7 +286,7 @@ function run_hubbard_dimer(ntau, orders, orders_bare, orders_gf, N_samples)
     plt.legend(loc="best")
 
     plt.tight_layout()
-    plt.savefig("figure_ntau_$(ntau)_N_samples_$(N_samples)_orders_$(orders).pdf")
+    plt.savefig("figure_ntau_$(nτ)_N_samples_$(N_samples)_orders_$(orders).pdf")
     #plt.show()
 
     end
@@ -299,9 +299,9 @@ end
     for o = [1, 2, 3]
         orders = 0:o
         orders_gf = 0:(o-1)
-        for ntau = [128*8]
+        for nτ = [128*8]
             for N_samples = [8*2^7]
-                run_hubbard_dimer(ntau, orders, orders, orders_gf, N_samples)
+                run_hubbard_dimer(nτ, orders, orders, orders_gf, N_samples)
             end
         end
     end

@@ -17,7 +17,7 @@ using QInchworm.spline_gf: SplineInterpolatedGF
 using QInchworm.mpi: ismaster
 
 
-function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
+function run_dimer(nτ, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     if ismaster(); @show interpolate_gfs; end
 
@@ -34,7 +34,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     # -- Impurity problem
 
     contour = kd.ImaginaryContour(β=β);
-    grid = kd.ImaginaryTimeGrid(contour, ntau);
+    grid = kd.ImaginaryTimeGrid(contour, nτ);
 
     H = ϵ_1 * op.n(1)
     soi = ked.Hilbert.SetOfIndices([[1]])
@@ -103,7 +103,7 @@ function run_dimer(ntau, orders, orders_bare, N_samples; interpolate_gfs=false)
     return diff
 end
 
-function run_ntau_calc(ntau::Integer, orders, N_sampless)
+function run_nτ_calc(nτ::Integer, orders, N_sampless)
 
     comm_root = 0
     comm = MPI.COMM_WORLD
@@ -112,23 +112,23 @@ function run_ntau_calc(ntau::Integer, orders, N_sampless)
 
     orders_bare = orders
 
-    diff_0 = run_dimer(ntau, orders, orders_bare, 0, interpolate_gfs=false)
+    diff_0 = run_dimer(nτ, orders, orders_bare, 0, interpolate_gfs=false)
 
-    diffs = [ run_dimer(ntau, orders, orders_bare, N_samples, interpolate_gfs=false)
+    diffs = [ run_dimer(nτ, orders, orders_bare, N_samples, interpolate_gfs=false)
               for N_samples in N_sampless ]
 
     if comm_rank == comm_root
         @show diffs
 
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, diffs)))
-        filename = "data_ntau_$(ntau)_md5_$(id).h5"
+        filename = "data_ntau_$(nτ)_md5_$(id).h5"
 
         @show filename
         fid = h5.h5open(filename, "w")
 
         g = h5.create_group(fid, "data")
 
-        h5.attributes(g)["ntau"] = ntau
+        h5.attributes(g)["ntau"] = nτ
         h5.attributes(g)["diff_0"] = diff_0
 
         g["orders"] = collect(orders)
@@ -147,17 +147,17 @@ end
 
 MPI.Init()
 
-#ntaus = 2 .^ (4:12)
+#nτs = 2 .^ (4:12)
 #N_samples = 8 * 2 .^ (0:13)
 #orderss = [0:1, 0:3]
 
-#ntaus = 2 .^ (4:12)
-ntaus = [1024]
+#nτs = 2 .^ (4:12)
+nτs = [1024]
 N_sampless = 2 .^ (3:23)
 orderss = [0:1, 0:3]
 
 if ismaster()
-    @show ntaus
+    @show nτs
     @show N_sampless
     @show orderss
 end
@@ -165,7 +165,7 @@ end
 # exit()
 
 for orders in orderss
-    for ntau in ntaus
-        run_ntau_calc(ntau, orders, N_sampless)
+    for nτ in nτs
+        run_nτ_calc(nτ, orders, N_sampless)
     end
 end

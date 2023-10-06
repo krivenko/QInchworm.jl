@@ -46,7 +46,7 @@ function semi_circular_g_tau(times, t, h, β)
     return g_out
 end
 
-function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_max)
+function run_bethe(nτ, orders, orders_bare, orders_gf, N_samples, n_pts_after_max)
 
     β = 10.0
     μ = 0.0
@@ -63,7 +63,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
     # -- Impurity problem
 
     contour = kd.ImaginaryContour(β=β);
-    grid = kd.ImaginaryTimeGrid(contour, ntau);
+    grid = kd.ImaginaryTimeGrid(contour, nτ);
 
     soi = ked.Hilbert.SetOfIndices([[1], [2]])
     ed = ked.EDCore(H_imp, soi)
@@ -76,7 +76,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
         (t1, t2) -> 1.0im * V^2 *
             semi_circular_g_tau([-imag(t1.bpoint.val - t2.bpoint.val)], t_bethe, μ_bethe, β)[1],
         grid, 1, kd.fermionic, true)
-    
+
     function reverse(g::kd.ImaginaryTimeGF)
         g_rev = deepcopy(g)
         τ_0, τ_β = first(g.grid), last(g.grid)
@@ -90,7 +90,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
 
     ip_1_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
     ip_1_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
-    
+
     ip_2_fwd = InteractionPair(op.c_dag(2), op.c(2), Δ)
     ip_2_bwd = InteractionPair(op.c(2), op.c_dag(2), reverse(Δ))
 
@@ -110,19 +110,19 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
     # ==
     if ismaster()
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, vcat(g[1].mat.data...))))
-        filename = "data_order_$(orders)_ntau_$(ntau)_N_samples_$(N_samples)_md5_$(id).h5"
+        filename = "data_order_$(orders)_ntau_$(nτ)_N_samples_$(N_samples)_md5_$(id).h5"
 
         @show filename
         fid = h5.h5open(filename, "w")
         grp = h5.create_group(fid, "data")
 
         h5.attributes(grp)["beta"] = β
-        h5.attributes(grp)["ntau"] = ntau
+        h5.attributes(grp)["ntau"] = nτ
         h5.attributes(grp)["n_pts_after_max"] = n_pts_after_max
         h5.attributes(grp)["N_samples"] = N_samples
 
         h5.attributes(grp)["B"] = B
-        
+
         grp["orders"] = collect(orders)
         grp["orders_bare"] = collect(orders_bare)
         grp["orders_gf"] = collect(orders_gf)
@@ -144,7 +144,7 @@ end
 @assert length(ARGS) == 4
 
 order = parse(Int, ARGS[1])
-ntau = parse(Int, ARGS[2])
+nτ = parse(Int, ARGS[2])
 N_samples = parse(Int, ARGS[3])
 n_pts_after_max = parse(Int, ARGS[4])
 
@@ -155,10 +155,10 @@ end
 order_gf = order - 1
 
 if ismaster()
-    println("order $(order) ntau $(ntau) N_samples $(N_samples) n_pts_after_max $(n_pts_after_max)")
+    println("order $(order) nτ $(nτ) N_samples $(N_samples) n_pts_after_max $(n_pts_after_max)")
 end
 
 orders = 0:order
 orders_gf = 0:order_gf
 
-run_bethe(ntau, orders, orders, orders_gf, N_samples, n_pts_after_max)
+run_bethe(nτ, orders, orders, orders_gf, N_samples, n_pts_after_max)

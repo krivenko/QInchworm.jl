@@ -80,7 +80,7 @@ function semi_circular_g_tau(times, t, h, β)
     return g_out
 end
 
-function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_max; discrete_bath=true)
+function run_bethe(nτ, orders, orders_bare, orders_gf, N_samples, n_pts_after_max; discrete_bath=true)
 
     n_orb = 2
     β = 8.0
@@ -89,11 +89,11 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
     μ_bethe = 0.0
 
     e_k = 2.3
-        
+
     U = 2.0
     J = 0.2
     μ = (3*U - 5*J)/2 - 1.5
-        
+
     # -- ED solution
 
     soi, H_imp = make_hamiltonian(n_orb, μ, U, J)
@@ -101,24 +101,24 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
     #println(soi)
 
     # -- Need to break symmetry of ED! FIXME
-    
+
     esgs = [
         op.c_dag("up", 1) * op.c("up", 2) + op.c_dag("up", 2) * op.c("up", 1),
         op.c_dag("dn", 1) * op.c("dn", 2) + op.c_dag("dn", 2) * op.c("dn", 1),
     ]
-    
+
     #K = 1e-9
-    
+
     #H_imp += K * op.c_dag("up", 1) * op.c("up", 2)
     #H_imp += K * op.c_dag("up", 2) * op.c("up", 1)
 
     #H_imp += K * op.c_dag("dn", 1) * op.c("dn", 2)
     #H_imp += K * op.c_dag("dn", 2) * op.c("dn", 1)
-    
+
     # -- Impurity problem
 
     contour = kd.ImaginaryContour(β=β);
-    grid = kd.ImaginaryTimeGrid(contour, ntau);
+    grid = kd.ImaginaryTimeGrid(contour, nτ);
     ed = ked.EDCore(H_imp, soi, symmetry_breakers=esgs)
 
     # -- Hybridization propagator
@@ -129,7 +129,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
     if discrete_bath
 
         if ismaster(); println("--> Discrete Bath"); end
-        
+
         Δ = kd.ImaginaryTimeGF(
             (t1, t2) -> -1.0im * (
                     kernel(-imag(t1.bpoint.val - t2.bpoint.val) / β, +e_k * β) +
@@ -138,16 +138,16 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
     else
 
         if ismaster(); println("--> Bethe Bath"); end
-        
+
         Δ = kd.ImaginaryTimeGF(
-            (t1, t2) -> 1.0im * 
+            (t1, t2) -> 1.0im *
                 semi_circular_g_tau(
                     [-imag(t1.bpoint.val - t2.bpoint.val)],
                     t_bethe, μ_bethe, β)[1],
             grid, 1, kd.fermionic, true)
     end
-        
-        
+
+
     function reverse(g::kd.ImaginaryTimeGF)
         g_rev = deepcopy(g)
         τ_0, τ_β = first(g.grid), last(g.grid)
@@ -160,7 +160,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
     # -- Pseudo Particle Strong Coupling Expansion
 
     ips = Array{InteractionPair{kd.ImaginaryTimeGF{ComplexF64, true}}, 1}()
-    
+
     for s in ["up", "dn"], o in [1, 2]
         push!(ips, InteractionPair(op.c_dag(s, o), op.c(s, o), Δ))
         push!(ips, InteractionPair(op.c(s, o), op.c_dag(s, o), reverse(Δ)))
@@ -173,9 +173,9 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
         push!(ips, InteractionPair(op.c_dag(s, 2), op.c(s, 1), Δ))
         push!(ips, InteractionPair(op.c(s, 1), op.c_dag(s, 2), reverse(Δ)))
     end
-    
+
     #println(ips)
-    
+
     expansion = Expansion(ed, grid, ips)
     #atomic_ppgf!(expansion.P0, ed, Δλ=1.0)
     atomic_ppgf!(expansion.P0, ed, Δλ=2.0)
@@ -191,27 +191,27 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
 
     add_corr_operators!(expansion, (op.c("up", 2), op.c_dag("up", 2)))
     add_corr_operators!(expansion, (op.c("dn", 2), op.c_dag("dn", 2)))
-    
+
     add_corr_operators!(expansion, (op.c("up", 1), op.c_dag("up", 2)))
     add_corr_operators!(expansion, (op.c("dn", 1), op.c_dag("dn", 2)))
 
     add_corr_operators!(expansion, (op.c("up", 2), op.c_dag("up", 1)))
     add_corr_operators!(expansion, (op.c("dn", 2), op.c_dag("dn", 1)))
-    
+
     g = correlator_2p(expansion, grid, orders_gf, N_samples)
 
     # ==
-    
+
     if ismaster()
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, vcat(g[1].mat.data...))))
-        filename = "data_order_$(orders)_ntau_$(ntau)_N_samples_$(N_samples)_md5_$(id).h5"
+        filename = "data_order_$(orders)_ntau_$(nτ)_N_samples_$(N_samples)_md5_$(id).h5"
 
         @show filename
         fid = h5.h5open(filename, "w")
         grp = h5.create_group(fid, "data")
 
         h5.attributes(grp)["beta"] = β
-        h5.attributes(grp)["ntau"] = ntau
+        h5.attributes(grp)["ntau"] = nτ
         h5.attributes(grp)["n_pts_after_max"] = n_pts_after_max
         h5.attributes(grp)["N_samples"] = N_samples
 
@@ -238,7 +238,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
             grp["P0_$(s)"] = expansion.P0[s].mat.data
             grp["Praw_$(s)"] = P_raw[s].mat.data
         end
-        
+
         grp["gf_ref"] = -Δ.mat.data[1, 1, :]
 
         h5.close(fid)
@@ -284,7 +284,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
         gr = g_int.(τ_ref)
 
         plt.subplot(subp...); subp[end] += 1;
-        plt.title("ntau = $(length(τ)), N_samples = $N_samples")
+        plt.title("nτ = $(length(τ)), N_samples = $N_samples")
         plt.plot(τ, imag(g[1].mat.data[1, 1, :]), "--", label="InchW")
         plt.plot(τ, -imag(Δ.mat.data[1, 1, :])/V^2, "--", label="Bethe")
         plt.xlabel(raw"$\tau$")
@@ -293,7 +293,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, n_pts_after_
         plt.ylim(bottom=0)
 
         plt.tight_layout()
-        plt.savefig("figure_ntau_$(ntau)_N_samples_$(N_samples)_orders_$(orders).pdf")
+        plt.savefig("figure_ntau_$(nτ)_N_samples_$(N_samples)_orders_$(orders).pdf")
         #plt.show()
     end
 end
@@ -303,7 +303,7 @@ end
 @assert length(ARGS) == 4
 
 order = parse(Int, ARGS[1])
-ntau = parse(Int, ARGS[2])
+nτ = parse(Int, ARGS[2])
 N_samples = parse(Int, ARGS[3])
 n_pts_after_max = parse(Int, ARGS[4])
 
@@ -314,7 +314,7 @@ end
 order_gf = order - 1
 
 if ismaster()
-    println("order $(order) ntau $(ntau) N_samples $(N_samples) n_pts_after_max $(n_pts_after_max)")
+    println("order $(order) nτ $(nτ) N_samples $(N_samples) n_pts_after_max $(n_pts_after_max)")
 end
 
 #exit()
@@ -322,4 +322,4 @@ end
 orders = 0:order
 orders_gf = 0:order_gf
 
-run_bethe(ntau, orders, orders, orders_gf, N_samples, n_pts_after_max)
+run_bethe(nτ, orders, orders, orders_gf, N_samples, n_pts_after_max)
