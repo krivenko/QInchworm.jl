@@ -8,6 +8,8 @@ import Sobol: next!
 
 using Serialization
 
+using Keldysh; kd = Keldysh
+
 #
 # Interpolations.jl addon: Implementation of the Neumann boundary
 # conditions for the cubic spline.
@@ -144,6 +146,16 @@ end
 
 function iobuffer_deserialize(data_raw)
     return deserialize(IOBuffer(data_raw))
+end
+
+"""Given an imaginary time Green's function g(τ), returns g(β-τ)"""
+function Base.reverse(g::kd.ImaginaryTimeGF)
+    g_rev = deepcopy(g)
+    τ_0, τ_β = g.grid[1], g.grid[end]
+    for τ in g.grid
+        g_rev[τ, τ_0] = g[τ_β, τ]
+    end
+    return g_rev
 end
 
 #

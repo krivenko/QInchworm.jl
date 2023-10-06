@@ -161,6 +161,8 @@ function interpolate(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, false}, T
     end
 end
 
+Base.reverse(G_int::SplineInterpolatedGF) = SplineInterpolatedGF(reverse(G_int.GF))
+
 #
 # IncSplineImaginaryTimeGF
 #

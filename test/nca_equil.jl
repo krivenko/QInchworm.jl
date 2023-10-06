@@ -3,6 +3,7 @@ using Test
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
+using QInchworm.utility
 using QInchworm.spline_gf: SplineInterpolatedGF, update_interpolants!
 
 using QInchworm.expansion: Expansion, InteractionPair, get_diagrams_at_order
@@ -27,26 +28,6 @@ function ppgf.normalize!(
         g.GF[τ, τ_0] = g[τ, τ_0] .* exp(-1im * τ.bpoint.val * λ)
     end
     update_interpolants!(g)
-end
-
-function reverse_gf(g)
-    g_rev = deepcopy(g)
-    τ_0, τ_β = g.grid[1], g.grid[end]
-    for τ in g.grid
-        g_rev[τ, τ_0] = g[τ_β, τ]
-    end
-    return g_rev
-end
-
-function reverse_gf(
-    g::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, scalar}, T, scalar} where {T, scalar}
-    )
-    g_rev = deepcopy(g)
-    τ_0, τ_β = first(g.grid), last(g.grid)
-    for τ in g.grid
-        g_rev.GF[τ, τ_0] = g[τ_β, τ]
-    end
-    return g_rev
 end
 
 @testset "Equilibrium NCA" verbose=true begin
@@ -76,7 +57,7 @@ end
     function run_nca_equil_tests_riemann(contour, grid, Δ, interpolate_ppgf=false)
 
         ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
-        ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), reverse_gf(Δ))
+        ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), reverse(Δ))
         ppsc_exp = Expansion(ed, grid, [ip_fwd, ip_bwd], interpolate_ppgf=interpolate_ppgf)
 
         tau_grid = grid[kd.imaginary_branch]
@@ -153,7 +134,7 @@ end
     function run_nca_equil_tests_qmc(contour, grid, Δ, interpolate_ppgf=false)
 
         ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
-        ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), reverse_gf(Δ))
+        ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), reverse(Δ))
         ppsc_exp = Expansion(ed, grid, [ip_fwd, ip_bwd], interpolate_ppgf=interpolate_ppgf)
 
         tau_grid = grid[kd.imaginary_branch]
