@@ -1,20 +1,20 @@
-using MPI
+using MPI; MPI.Init()
 
 using MD5
 using HDF5; h5 = HDF5
 
+using LinearAlgebra: diag
 using Printf
 
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
+using QInchworm.utility
 using QInchworm.ppgf
-using QInchworm.diagrammatics: get_topologies_at_order
-using QInchworm.expansion: Expansion, InteractionPair, get_diagrams_at_order
+using QInchworm.expansion: Expansion, InteractionPair
 
 using QInchworm.inchworm: inchworm!
 using QInchworm.mpi: ismaster
-
 
 function run_hubbard_dimer(nτ, orders, orders_bare, N_samples)
 
@@ -24,51 +24,33 @@ function run_hubbard_dimer(nτ, orders, orders_bare, N_samples)
     V_1 = 0.5
     V_2 = 0.5
 
-    # -- ED solution
+    # ED solution
 
     H_imp = U * op.n(1) * op.n(2) + ϵ_1 * (op.n(1) + op.n(2))
 
     H_dimer = H_imp + ϵ_2 * (op.n(3) + op.n(4)) +
-        V_1 * ( op.c_dag(1) * op.c(3) + op.c_dag(3) * op.c(1) ) +
-        V_2 * ( op.c_dag(2) * op.c(4) + op.c_dag(4) * op.c(2) )
+        V_1 * (op.c_dag(1) * op.c(3) + op.c_dag(3) * op.c(1)) +
+        V_2 * (op.c_dag(2) * op.c(4) + op.c_dag(4) * op.c(2))
 
     soi_dimer = ked.Hilbert.SetOfIndices([[1], [2], [3], [4]])
     ed_dimer = ked.EDCore(H_dimer, soi_dimer)
 
-    # -- Impurity problem
+    # Impurity problem
 
-    contour = kd.ImaginaryContour(β=β);
-    grid = kd.ImaginaryTimeGrid(contour, nτ);
+    contour = kd.ImaginaryContour(β=β)
+    grid = kd.ImaginaryTimeGrid(contour, nτ)
 
     soi = ked.Hilbert.SetOfIndices([[1], [2]])
     ed = ked.EDCore(H_imp, soi)
 
-    ρ_ref = Array{ComplexF64}( reduced_density_matrix(ed_dimer, soi, β) )
+    ρ_ref = Array{ComplexF64}(reduced_density_matrix(ed_dimer, soi, β))
 
-    # -- Hybridization propagator
+    # Hybridization propagator
 
-    Δ_1 = kd.ImaginaryTimeGF(
-        (t1, t2) -> -1.0im * V_1^2 *
-            (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ_2, contour.β)) *
-            exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ_2),
-        grid, 1, kd.fermionic, true)
+    Δ_1 = V_1^2 * kd.ImaginaryTimeGF(kd.DeltaDOS(ϵ_2), grid)
+    Δ_2 = V_2^2 * kd.ImaginaryTimeGF(kd.DeltaDOS(ϵ_2), grid)
 
-    Δ_2 = kd.ImaginaryTimeGF(
-        (t1, t2) -> -1.0im * V_2^2 *
-            (kd.heaviside(t1.bpoint, t2.bpoint) - kd.fermi(ϵ_2, contour.β)) *
-            exp(-1.0im * (t1.bpoint.val - t2.bpoint.val) * ϵ_2),
-        grid, 1, kd.fermionic, true)
-
-    function reverse(g::kd.ImaginaryTimeGF)
-        g_rev = deepcopy(g)
-        τ_0, τ_β = first(g.grid), last(g.grid)
-        for τ in g.grid
-            g_rev[τ, τ_0] = g[τ_β, τ]
-        end
-        return g_rev
-    end
-
-    # -- Pseudo Particle Strong Coupling Expansion
+    # Pseudo Particle Strong Coupling Expansion
 
     ip_1_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ_1)
     ip_1_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ_1))
@@ -78,82 +60,55 @@ function run_hubbard_dimer(nτ, orders, orders_bare, N_samples)
 
     ρ_0 = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P0), ed), ed)
 
-    inchworm!(expansion,
-              grid,
-              orders,
-              orders_bare,
-              N_samples)
+    inchworm!(expansion, grid, orders, orders_bare, N_samples)
 
     ppgf.normalize!(expansion.P, β)
     ρ_wrm = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P), ed), ed)
     diff = maximum(abs.(ρ_ref - ρ_wrm))
 
     if ismaster()
-        @printf "ρ_0   = %16.16f %16.16f %16.16f %16.16f \n" real(ρ_0[1, 1]) real(ρ_0[2, 2]) real(ρ_0[3, 3]) real(ρ_0[4, 4])
-        @printf "ρ_ref = %16.16f %16.16f %16.16f %16.16f \n" real(ρ_ref[1, 1]) real(ρ_ref[2, 2]) real(ρ_ref[3, 3]) real(ρ_ref[4, 4])
-        @printf "ρ_wrm = %16.16f %16.16f %16.16f %16.16f \n" real(ρ_wrm[1, 1]) real(ρ_wrm[2, 2]) real(ρ_wrm[3, 3]) real(ρ_wrm[4, 4])
+        @printf "ρ_0   = %16.16f %16.16f %16.16f %16.16f \n" real(diag(ρ_0))...
+        @printf "ρ_ref = %16.16f %16.16f %16.16f %16.16f \n" real(diag(ρ_ref))...
+        @printf "ρ_wrm = %16.16f %16.16f %16.16f %16.16f \n" real(diag(ρ_wrm))...
         @show diff
     end
 
     return diff
 end
 
-function run_nτ_calc(nτ::Integer, orders, N_sampless)
-
-    comm_root = 0
-    comm = MPI.COMM_WORLD
-    comm_size = MPI.Comm_size(comm)
-    comm_rank = MPI.Comm_rank(comm)
+function run_nτ_calc(nτ, orders, N_sampless)
 
     orders_bare = orders
 
-    # -- Do calculation here
+    # Do calculation here
 
     diff_0 = run_hubbard_dimer(nτ, orders, orders_bare, 0)
+    diffs = [run_hubbard_dimer(nτ, orders, orders_bare, N_samples)
+             for N_samples in N_sampless]
 
-    diffs = [ run_hubbard_dimer(nτ, orders, orders_bare, N_samples)
-              for N_samples in N_sampless ]
-
-    if comm_rank == comm_root
-        @show diffs
-
+    if ismaster()
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, diffs)))
         max_order = maximum(orders)
         filename = "data_FH_dimer_ntau_$(nτ)_maxorder_$(max_order)_md5_$(id).h5"
-
         @show filename
-        fid = h5.h5open(filename, "w")
 
-        g = h5.create_group(fid, "data")
+        h5.h5open(filename, "w") do fid
+            g = h5.create_group(fid, "data")
 
-        h5.attributes(g)["ntau"] = nτ
-        h5.attributes(g)["diff_0"] = diff_0
+            h5.attributes(g)["ntau"] = nτ
+            h5.attributes(g)["diff_0"] = diff_0
 
-        g["orders"] = collect(orders)
-        g["orders_bare"] = collect(orders_bare)
-        g["N_sampless"] = N_sampless
+            g["orders"] = collect(orders)
+            g["orders_bare"] = collect(orders_bare)
+            g["N_sampless"] = N_sampless
 
-        g["diffs"] = diffs
-
-        h5.close(fid)
-
+            g["diffs"] = diffs
+        end
     end
 end
 
-
-MPI.Init()
-
-#nτs = 2 .^ (4:8)
-#N_sampless = 8 * 2 .^ (1:10)
-#orderss = [0:1, 0:2, 0:3]
-
-#nτs = 2 .^ (4:6)
-#nτs = 2 .^ (4:8)
-#nτs = 2 .^ (7:8)
-nτs = 2 .^ (8:8)
-#orderss = [0:1]
+nτs = 2 .^ (4:8)
 orderss = [0:2, 0:3]
-#N_sampless = 2 .^ (3:14)
 N_sampless = 2 .^ (15:17)
 
 if ismaster()
@@ -161,8 +116,6 @@ if ismaster()
     @show N_sampless
     @show orderss
 end
-
-# exit()
 
 for nτ in nτs
     for orders in orderss
