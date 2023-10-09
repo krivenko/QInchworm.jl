@@ -8,12 +8,13 @@ import triqs.utility.mpi as mpi
 
 from triqs_cthyb import Solver
 
-
 from pydlr import kernel
 from scipy.integrate import quad
 
 def eval_semi_circ_tau(tau, beta, h, t):
-    I = lambda x : -2 / np.pi / t**2 * kernel(np.array([tau])/beta, beta*np.array([x]))[0,0]
+    def I(x):
+        k = kernel(np.array([tau])/beta, beta*np.array([x]))
+        return -2 / np.pi / t**2 * k[0,0]
     g, res = quad(I, -t+h, t+h, weight='alg', wvar=(0.5, 0.5))
     return g
 
@@ -21,7 +22,6 @@ eval_semi_circ_tau = np.vectorize(eval_semi_circ_tau)
 
 
 def calc_single_fermion(
-        #beta=8., e0=0., V=1.0, t_bethe=1., mu_bethe=4.0,
         beta=8., e0=0., V=0.25, t_bethe=1., mu_bethe=1.0,
         n_cycles=1e5, seed=1337, delta_tau=None, n_ref=None):
 
@@ -53,10 +53,9 @@ def calc_single_fermion(
 
         delta_tau = V**2 * eval_semi_circ_tau(tau, beta, mu_bethe, t_bethe)
 
-        
+
     print(f'tau = {tau}')
     for s, delta in S.Delta_tau:
-        #delta_tau.data[:, 0, 0] = - V**2 * np.exp(-e1 * tau) / (1 + np.exp(-beta * e1))
         delta.data[:, 0, 0] = delta_tau
 
     S.solve(
@@ -78,31 +77,24 @@ def calc_single_fermion(
     print(S.density_matrix)
     diff = np.abs(0.5 - S.density_matrix[0][0, 0])
     print(f'N {S.solve_parameters["n_cycles"]:1.1E} err {diff:2.2E}')
-    
+
     return S, delta_tau, n_ref
 
 
 if __name__ == "__main__":
 
     seeds = 34788 + 928374 * np.arange(0, 32)
-    #seeds = 34788 + 928374 * np.arange(0, 1)
 
     delta_tau, n_ref = None, None
-    
+
     ps = []
     for n_cycles in 2**np.arange(4, 25):
-    #for n_cycles in 2**np.arange(19, 20):
         for seed in seeds:
             p, delta_tau, n_ref = calc_single_fermion(
                 n_cycles=n_cycles, seed=seed,
                 delta_tau=delta_tau, n_ref=n_ref)
             ps.append(p)
 
-    if False:
-        from triqs.plot.mpl_interface import oplot, oplotr, oploti, plt
-        oplot(p.Delta_tau)
-        plt.show(); exit()
-    
     filename = 'data_bethe_cthyb.h5'
     if mpi.is_master_node():
         print(f'n_ref = {n_ref:16.16E}')
