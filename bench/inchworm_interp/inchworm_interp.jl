@@ -1,18 +1,21 @@
-""" Solve non-interacting two fermion AIM coupled to
-semi-circular (Bethe lattice) hybridization functions.
-
-Compare to numerically exact results for the 1st, 2nd and 3rd
-order dressed self-consistent expansion for the many-body
-density matrix (computed using DLR elsewhere).
-
-Note that the 1, 2, 3 order density matrix differs from the
-exact density matrix of the non-interacting system, since
-the low order expansions introduce "artificial" effective
-interactions between hybridization insertions.
-
-Author: Hugo U. R. Strand (2023)
-
-"""
+# QInchworm.jl
+#
+# Copyright (C) 2021-2023 I. Krivenko, H. U. R. Strand and J. Kleinhenz
+#
+# QInchworm.jl is free software: you can redistribute it and/or modify it under the
+# terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+#
+# QInchworm.jl is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# QInchworm.jl. If not, see <http://www.gnu.org/licenses/.
+#
+# Authors: Igor Krivenko, Hugo U. R. Strand
 
 using MPI; MPI.Init()
 using HDF5; h5 = HDF5
@@ -28,6 +31,18 @@ using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.inchworm: inchworm!
 using QInchworm.spline_gf: SplineInterpolatedGF
 using QInchworm.mpi: ismaster
+
+# Solve non-interacting two fermion AIM coupled to
+# semi-circular (Bethe lattice) hybridization functions.
+#
+# Compare to numerically exact results for the 1st, 2nd and 3rd
+# order dressed self-consistent expansion for the many-body
+# density matrix (computed using DLR elsewhere).
+#
+# Note that the 1, 2, 3 order density matrix differs from the
+# exact density matrix of the non-interacting system, since
+# the low order expansions introduce "artificial" effective
+# interactions between hybridization insertions.
 
 function ρ_from_n_ref(n_ref)
     return diagm([(1 - n_ref) * (1 - n_ref),
