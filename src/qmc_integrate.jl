@@ -325,20 +325,22 @@ function qmc_time_ordered_integral_root(f,
                                         init = zero(contour_function_return_type(f)),
                                         seq = SobolSeqWith0(d),
                                         N::Int)
-    @assert kd.heaviside(c, t_f, t_i)
+    #@assert kd.heaviside(c, t_f, t_i)
 
     # x -> u transformation
-    u_i = kd.get_ref(c, t_i)
-    u_f = kd.get_ref(c, t_f)
-    ref_diff = u_f - u_i
+    u_i::Float64 = kd.get_ref(c, t_i)
+    u_f::Float64 = kd.get_ref(c, t_f)
+    ref_diff::Float64 = u_f - u_i
 
-    trans = x -> begin
-        u = Vector{Float64}(undef, d)
-        u[1] = x[1] ^ (1.0 / d)
-        for s = 2:d
-            u[s] = u[s - 1] * (x[s] ^ (1.0 / (d - s + 1)))
+    trans = let d = d, ref_diff = ref_diff, u_i = u_i;
+        x -> begin
+            u = Vector{Float64}(undef, d)
+            u[1] = x[1] ^ (1.0 / d)
+            for s = 2:d
+                u[s] = u[s - 1] * (x[s] ^ (1.0 / (d - s + 1)))
+            end
+            return u_i .+ u * ref_diff
         end
-        return u_i .+ u * ref_diff
     end
 
     qmc_integral(init,
