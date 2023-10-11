@@ -1,4 +1,4 @@
-name: Build and test
+name: Build, test and deploy
 
 on:
   push:
@@ -29,3 +29,17 @@ jobs:
           version: ${{ matrix.version }}
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+
+      - name: Build documentation
+        if: github.ref == 'refs/heads/main' && matrix.version == '1.9'
+        run: |
+             julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+             julia --project=docs/ docs/make.jl
+
+      - name: Deploy documentation
+        if: github.ref == 'refs/heads/main' && matrix.version == '1.9'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          token: ${{ secrets.GITHUB_TOKEN }}
+          folder: docs/build

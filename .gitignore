@@ -1,6 +1,7 @@
 .gitignore
 /Manifest.toml
 /test/Manifest.toml
+/docs/Manifest.toml
 /docs/build/
 *.code-workspace
 *.ipynb_checkpoints
