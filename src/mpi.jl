@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License along with
 # QInchworm.jl. If not, see <http://www.gnu.org/licenses/.
 #
-# Author: Igor Krivenko
+# Authors: Hugo U. R. Strand, Igor Krivenko
 
 module mpi
 

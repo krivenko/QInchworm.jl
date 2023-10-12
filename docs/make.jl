@@ -21,9 +21,7 @@ using QInchworm
 using Documenter
 
 makedocs(;
-    modules=[
-      QInchworm,
-      ],
+    modules=[QInchworm],
     authors="Igor Krivenko <igor.s.krivenko@gmail.com>, " *
             "Hugo U. R. Strand <hugo.strand@gmail.com>, " *
             "Joseph Kleinhenz <kleinhenz.joseph@gmail.com>",
@@ -36,11 +34,17 @@ makedocs(;
     warnonly=true,
     pages=[
         "Home" => "index.md",
-        "Sub Modules" => Any[
-	  "modules/qmc_integrate.md",
-	  "modules/configuration.md",
-	  "modules/ppgf.md",
-	  "modules/diagrammatics.md",
-	],
-    ],
+        "Modules" => String[
+            "modules/QInchworm.md",
+            "modules/inchworm.md",
+	        "modules/ppgf.md",
+	        "modules/expansion.md",
+            "modules/diagrammatics.md",
+            "modules/topology_eval.md",
+            "modules/qmc_integrate.md",
+            "modules/spline_gf.md",
+            "modules/mpi.md",
+            "modules/utility.md"
+	    ]
+    ]
 )
