@@ -94,7 +94,7 @@ c :          Integration time contour.
 τ_i :        Initial time of the bold PPGF to be computed.
 τ_w :        Inchworm (bare/bold splitting) time.
 τ_f :        Final time of the bold PPGF to be computed.
-order_data : Inchworm algorithm input data, one element per expansion order.
+top_data : Inchworm algorithm input data, one element per expansion order.
 
 Returns
 -------
@@ -105,7 +105,7 @@ function inchworm_step(expansion::Expansion,
                        τ_i::kd.TimeGridPoint,
                        τ_w::kd.TimeGridPoint,
                        τ_f::kd.TimeGridPoint,
-                       order_data::Vector{TopologiesInputData};
+                       top_data::Vector{TopologiesInputData};
                        tmr::TimerOutput = TimerOutput())
 
     t_i, t_w, t_f = τ_i.bpoint, τ_w.bpoint, τ_f.bpoint
@@ -114,45 +114,45 @@ function inchworm_step(expansion::Expansion,
 
     zero_sector_block_matrix = zeros(SectorBlockMatrix, expansion.ed)
 
-    orders = unique(map(od -> od.order, order_data))
+    orders = unique(map(td -> td.order, top_data))
     order_contribs = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
 
-    for od in order_data
+    for td in top_data
 
         @timeit tmr "Bold" begin
-        @timeit tmr "Order $(od.order)" begin
+        @timeit tmr "Order $(td.order)" begin
         @timeit tmr "Integration" begin
 
         order_contrib = deepcopy(zero_sector_block_matrix)
 
-        if od.order == 0
+        if td.order == 0
             @timeit tmr "Setup" begin
             fixed_nodes = Dict(1 => n_i, 2 => n_w, 3 => n_f)
             eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
             end # tmr
             @timeit tmr "Evaluation" begin
-            order_contrib = eval(od.topologies, kd.BranchPoint[])
+            order_contrib = eval(td.topologies, kd.BranchPoint[])
             end # tmr
         else
-            od.N_samples <= 0 && continue
+            td.N_samples <= 0 && continue
 
             @timeit tmr "Setup" begin
-            d_after = od.n_pts_after
-            d_before = 2 * od.order - od.n_pts_after
+            d_after = td.n_pts_after
+            d_before = 2 * td.order - td.n_pts_after
 
-            fixed_nodes = Dict(1 => n_i, d_before + 2 => n_w, 2 * od.order + 3 => n_f)
-            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes, tmr=tmr)
+            fixed_nodes = Dict(1 => n_i, d_before + 2 => n_w, 2 * td.order + 3 => n_f)
+            eval = teval.TopologyEvaluator(expansion, td.order, fixed_nodes, tmr=tmr)
 
-            N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(od.N_samples)
-            rank_weight = N_samples_on_rank / od.N_samples
+            N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(td.N_samples)
+            rank_weight = N_samples_on_rank / td.N_samples
 
-            seq = SobolSeqWith0(2 * od.order)
+            seq = SobolSeqWith0(2 * td.order)
             arbitrary_skip!(seq, N_skip)
             end # tmr
 
             @timeit tmr "Evaluation" begin
             order_contrib = rank_weight * qmc_inchworm_integral_root(
-                t -> eval(od.topologies, t),
+                t -> eval(td.topologies, t),
                 d_before, d_after,
                 c, t_i, t_w, t_f,
                 init = deepcopy(zero_sector_block_matrix),
@@ -166,7 +166,7 @@ function inchworm_step(expansion::Expansion,
             end # tmr
         end
 
-        order_contribs[od.order] += order_contrib
+        order_contribs[td.order] += order_contrib
 
         end; end; end # tmr
 
@@ -193,7 +193,7 @@ expansion :  Pseudo-particle expansion problem.
 c :          Integration time contour.
 τ_i :        Initial time of the bold PPGF to be computed.
 τ_f :        Final time of the bold PPGF to be computed.
-order_data : Inchworm algorithm input data, one element per expansion order.
+top_data : Inchworm algorithm input data, one element per expansion order.
 
 Returns
 -------
@@ -203,7 +203,7 @@ function inchworm_step_bare(expansion::Expansion,
                             c::kd.AbstractContour,
                             τ_i::kd.TimeGridPoint,
                             τ_f::kd.TimeGridPoint,
-                            order_data::Vector{TopologiesInputData};
+                            top_data::Vector{TopologiesInputData};
                             tmr::TimerOutput = TimerOutput())
 
     t_i, t_f = τ_i.bpoint, τ_f.bpoint
@@ -213,33 +213,33 @@ function inchworm_step_bare(expansion::Expansion,
     zero_sector_block_matrix = zeros(SectorBlockMatrix, expansion.ed)
     result = deepcopy(zero_sector_block_matrix)
 
-    for od in order_data
+    for td in top_data
 
         @timeit tmr "Bare" begin
-        @timeit tmr "Order $(od.order)" begin
+        @timeit tmr "Order $(td.order)" begin
         @timeit tmr "Integration" begin
 
         order_contrib = deepcopy(zero_sector_block_matrix)
 
-        if od.order == 0
+        if td.order == 0
             @timeit tmr "Setup" begin
             fixed_nodes = Dict(1 => n_i, 2 => n_f)
             eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
             end # tmr
             @timeit tmr "Evaluation" begin
-            order_contrib = eval(od.topologies, kd.BranchPoint[])
+            order_contrib = eval(td.topologies, kd.BranchPoint[])
             end # tmr
         else
-            od.N_samples <= 0 && continue
+            td.N_samples <= 0 && continue
 
             @timeit tmr "Setup" begin
-            d = 2 * od.order
+            d = 2 * td.order
 
-            fixed_nodes = Dict(1 => n_i, 2 * od.order + 2 => n_f)
-            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes, tmr=tmr)
+            fixed_nodes = Dict(1 => n_i, 2 * td.order + 2 => n_f)
+            eval = teval.TopologyEvaluator(expansion, td.order, fixed_nodes, tmr=tmr)
 
-            N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(od.N_samples)
-            rank_weight = N_samples_on_rank / od.N_samples
+            N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(td.N_samples)
+            rank_weight = N_samples_on_rank / td.N_samples
 
             seq = SobolSeqWith0(d)
             arbitrary_skip!(seq, N_skip)
@@ -247,7 +247,7 @@ function inchworm_step_bare(expansion::Expansion,
 
             @timeit tmr "Evaluation" begin
             order_contrib = rank_weight * qmc_time_ordered_integral_root(
-                t -> eval(od.topologies, t),
+                t -> eval(td.topologies, t),
                 d,
                 c, t_i, t_f,
                 init = deepcopy(zero_sector_block_matrix),
@@ -261,7 +261,7 @@ function inchworm_step_bare(expansion::Expansion,
             end # tmr
         end
 
-        set_bold_ppgf_at_order!(expansion, od.order, τ_i, τ_f, order_contrib)
+        set_bold_ppgf_at_order!(expansion, td.order, τ_i, τ_f, order_contrib)
         result += order_contrib
 
         end; end; end # tmr
@@ -323,7 +323,7 @@ function inchworm!(expansion::Expansion,
 
     # First inchworm step
 
-    order_data = TopologiesInputData[]
+    top_data = TopologiesInputData[]
     for order in orders_bare
 
         @timeit tmr "Bare" begin
@@ -331,7 +331,7 @@ function inchworm!(expansion::Expansion,
         @timeit tmr "Topologies" begin
 
         topologies = get_topologies_at_order(order)
-        push!(order_data, TopologiesInputData(order, 2*order, topologies, N_samples))
+        push!(top_data, TopologiesInputData(order, 2*order, topologies, N_samples))
 
         end; end; end # tmr "Bare" "Order" "Topologies"
 
@@ -339,7 +339,7 @@ function inchworm!(expansion::Expansion,
 
     if ismaster()
         msg = prod(["Bare order $(d.order), # topologies = $(length(d.topologies))\n"
-                    for d in order_data])
+                    for d in top_data])
         @info "Diagrams with bare propagators\n$(msg)"
     end
 
@@ -351,13 +351,13 @@ function inchworm!(expansion::Expansion,
                                 grid.contour,
                                 grid[1],
                                 grid[2],
-                                order_data,
+                                top_data,
                                 tmr=tmr)
     set_bold_ppgf!(expansion, grid[1], grid[2], result)
 
     # The rest of inching
 
-    empty!(order_data)
+    empty!(top_data)
 
     for order in orders
 
@@ -375,7 +375,7 @@ function inchworm!(expansion::Expansion,
             topologies = get_topologies_at_order(order, n_pts_after)
 
             if !isempty(topologies)
-                push!(order_data,
+                push!(top_data,
                     TopologiesInputData(order, n_pts_after, topologies, N_samples)
                 )
             end
@@ -389,7 +389,7 @@ function inchworm!(expansion::Expansion,
         msg = prod(["Bold order $(d.order), " *
                     "n_pts_after $(d.n_pts_after), " *
                     "# topologies = $(length(d.topologies))\n"
-                    for d in order_data])
+                    for d in top_data])
         @info "Diagrams with bold propagators\n$(msg)"
     end
 
@@ -410,7 +410,7 @@ function inchworm!(expansion::Expansion,
         τ_w = grid[n]
         τ_f = grid[n + 1]
 
-        result = inchworm_step(expansion, grid.contour, τ_i, τ_w, τ_f, order_data, tmr=tmr)
+        result = inchworm_step(expansion, grid.contour, τ_i, τ_w, τ_f, top_data, tmr=tmr)
         set_bold_ppgf!(expansion, τ_i, τ_f, result)
     end
 
@@ -432,7 +432,7 @@ raw"""
     grid :         Imaginary time grid of the correlator to be computed.
     A_B_pair_idx : Index of the A/B pair in `expansion.corr_operators`.
     τ :            The imaginary time argument.
-    order_data :   Accumulation input data, one element per expansion order.
+    top_data :   Accumulation input data, one element per expansion order.
 
     Returns
     -------
@@ -442,7 +442,7 @@ function correlator_2p(expansion::Expansion,
                        grid::kd.ImaginaryTimeGrid,
                        A_B_pair_idx::Int64,
                        τ::kd.TimeGridPoint,
-                       order_data::Vector{TopologiesInputData};
+                       top_data::Vector{TopologiesInputData};
                        tmr::TimerOutput = TimerOutput())::ComplexF64
     t_B = grid[1].bpoint # B is always placed at τ=0
     t_A = τ.bpoint
@@ -455,41 +455,41 @@ function correlator_2p(expansion::Expansion,
 
     result::ComplexF64 = 0
 
-    for od in order_data
+    for td in top_data
 
-        @timeit tmr "Order $(od.order)" begin
+        @timeit tmr "Order $(td.order)" begin
         @timeit tmr "Integration" begin
 
         order_contrib::ComplexF64 = 0
 
-        if od.order == 0
+        if td.order == 0
             @timeit tmr "Setup" begin
             fixed_nodes = Dict(1 => n_B, 2 => n_A, 3 => n_f)
             eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
             end # tmr
             @timeit tmr "Evaluation" begin
-            order_contrib = tr(eval(od.topologies, kd.BranchPoint[]))
+            order_contrib = tr(eval(td.topologies, kd.BranchPoint[]))
             end # tmr
         else
-            od.N_samples <= 0 && continue
+            td.N_samples <= 0 && continue
 
             @timeit tmr "Setup" begin
-            d_after = od.n_pts_after
-            d_before = 2 * od.order - od.n_pts_after
+            d_after = td.n_pts_after
+            d_before = 2 * td.order - td.n_pts_after
 
-            fixed_nodes = Dict(1 => n_B, d_before + 2 => n_A, 2 * od.order + 3 => n_f)
-            eval = teval.TopologyEvaluator(expansion, od.order, fixed_nodes, tmr=tmr)
+            fixed_nodes = Dict(1 => n_B, d_before + 2 => n_A, 2 * td.order + 3 => n_f)
+            eval = teval.TopologyEvaluator(expansion, td.order, fixed_nodes, tmr=tmr)
 
-            N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(od.N_samples)
-            rank_weight = N_samples_on_rank / od.N_samples
+            N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(td.N_samples)
+            rank_weight = N_samples_on_rank / td.N_samples
 
-            seq = SobolSeqWith0(2 * od.order)
+            seq = SobolSeqWith0(2 * td.order)
             arbitrary_skip!(seq, N_skip)
             end # tmr
 
             @timeit tmr "Evaluation" begin
             order_contrib = rank_weight * qmc_inchworm_integral_root(
-                t -> tr(eval(od.topologies, t)),
+                t -> tr(eval(td.topologies, t)),
                 d_before, d_after,
                 grid.contour, t_B, t_A, t_f,
                 init = ComplexF64(0),
@@ -563,7 +563,7 @@ function correlator_2p(expansion::Expansion,
 
     # Pre-compute topologies: These are common for all
     # pairs of operators in expansion.corr_operators.
-    order_data = TopologiesInputData[]
+    top_data = TopologiesInputData[]
     for order in orders
 
         @timeit tmr "Order $(order)" begin
@@ -574,7 +574,7 @@ function correlator_2p(expansion::Expansion,
             topologies = get_topologies_at_order(order, n_pts_after, with_external_arc=true)
 
             if !isempty(topologies)
-                push!(order_data,
+                push!(top_data,
                     TopologiesInputData(order, n_pts_after, topologies, N_samples)
                 )
             end
@@ -588,7 +588,7 @@ function correlator_2p(expansion::Expansion,
         msg = prod(["Order $(d.order), " *
                     "n_pts_after $(d.n_pts_after), " *
                     "# topologies = $(length(d.topologies))\n"
-                    for d in order_data])
+                    for d in top_data])
         @info "Diagrams\n$(msg)"
     end
 
@@ -612,13 +612,13 @@ function correlator_2p(expansion::Expansion,
         ismaster() && @info "Evaluating correlator ⟨$(A), $(B)⟩"
 
         # Only the 0-th order can contribute at τ_A = τ_B
-        if order_data[1].order == 0
+        if top_data[1].order == 0
             corr_list[end][τ_B, τ_B] = correlator_2p(
                 expansion,
                 grid,
                 op_pair_idx,
                 τ_B,
-                order_data[1:1],
+                top_data[1:1],
                 tmr=tmr
             )
         end
@@ -639,7 +639,7 @@ function correlator_2p(expansion::Expansion,
                 grid,
                 op_pair_idx,
                 τ_A,
-                order_data,
+                top_data,
                 tmr=tmr
             )
         end
