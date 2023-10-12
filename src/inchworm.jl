@@ -305,7 +305,7 @@ function inchworm!(expansion::Expansion,
                 n_pts_after_max == typemax(Int64) ? "unrestricted" : n_pts_after_max)
         println("N_samples = ", N_samples)
         println("N_ranks = ", comm_size)
-        println("N_samples (per rank) = ", N_split)
+        println("N_samples (per rank, min:max) = ", minimum(N_split), ":", maximum(N_split))
     end
 
     @assert N_samples == 0 || ispow2(N_samples)
