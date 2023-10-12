@@ -4,9 +4,6 @@ TODO list for QInchworm
 * Compute the partition function Z and the Gibbs free energy \Omega
   of the expansion (relative to the atomic system) before normalizing.
 
-* Consider using [Logging](https://docs.julialang.org/en/v1/stdlib/Logging/)
-  instead of `println()` / `@show`.
-
 * Rethink parallelization strategy in order to handle high order expansions
 
   - Our current approach is to pre generate all non-zero configurations

@@ -23,6 +23,7 @@ using DocStringExtensions
 
 using TimerOutputs: TimerOutput, @timeit
 using ProgressBars: ProgressBar
+using Logging
 
 using MPI: MPI
 using LinearAlgebra: tr
@@ -292,31 +293,33 @@ function inchworm!(expansion::Expansion,
 
     tmr = TimerOutput()
 
+    @assert N_samples == 0 || ispow2(N_samples)
+
     if ismaster()
         comm = MPI.COMM_WORLD
         comm_size = MPI.Comm_size(comm)
         N_split = split_count(N_samples, comm_size)
 
-        println(logo)
-        println("N_tau = ", length(grid))
-        println("orders_bare = ", orders_bare)
-        println("orders = ", orders)
-        println("n_pts_after_max = ",
-                n_pts_after_max == typemax(Int64) ? "unrestricted" : n_pts_after_max)
-        println("N_samples = ", N_samples)
-        println("N_ranks = ", comm_size)
-        println("N_samples (per rank, min:max) = ", minimum(N_split), ":", maximum(N_split))
-    end
+        @info """
 
-    @assert N_samples == 0 || ispow2(N_samples)
+        $(logo)
+
+        n_τ = $(length(grid))
+        orders_bare = $(orders_bare)
+        orders = $(orders)
+        n_pts_after_max = $(n_pts_after_max == typemax(Int64) ? "unrestricted" :
+                                                                n_pts_after_max)
+        # qMC samples = $(N_samples)
+        # MPI ranks = $(comm_size)
+        # qMC samples (per rank, min:max) = $(minimum(N_split)):$(maximum(N_split))
+        """
+    end
 
     # Extend expansion.P_orders to max of orders, orders_bare
     max_order = maximum([maximum(orders), maximum(orders_bare)])
     for o in 1:(max_order+1)
         push!(expansion.P_orders, kd.zero(expansion.P0))
     end
-
-    if ismaster(); println("= Bare Diagrams ========"); end
 
     # First inchworm step
 
@@ -328,18 +331,21 @@ function inchworm!(expansion::Expansion,
         @timeit tmr "Topologies" begin
 
         topologies = get_topologies_at_order(order)
-
-        if ismaster()
-            println("Bare order $(order), N_topo $(length(topologies))")
-        end
-
         push!(order_data, ExpansionOrderInputData(order, 2*order, topologies, N_samples))
 
         end; end; end # tmr "Bare" "Order" "Topologies"
 
     end
 
-    if ismaster(); println("= Evaluation Bare ========"); end
+    if ismaster()
+        msg = prod(["Bare order $(d.order), # topologies = $(length(d.topologies))\n"
+                    for d in order_data])
+        @info "Diagrams with bare propagators\n$(msg)"
+    end
+
+    if ismaster()
+        @info "Initial inchworm step: Evaluating diagrams with bare propagators"
+    end
 
     result = inchworm_step_bare(expansion,
                                 grid.contour,
@@ -348,8 +354,6 @@ function inchworm!(expansion::Expansion,
                                 order_data,
                                 tmr=tmr)
     set_bold_ppgf!(expansion, grid[1], grid[2], result)
-
-    if ismaster(); println("= Bold Diagrams ========"); end
 
     # The rest of inching
 
@@ -370,11 +374,6 @@ function inchworm!(expansion::Expansion,
         for n_pts_after in n_pts_after_range
             topologies = get_topologies_at_order(order, n_pts_after)
 
-            if ismaster()
-                N_topo = length(topologies)
-                println("Bold order $(order), n_pts_after $(n_pts_after), N_topo $(N_topo)")
-            end
-
             if !isempty(topologies)
                 push!(order_data,
                     ExpansionOrderInputData(order, n_pts_after, topologies, N_samples)
@@ -386,10 +385,25 @@ function inchworm!(expansion::Expansion,
 
     end
 
-    if ismaster(); println("= Evaluation Bold ========"); end
+    if ismaster()
+        msg = prod(["Bold order $(d.order), " *
+                    "n_pts_after $(d.n_pts_after), " *
+                    "# topologies = $(length(d.topologies))\n"
+                    for d in order_data])
+        @info "Diagrams with bold propagators\n$(msg)"
+    end
+
+    if ismaster()
+        @info "Evaluating diagrams with bold propagators"
+    end
 
     iter = 2:length(grid)-1
-    iter = ismaster() ? ProgressBar(iter) : iter
+    if ismaster()
+        logger = Logging.current_logger()
+        if isa(logger, Logging.ConsoleLogger) && logger.min_level <= Logging.Info
+            iter = ProgressBar(iter)
+        end
+    end
 
     τ_i = grid[1]
     for n in iter
@@ -400,7 +414,7 @@ function inchworm!(expansion::Expansion,
         set_bold_ppgf!(expansion, τ_i, τ_f, result)
     end
 
-    if ismaster(); show(tmr); println(); end
+    ismaster() && @debug string("Timed sections in inchworm!()\n", tmr)
 
 end
 
@@ -523,30 +537,32 @@ function correlator_2p(expansion::Expansion,
                        orders,
                        N_samples::Int64)::Vector{kd.ImaginaryTimeGF{ComplexF64, true}}
 
-    @assert grid.contour.β == expansion.P[1].grid.contour.β
-
     tmr = TimerOutput()
+
+    @assert N_samples == 0 || ispow2(N_samples)
+    @assert grid.contour.β == expansion.P[1].grid.contour.β
 
     if ismaster()
         comm = MPI.COMM_WORLD
         comm_size = MPI.Comm_size(comm)
         N_split = split_count(N_samples, comm_size)
 
-        println(logo)
-        println("N_tau = ", length(grid))
-        println("orders = ", orders)
-        println("N_samples = ", N_samples)
-        println("N_ranks = ", comm_size)
-        println("N_samples (per rank) = ", N_split)
-    end
+        @info """
 
-    @assert N_samples == 0 || ispow2(N_samples)
+        $(logo)
+
+        n_τ = $(length(grid))
+        orders = $(orders)
+        # qMC samples = $(N_samples)
+        # MPI ranks = $(comm_size)
+        # qMC samples (per rank, min:max) = $(minimum(N_split)):$(maximum(N_split))
+        """
+    end
 
     τ_B = grid[1]
 
     # Pre-compute topologies: These are common for all
     # pairs of operators in expansion.corr_operators.
-    if ismaster(); println("= Topologies ========"); end
     order_data = ExpansionOrderInputData[]
     for order in orders
 
@@ -562,15 +578,18 @@ function correlator_2p(expansion::Expansion,
                       ExpansionOrderInputData(order, n_pts_after, topologies, N_samples)
                 )
             end
-
-            if ismaster()
-                N_topo = length(topologies)
-                println("order $(order), n_pts_after $(n_pts_after), N_topo $(N_topo)")
-            end
         end
 
         end; end # tmr "Order" "Topologies"
 
+    end
+
+    if ismaster()
+        msg = prod(["Order $(d.order), " *
+                    "n_pts_after $(d.n_pts_after), " *
+                    "# topologies = $(length(d.topologies))\n"
+                    for d in order_data])
+        @info "Diagrams\n$(msg)"
     end
 
     # Accumulate correlators
@@ -579,8 +598,6 @@ function correlator_2p(expansion::Expansion,
 
         @assert length(A) == 1 "Operator A must be a single monomial in C/C^+"
         @assert length(B) == 1 "Operator B must be a single monomial in C/C^+"
-
-        if ismaster(); println("= Correlator <$(A),$(B)> ========"); end
 
         # Create a GF container to carry the result
         is_fermion(expr) = isodd(length(first(keys(expr.monomials))))
@@ -592,7 +609,7 @@ function correlator_2p(expansion::Expansion,
         # Fill in values
         #
 
-        if ismaster(); println("= Evaluation ======== ", (A, B)); end
+        ismaster() && @info "Evaluating correlator ⟨$(A), $(B)⟩"
 
         # Only the 0-th order can contribute at τ_A = τ_B
         if order_data[1].order == 0
@@ -608,7 +625,12 @@ function correlator_2p(expansion::Expansion,
 
         # The rest of τ_A values
         iter = 2:length(grid)
-        iter = ismaster() ? ProgressBar(iter) : iter
+        if ismaster()
+            logger = Logging.current_logger()
+            if isa(logger, Logging.ConsoleLogger) && logger.min_level <= Logging.Info
+                iter = ProgressBar(iter)
+            end
+        end
 
         for n in iter
             τ_A = grid[n]
@@ -623,7 +645,7 @@ function correlator_2p(expansion::Expansion,
         end
     end
 
-    if ismaster(); show(tmr); println(); end
+    ismaster() && @debug string("Timed sections in correlator_2p()\n", tmr)
 
     return corr_list
 end
