@@ -55,19 +55,19 @@ using QInchworm.qmc_integrate: qmc_time_ordered_integral_root,
 """
 $(TYPEDEF)
 
-Inchworm algorithm input data specific to a particular expansion order.
+Inchworm algorithm input data specific to a given set of topologies.
 
 $(TYPEDFIELDS)
 """
-struct ExpansionOrderInputData
+struct TopologiesInputData
     "Expansion order"
-    order::Int64
+    order::Int
     "Number of points in the after-t_w region"
-    n_pts_after::Int64
-    "List of topologies contributing at this expansion order"
+    n_pts_after::Int
+    "List of contributing topologies"
     topologies::Vector{teval.Topology}
-    "Numbers of qMC samples (should be a power of 2)"
-    N_samples::Int64
+    "Numbers of qMC samples (must be a power of 2)"
+    N_samples::Int
 end
 
 # http://patorjk.com/software/taag/#p=display&f=Graffiti&t=QInchWorm
@@ -105,7 +105,7 @@ function inchworm_step(expansion::Expansion,
                        τ_i::kd.TimeGridPoint,
                        τ_w::kd.TimeGridPoint,
                        τ_f::kd.TimeGridPoint,
-                       order_data::Vector{ExpansionOrderInputData};
+                       order_data::Vector{TopologiesInputData};
                        tmr::TimerOutput = TimerOutput())
 
     t_i, t_w, t_f = τ_i.bpoint, τ_w.bpoint, τ_f.bpoint
@@ -203,7 +203,7 @@ function inchworm_step_bare(expansion::Expansion,
                             c::kd.AbstractContour,
                             τ_i::kd.TimeGridPoint,
                             τ_f::kd.TimeGridPoint,
-                            order_data::Vector{ExpansionOrderInputData};
+                            order_data::Vector{TopologiesInputData};
                             tmr::TimerOutput = TimerOutput())
 
     t_i, t_f = τ_i.bpoint, τ_f.bpoint
@@ -323,7 +323,7 @@ function inchworm!(expansion::Expansion,
 
     # First inchworm step
 
-    order_data = ExpansionOrderInputData[]
+    order_data = TopologiesInputData[]
     for order in orders_bare
 
         @timeit tmr "Bare" begin
@@ -331,7 +331,7 @@ function inchworm!(expansion::Expansion,
         @timeit tmr "Topologies" begin
 
         topologies = get_topologies_at_order(order)
-        push!(order_data, ExpansionOrderInputData(order, 2*order, topologies, N_samples))
+        push!(order_data, TopologiesInputData(order, 2*order, topologies, N_samples))
 
         end; end; end # tmr "Bare" "Order" "Topologies"
 
@@ -376,7 +376,7 @@ function inchworm!(expansion::Expansion,
 
             if !isempty(topologies)
                 push!(order_data,
-                    ExpansionOrderInputData(order, n_pts_after, topologies, N_samples)
+                    TopologiesInputData(order, n_pts_after, topologies, N_samples)
                 )
             end
         end
@@ -442,7 +442,7 @@ function correlator_2p(expansion::Expansion,
                        grid::kd.ImaginaryTimeGrid,
                        A_B_pair_idx::Int64,
                        τ::kd.TimeGridPoint,
-                       order_data::Vector{ExpansionOrderInputData};
+                       order_data::Vector{TopologiesInputData};
                        tmr::TimerOutput = TimerOutput())::ComplexF64
     t_B = grid[1].bpoint # B is always placed at τ=0
     t_A = τ.bpoint
@@ -563,7 +563,7 @@ function correlator_2p(expansion::Expansion,
 
     # Pre-compute topologies: These are common for all
     # pairs of operators in expansion.corr_operators.
-    order_data = ExpansionOrderInputData[]
+    order_data = TopologiesInputData[]
     for order in orders
 
         @timeit tmr "Order $(order)" begin
@@ -575,7 +575,7 @@ function correlator_2p(expansion::Expansion,
 
             if !isempty(topologies)
                 push!(order_data,
-                      ExpansionOrderInputData(order, n_pts_after, topologies, N_samples)
+                    TopologiesInputData(order, n_pts_after, topologies, N_samples)
                 )
             end
         end

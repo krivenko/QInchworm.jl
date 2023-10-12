@@ -30,7 +30,7 @@ using QInchworm.spline_gf: SplineInterpolatedGF
 using QInchworm.diagrammatics: get_topologies_at_order
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 
-using QInchworm.inchworm: ExpansionOrderInputData,
+using QInchworm.inchworm: TopologiesInputData,
                           inchworm_step,
                           inchworm_step_bare,
                           inchworm!,
@@ -96,14 +96,14 @@ ed = ked.EDCore(H, soi)
         push!(expansion.P_orders, kd.zero(expansion.P0))
     end
 
-    order_data = ExpansionOrderInputData[]
+    order_data = TopologiesInputData[]
     for order in 0:3
         n_pts_after_range = (order == 0) ? (0:0) : (1:(2 * order - 1))
         for n_pts_after in n_pts_after_range
             topologies = get_topologies_at_order(order, n_pts_after)
             if !isempty(topologies)
                 push!(order_data,
-                      ExpansionOrderInputData(order, n_pts_after, topologies, N_samples)
+                    TopologiesInputData(order, n_pts_after, topologies, N_samples)
                 )
             end
         end
@@ -149,10 +149,10 @@ end
         push!(expansion.P_orders, kd.zero(expansion.P0))
     end
 
-    order_data = ExpansionOrderInputData[]
+    order_data = TopologiesInputData[]
     for order in 0:3
         topologies = get_topologies_at_order(order)
-        push!(order_data, ExpansionOrderInputData(order, 1, topologies, N_samples))
+        push!(order_data, TopologiesInputData(order, 1, topologies, N_samples))
     end
 
     value = inchworm_step_bare(expansion, contour, τ_i, τ_f, order_data)
