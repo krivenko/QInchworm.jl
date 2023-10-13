@@ -17,6 +17,12 @@
 #
 # Authors: Igor Krivenko, Hugo U. R. Strand
 
+"""
+High level functions implementing the quasi Monte Carlo inchworm algorithm.
+
+# Exports
+$(EXPORTS)
+"""
 module inchworm
 
 using DocStringExtensions
@@ -59,12 +65,13 @@ $(TYPEDEF)
 
 Inchworm algorithm input data specific to a given set of topologies.
 
+# Fields
 $(TYPEDFIELDS)
 """
 struct TopologiesInputData
     "Expansion order"
     order::Int
-    "Number of points in the after-t_w region"
+    "Number of points in the after-``t_w`` region"
     n_pts_after::Int
     "List of contributing topologies"
     topologies::Vector{teval.Topology}
@@ -81,26 +88,25 @@ const logo = raw"""________  .___              .__    __      __
        \__>        \/     \/     \/      \/                    \/ """
 
 #
-# Inchworm / bold PPGF accumulation functions
+# Inchworm / bold propagator accumulation functions
 #
 
-raw"""
-Perform one step of qMC inchworm evaluation of the bold PPGF.
+"""
+    $(TYPEDSIGNATURES)
 
-The qMC integrator uses the `Root` transformation here.
+Perform one regular step of qMC inchworm accumulation of the bold propagators.
 
-Parameters
-----------
-expansion :  Pseudo-particle expansion problem.
-c :          Integration time contour.
-τ_i :        Initial time of the bold PPGF to be computed.
-τ_w :        Inchworm (bare/bold splitting) time.
-τ_f :        Final time of the bold PPGF to be computed.
-top_data : Inchworm algorithm input data, one element per expansion order.
+# Parameters
+- `expansion`: Strong coupling expansion problem.
+- `c`:         Time contour for integration.
+- `τ_i`:       Initial time of the bold propagator to be computed.
+- `τ_w`:       Inchworm splitting time ``\\tau_w``.
+- `τ_f`:       Final time of the bold propagator to be computed.
+- `top_data`:  Inchworm algorithm input data.
+- `tmr`:       A `TimerOutput` object used for profiling.
 
-Returns
--------
-Accumulated value of the bold pseudo-particle GF.
+# Returns
+Accumulated value of the bold propagator.
 """
 function inchworm_step(expansion::Expansion,
                        c::kd.AbstractContour,
@@ -181,25 +187,23 @@ function inchworm_step(expansion::Expansion,
     return sum(values(order_contribs))
 end
 
-raw"""
-Perform the first step of qMC inchworm evaluation of the bold PPGF.
+"""
+    $(TYPEDSIGNATURES)
 
-This step amounts to summation of all (not just inchworm-proper) diagrams
-in absence of the bold region in the integration domain.
+Perform the initial step of qMC inchworm accumulation of the bold propagators.
+This step amounts to summing all (not only inchworm-proper) diagrams built out of the
+bare propagators.
 
-The qMC integrator uses the `Root` transformation here.
+# Parameters
+- `expansion`: Strong coupling expansion problem.
+- `c`:         Time contour for integration.
+- `τ_i`:       Initial time of the bold propagator to be computed.
+- `τ_f`:       Final time of the bold propagator to be computed.
+- `top_data`:  Inchworm algorithm input data.
+- `tmr`:       A `TimerOutput` object used for profiling.
 
-Parameters
-----------
-expansion :  Pseudo-particle expansion problem.
-c :          Integration time contour.
-τ_i :        Initial time of the bold PPGF to be computed.
-τ_f :        Final time of the bold PPGF to be computed.
-top_data : Inchworm algorithm input data, one element per expansion order.
-
-Returns
--------
-Accumulated value of the bold pseudo-particle GF.
+# Returns
+Accumulated value of the bold propagator.
 """
 function inchworm_step_bare(expansion::Expansion,
                             c::kd.AbstractContour,
@@ -272,19 +276,23 @@ function inchworm_step_bare(expansion::Expansion,
     return result
 end
 
-raw"""
-Perform a complete qMC inchworm calculation of the bold PPGF on the Matsubara branch.
+"""
+    $(TYPEDSIGNATURES)
 
-Result of the calculation is written into `expansion.P`.
+Perform a complete qMC inchworm calculation of the bold propagators on the imaginary
+time segment. Results of the calculation are written into `expansion.P`.
 
-Parameters
-----------
-expansion :       Pseudo-particle expansion problem.
-grid :            Imaginary time grid of the bold PPGF.
-orders :          List of expansion orders to be accounted for during a regular inchworm step.
-orders_bare :     List of expansion orders to be accounted for during the initial inchworm step.
-N_samples :       Numbers of qMC samples.
-n_pts_after_max : Maximum number of points in the after-t_w region to be taken into account.
+# Parameters
+- `expansion`:       Strong coupling expansion problem.
+- `grid`:            Imaginary time grid of the bold propagators.
+- `orders`:          List of expansion orders to be accounted for during a regular
+                     inchworm step.
+- `orders_bare`:     List of expansion orders to be accounted for during the initial
+                     inchworm step.
+- `N_samples`:       Number of samples to be used in qMC integration. Must be a power of 2.
+- `n_pts_after_max`: Maximum number of points in the after-``\\tau_w`` region to be taken
+                     into account. By default, diagrams with all valid numbers of the
+                     after-``\\tau_w`` points are considered.
 """
 function inchworm!(expansion::Expansion,
                    grid::kd.ImaginaryTimeGrid,
@@ -418,27 +426,31 @@ function inchworm!(expansion::Expansion,
 
     ismaster() && @debug string("Timed sections in inchworm!()\n", tmr)
 
+    return Nothing
 end
 
 #
 # Calculation of two-point correlators on the Matsubara branch
 #
 
-raw"""
-    Perform a calculation of a two-point correlator <A(τ) B(0)> for one value of
-    the imaginary time argument τ.
+"""
+    $(TYPEDSIGNATURES)
 
-    Parameters
-    ----------
-    expansion :    Pseudo-particle expansion problem.
-    grid :         Imaginary time grid of the correlator to be computed.
-    A_B_pair_idx : Index of the A/B pair in `expansion.corr_operators`.
-    τ :            The imaginary time argument.
-    top_data :   Accumulation input data, one element per expansion order.
+Calculate value of a two-point correlator ``\\langle A(\\tau) B(0)\\rangle`` for
+one value of the imaginary time argument ``\\tau``. The pair of operators ``(A, B)`` used in
+the calculation is taken from `expansion.corr_operators[A_B_pair_idx]`.
 
-    Returns
-    -------
-    Accummulated value of the two-point correlator.
+# Parameters
+- `expansion`:    Strong coupling expansion problem. `expansion.P` must contain precomputed
+                  bold propagators.
+- `grid`:         Imaginary time grid of the correlator to be computed.
+- `A_B_pair_idx`: Index of the ``(A, B)`` pair within `expansion.corr_operators`.
+- `τ`:            The imaginary time argument ``\\tau``.
+- `top_data`:     Accumulation input data.
+- `tmr`:          A `TimerOutput` object used for profiling.
+
+# Returns
+Accumulated value of the two-point correlator.
 """
 function correlator_2p(expansion::Expansion,
                        grid::kd.ImaginaryTimeGrid,
@@ -513,26 +525,24 @@ function correlator_2p(expansion::Expansion,
     return result / partition_function(expansion.P)
 end
 
-raw"""
-Perform a calculation of a two-point correlator <A(τ) B(0)> on the Matsubara branch.
+"""
+    $(TYPEDSIGNATURES)
 
-Accumulation is performed for each pair of operators A / B passed in
-`expansion.corr_operators`. Only the operators that are a single monomial in C/C^+ are
-supported.
+Calculate a two-point correlator ``\\langle A(\\tau) B(0)\\rangle`` on the imaginary
+time segment. Accumulation is performed for each pair of operators ``(A, B)`` in
+`expansion.corr_operators`. Only the operators that are a single monomial in
+``c/c^\\dagger`` are supported.
 
-Parameters
-----------
-expansion :            Pseudo-particle expansion problem containing a precomputed bold PPGF
-                       and pairs of operators to be used in accumulation.
-grid :                 Imaginary time grid of the two-point correlator to be computed.
-orders :               List of expansion orders to be accounted for.
-N_samples :            Numbers of qMC samples.
+# Parameters
+- `expansion`: Strong coupling expansion problem. `expansion.P` must contain precomputed
+               bold propagators.
+- `grid`:      Imaginary time grid of the correlator to be computed.
+- `orders`:    List of expansion orders to be accounted for.
+- `N_samples`: Number of samples to be used in qMC integration. Must be a power of 2.
 
-Returns
--------
-
-corr : A list of scalar-valued GF objects containing the computed correlators,
-       one element per a pair in `expansion.corr_operators`.
+# Returns
+A list of scalar-valued GF objects containing the computed correlators, one element per a
+pair in `expansion.corr_operators`.
 """
 function correlator_2p(expansion::Expansion,
                        grid::kd.ImaginaryTimeGrid,
