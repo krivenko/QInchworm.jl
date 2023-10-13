@@ -45,6 +45,7 @@ makedocs(;
             "modules/spline_gf.md",
             "modules/mpi.md",
             "modules/utility.md"
-	    ]
+	    ],
+        "About QInchworm.jl" => "about.md"
     ]
 )
