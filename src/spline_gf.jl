@@ -33,6 +33,8 @@ using QInchworm.utility: IncrementalSpline
 import QInchworm.utility: extend!
 import QInchworm.utility: ph_conj
 
+export SplineInterpolatedGF
+
 #
 # SplineInterpolatedGF
 #

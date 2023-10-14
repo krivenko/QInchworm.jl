@@ -30,6 +30,8 @@ using QInchworm.spline_gf: SplineInterpolatedGF
 export FullTimePPGF, ImaginaryTimePPGF
 export atomic_ppgf
 export operator_product
+export partition_function, density_matrix
+export normalize!
 
 """
 Get matrix representation of operator expression in each sector

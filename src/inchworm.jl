@@ -52,6 +52,8 @@ using QInchworm.configuration: Node, InchNode, OperatorNode
 using QInchworm.qmc_integrate: qmc_time_ordered_integral_root,
                                qmc_inchworm_integral_root
 
+export inchworm!, correlator_2p
+
 """
 $(TYPEDEF)
 

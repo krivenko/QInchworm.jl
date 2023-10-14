@@ -30,6 +30,8 @@ using QInchworm.diagrammatics: Topology, Diagram
 using QInchworm.spline_gf: SplineInterpolatedGF
 using QInchworm.spline_gf: IncSplineImaginaryTimeGF, extend!
 
+export Expansion, InteractionPair
+
 const Operator = op.RealOperatorExpr
 
 const AllPPGFSectorTypes = Union{
