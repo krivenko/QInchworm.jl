@@ -167,8 +167,10 @@ function iobuffer_deserialize(data_raw)
     return deserialize(IOBuffer(data_raw))
 end
 
-"""Given an imaginary time Green's function g(τ), returns g(β-τ)"""
-function Base.reverse(g::kd.ImaginaryTimeGF)
+"""
+Given an imaginary time Green's function g(τ), returns its particle-hole conjugate g(β-τ).
+"""
+function ph_conj(g::kd.ImaginaryTimeGF)::kd.ImaginaryTimeGF
     g_rev = deepcopy(g)
     τ_0, τ_β = g.grid[1], g.grid[end]
     for τ in g.grid

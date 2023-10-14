@@ -33,7 +33,7 @@ using Keldysh; kd = Keldysh
 # For exact diagonalization of the atomic problem
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators
 
-using QInchworm.utility
+using QInchworm.utility: ph_conj
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.inchworm: inchworm!, correlator_2p
 using QInchworm.ppgf: partition_function, normalize!, density_matrix
@@ -82,9 +82,9 @@ bath_dos = kd.bethe_dos(t=D / 2)
 # List of pair interactions
 int_pairs = [
     InteractionPair(op.c_dag("up"), op.c("up"), Δ),             # c^†_↑(τ) Δ(τ) c_↑(0)
-    InteractionPair(op.c("up"), op.c_dag("up"), reverse(Δ)),    # c_↑(τ) Δ(-τ) c^†_↑(0)
+    InteractionPair(op.c("up"), op.c_dag("up"), ph_conj(Δ)),    # c_↑(τ) Δ(-τ) c^†_↑(0)
     InteractionPair(op.c_dag("dn"), op.c("dn"), Δ),             # c^†_↓(τ) Δ(τ) c_↓(0)
-    InteractionPair(op.c("dn"), op.c_dag("dn"), reverse(Δ))     # c_↓(τ) Δ(-τ) c^†_↓(0)
+    InteractionPair(op.c("dn"), op.c_dag("dn"), ph_conj(Δ))     # c_↓(τ) Δ(-τ) c^†_↓(0)
 ]
 # N.B.: These can include types of pair interactions other than hybridization, e.g.
 # a density-density coupling n(τ) U(τ) n(0)

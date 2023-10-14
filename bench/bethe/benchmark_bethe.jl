@@ -27,7 +27,7 @@ using MD5
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators
 
-using QInchworm.utility
+using QInchworm.utility: ph_conj
 using QInchworm.ppgf
 using QInchworm.expansion: Expansion, InteractionPair
 
@@ -61,11 +61,11 @@ function run_bethe(nτ, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     if interpolate_gfs
         ip_fwd = InteractionPair(op.c_dag(1), op.c(1), SplineInterpolatedGF(Δ))
-        ip_bwd = InteractionPair(op.c(1), op.c_dag(1), SplineInterpolatedGF(reverse(Δ)))
+        ip_bwd = InteractionPair(op.c(1), op.c_dag(1), SplineInterpolatedGF(ph_conj(Δ)))
         expansion = Expansion(ed, grid, [ip_fwd, ip_bwd], interpolate_ppgf=true)
     else
         ip_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
-        ip_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
+        ip_bwd = InteractionPair(op.c(1), op.c_dag(1), ph_conj(Δ))
         expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
     end
 

@@ -27,7 +27,7 @@ using LinearAlgebra: diag, diagm
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators
 
-using QInchworm.utility
+using QInchworm.utility: ph_conj
 using QInchworm.ppgf: normalize!
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.inchworm: inchworm!, correlator_2p
@@ -79,9 +79,9 @@ function run_dimer(nτ, orders, orders_bare, orders_gf, N_samples)
     # Pseudo Particle Strong Coupling Expansion
 
     ip_1_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
-    ip_1_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
+    ip_1_bwd = InteractionPair(op.c(1), op.c_dag(1), ph_conj(Δ))
     ip_2_fwd = InteractionPair(op.c_dag(2), op.c(2), Δ)
-    ip_2_bwd = InteractionPair(op.c(2), op.c_dag(2), reverse(Δ))
+    ip_2_bwd = InteractionPair(op.c(2), op.c_dag(2), ph_conj(Δ))
     expansion = Expansion(ed, grid, [ip_1_fwd, ip_1_bwd, ip_2_fwd, ip_2_bwd])
 
     inchworm!(expansion, grid, orders, orders_bare, N_samples)

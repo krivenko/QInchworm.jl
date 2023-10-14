@@ -22,7 +22,7 @@ using Test
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-using QInchworm.utility
+using QInchworm.utility: ph_conj
 using QInchworm.spline_gf: SplineInterpolatedGF, update_interpolants!
 
 using QInchworm.expansion: Expansion, InteractionPair, get_diagrams_at_order
@@ -76,7 +76,7 @@ end
     function run_nca_equil_tests_riemann(contour, grid, Δ, interpolate_ppgf=false)
 
         ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
-        ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), reverse(Δ))
+        ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), ph_conj(Δ))
         ppsc_exp = Expansion(ed, grid, [ip_fwd, ip_bwd], interpolate_ppgf=interpolate_ppgf)
 
         tau_grid = grid[kd.imaginary_branch]
@@ -153,7 +153,7 @@ end
     function run_nca_equil_tests_qmc(contour, grid, Δ, interpolate_ppgf=false)
 
         ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), Δ)
-        ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), reverse(Δ))
+        ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), ph_conj(Δ))
         ppsc_exp = Expansion(ed, grid, [ip_fwd, ip_bwd], interpolate_ppgf=interpolate_ppgf)
 
         tau_grid = grid[kd.imaginary_branch]

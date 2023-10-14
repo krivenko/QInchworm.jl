@@ -31,6 +31,7 @@ using Keldysh; kd = Keldysh;
 
 using QInchworm.utility: IncrementalSpline
 import QInchworm.utility: extend!
+import QInchworm.utility: ph_conj
 
 #
 # SplineInterpolatedGF
@@ -180,7 +181,7 @@ function interpolate(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, false}, T
     end
 end
 
-Base.reverse(G_int::SplineInterpolatedGF) = SplineInterpolatedGF(reverse(G_int.GF))
+ph_conj(G_int::SplineInterpolatedGF) = SplineInterpolatedGF(ph_conj(G_int.GF))
 
 #
 # IncSplineImaginaryTimeGF

@@ -26,6 +26,7 @@ using ArgParse
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators
 
+using QInchworm.utility: ph_conj
 using QInchworm.ppgf: normalize!
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.inchworm: inchworm!, correlator_2p
@@ -58,7 +59,7 @@ function run_bethe(nτ, orders, orders_bare, orders_gf, N_samples, n_pts_after_m
     # Pseudo Particle Strong Coupling Expansion
 
     ip_1_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
-    ip_1_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
+    ip_1_bwd = InteractionPair(op.c(1), op.c_dag(1), ph_conj(Δ))
     expansion = Expansion(ed, grid, [ip_1_fwd, ip_1_bwd])
 
     inchworm!(expansion, grid, orders, orders_bare, N_samples;
