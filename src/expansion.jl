@@ -17,6 +17,12 @@
 #
 # Authors: Igor Krivenko, Hugo U. R. Strand
 
+"""
+Strong coupling pseudo-particle expansion problem.
+
+# Exports
+$(EXPORTS)
+"""
 module expansion
 
 using DocStringExtensions
@@ -30,10 +36,11 @@ using QInchworm.diagrammatics: Topology
 using QInchworm.spline_gf: SplineInterpolatedGF
 using QInchworm.spline_gf: IncSplineImaginaryTimeGF, extend!
 
-export Expansion, InteractionPair
+export Expansion, InteractionPair, add_corr_operators!
 
 const Operator = op.RealOperatorExpr
 
+"Supported container types for a single block of an atomic propagator (PPGF)"
 const AllPPGFSectorTypes = Union{
     ppgf.FullTimePPGFSector,
     ppgf.ImaginaryTimePPGFSector,
@@ -42,6 +49,7 @@ const AllPPGFSectorTypes = Union{
     IncSplineImaginaryTimeGF{ComplexF64, false}
 }
 
+"Supported container types for a full atomic propagator (PPGF)"
 const AllPPGFTypes = Union{
     Vector{ppgf.FullTimePPGFSector},
     Vector{ppgf.ImaginaryTimePPGFSector},
@@ -53,10 +61,16 @@ const AllPPGFTypes = Union{
 Base.zero(P::T) where {T <: AllPPGFTypes} = [zero(p) for p in P]
 
 """
-$(TYPEDEF)
+    $(TYPEDEF)
 
-Data type for pseudo-particle interactions, containing two operators and one scalar propagator.
+Data type for pseudo-particle interactions containing two operators and one scalar
+propagator.
 
+Indexed access to the operators stored in a `pair::InteractionPair` is supported:
+`pair[1]` and `pair[2]` are equivalent to `pair.operator_i` and `pair.operator_f`
+respectively.
+
+# Fields
 $(TYPEDFIELDS)
 """
 struct InteractionPair{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}}
@@ -79,21 +93,22 @@ struct InteractionDeterminant{PPGFSector <: AllPPGFSectorTypes}
 end
 
 """
-$(TYPEDEF)
+    $(TYPEDEF)
 
-The `Expansion` struct contains the components needed to define
-a pseudo-particle expansion problem.
+The `Expansion` structure contains the components needed to define a strong coupling
+pseudo-particle expansion problem.
 
-$(TYPEDFIELDS)
+# Fields
+$(FIELDS)
 """
 struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPGFTypes}
     "Exact diagonalization solver for the local degrees of freedom"
     ed::ked.EDCore
-    "Non-interacting pseudo-particle Green's function"
+    "Non-interacting propagator (pseudo-particle Green's function)"
     P0::PPGF
-    "Interacting pseudo-particle Green's function"
+    "Interacting propagator (pseudo-particle Green's function)"
     P::PPGF
-    "Contribution to interacting pseudo-particle Green's function, per diagram order"
+    "Contributions to interacting propagators, per expansion diagram order"
     P_orders::Vector{PPGF}
     "List of pseudo-particle interactions"
     pairs::Vector{InteractionPair{ScalarGF}}
@@ -104,9 +119,9 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
 
     "Block matrix representation of the identity operator"
     identity_mat::SectorBlockMatrix
-    "Block matrix representation of paired operators (operator_i, operator_f)"
+    "Block matrix representation of paired operators (`operator_i`, `operator_f`)"
     pair_operator_mat::Vector{Tuple{SectorBlockMatrix, SectorBlockMatrix}}
-    "Block matrix representation of corr_operators"
+    "Block matrix representation of `corr_operators`"
     corr_operators_mat::Vector{Tuple{SectorBlockMatrix, SectorBlockMatrix}}
 
     """
@@ -115,8 +130,18 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
     """
     subspace_attachable_pairs::Vector{Vector{Int64}}
 
-    """
-    $(TYPEDSIGNATURES)
+    @doc """
+        $(TYPEDSIGNATURES)
+
+    # Parameters
+    - `ed`:                Exact diagonalization solution of the local problem.
+    - `grid`:              Contour time grid to define the local propagators on.
+    - `interaction_pairs`: The list of pair interactions to expand in.
+    - `corr_operators`:    The list of operator pairs used in accumulation of two-point
+                           correlation functions.
+    - `interpolate_ppgf`:  Use a quadratic spline interpolation to represent and evaluate
+                           the local propagators. *Currently works only with the imaginary
+                           time propagators.*
     """
     function Expansion(
             ed::ked.EDCore,
@@ -183,7 +208,27 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
 end
 
 """
-$(TYPEDSIGNATURES)
+    $(TYPEDSIGNATURES)
+
+A higher-level constructor of [`Expansion`](@ref Expansion) that solves the local problem
+defined by a Hamiltonian and internally generates a list of pseudo-particle pair
+interactions from hybridization and ``nn``-interaction functions.
+
+# Parameters
+- `hamiltonian`:      Hamiltonian of the local problem.
+- `soi`:              An ordered set of indices carried by creation/annihilation operators
+                      of the local problem.
+- `grid`:             Imaginary time grid to define the local propagators on.
+- `hybridization`:    A matrix-valued hybridization function ``\\Delta_{ij}(\\tau)``. A
+                      correspondence between the matrix elements ``(i, j)`` and operators
+                      ``c^\\dagger_i, c_j`` is established by `soi`.
+- `nn_interaction`:   A matrix-valued ``nn``-interaction function ``U_{ij}(\\tau)``.
+                      A correspondence between the matrix elements ``(i, j)`` and operators
+                      ``n_i, n_j`` is established by `soi`.
+- `corr_operators`:   The list of operator pairs used in accumulation of two-point
+                      correlation functions.
+- `interpolate_ppgf`: Use a quadratic spline interpolation to represent and evaluate
+                      the local propagators.
 """
 function Expansion(
         hamiltonian::op.OperatorExpr,
@@ -256,57 +301,120 @@ function Expansion(
     )
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Set the value of `expansion.P` corresponding to a given pair of imaginary time points
+``(\\tau_f, \\tau_i)``. This method is defined for the spline-interpolated imaginary-time
+propagators.
+
+# Parameters
+- `expansion`: Pseudo-particle expansion.
+- `τ_i`:       Initial imaginary time ``\\tau_i``.
+- `τ_f`:       Final imaginary time ``\\tau_f``.
+- `val`:       Block matrix to set ``P(\\tau_f, \\tau_i)`` to.
+"""
 function set_bold_ppgf!(
-        exp::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},
-        t_i::kd.TimeGridPoint,
-        t_f::kd.TimeGridPoint,
-        result::SectorBlockMatrix) where ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}
-    for (s_i, (s_f, mat)) in result
+        expansion::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},
+        τ_i::kd.TimeGridPoint,
+        τ_f::kd.TimeGridPoint,
+        val::SectorBlockMatrix) where ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}
+    for (s_i, (s_f, mat)) in val
         @assert s_i == s_f # Boldification must preserve the block structure
-        extend!(exp.P[s_i], mat)
+        extend!(expansion.P[s_i], mat)
     end
 end
 
-function set_bold_ppgf!(exp::Expansion,
+"""
+    $(TYPEDSIGNATURES)
+
+Set the value of `expansion.P` corresponding to a given pair of contour time points
+``(t_f, t_i)``.
+
+# Parameters
+- `expansion`: Pseudo-particle expansion.
+- `t_i`:       Initial imaginary time ``t_i``.
+- `t_f`:       Final imaginary time ``t_f``.
+- `val`:       Block matrix to set ``P(t_f, t_i)`` to.
+"""
+function set_bold_ppgf!(expansion::Expansion,
                         t_i::kd.TimeGridPoint,
                         t_f::kd.TimeGridPoint,
-                        result::SectorBlockMatrix)
-    for (s_i, (s_f, mat)) in result
+                        val::SectorBlockMatrix)
+    for (s_i, (s_f, mat)) in val
         # Boldification must preserve the block structure
         @assert s_i == s_f
-        exp.P[s_i][t_f, t_i] = mat
+        expansion.P[s_i][t_f, t_i] = mat
     end
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Set the value of `expansion.P_orders` corresponding to a given expansion order and to a pair
+of imaginary time points ``(\\tau_f, \\tau_i)``. This method is defined for the
+spline-interpolated imaginary-time propagators.
+
+# Parameters
+- `expansion`: Pseudo-particle expansion.
+- `order`:     Expansion order.
+- `τ_i`:       Initial imaginary time ``\\tau_i``.
+- `τ_f`:       Final imaginary time ``\\tau_f``.
+- `val`:       Block matrix to set ``P(\\tau_f, \\tau_i)`` to.
+"""
 function set_bold_ppgf_at_order!(
-        exp::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},
+        expansion::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},
         order::Integer,
-        t_i::kd.TimeGridPoint,
-        t_f::kd.TimeGridPoint,
-        result::SectorBlockMatrix) where ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}
-    for (s_i, (s_f, mat)) in result
+        τ_i::kd.TimeGridPoint,
+        τ_f::kd.TimeGridPoint,
+        val::SectorBlockMatrix) where ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}
+    for (s_i, (s_f, mat)) in val
         @assert s_i == s_f # Boldification must preserve the block structure
-        extend!(exp.P_orders[order+1][s_i], mat)
+        extend!(expansion.P_orders[order+1][s_i], mat)
     end
 end
 
-function set_bold_ppgf_at_order!(exp::Expansion,
+"""
+    $(TYPEDSIGNATURES)
+
+Set the value of `expansion.P_orders` corresponding to a given expansion order and to a pair
+of contour time points ``(t_f, t_i)``.
+
+# Parameters
+- `expansion`: Pseudo-particle expansion.
+- `order`:     Expansion order.
+- `t_i`:       Initial imaginary time ``t_i``.
+- `t_f`:       Final imaginary time ``t_f``.
+- `val`:       Block matrix to set ``P(t_f, t_i)`` to.
+"""
+function set_bold_ppgf_at_order!(expansion::Expansion,
                                  order::Integer,
                                  t_i::kd.TimeGridPoint,
                                  t_f::kd.TimeGridPoint,
-                                 result::SectorBlockMatrix)
-    for (s_i, (s_f, mat)) in result
+                                 val::SectorBlockMatrix)
+    for (s_i, (s_f, mat)) in val
         @assert s_i == s_f # Boldification must preserve the block structure
-        exp.P_orders[order+1][s_i][t_f, t_i] = mat
+        expansion.P_orders[order+1][s_i][t_f, t_i] = mat
     end
 end
 
-function add_corr_operators!(exp::Expansion, ops::Tuple{Operator, Operator})
-    push!(exp.corr_operators, ops)
-    push!(exp.corr_operators_mat,
-          (operator_to_sector_block_matrix(exp.ed, ops[1]),
-           operator_to_sector_block_matrix(exp.ed, ops[2]))
+"""
+    $(TYPEDSIGNATURES)
+
+Add a pair of operators ``(A, B)`` used to measure the two-point correlator
+``\\langle A(t_1) B(t_2)\\rangle`` to `expansion`.
+
+# Parameters
+- `expansion`: Pseudo-particle expansion.
+- `ops`:       The pair of operators ``(A, B)``.
+"""
+function add_corr_operators!(expansion::Expansion, ops::Tuple{Operator, Operator})
+    push!(expansion.corr_operators, ops)
+    push!(expansion.corr_operators_mat,
+          (operator_to_sector_block_matrix(expansion.ed, ops[1]),
+           operator_to_sector_block_matrix(expansion.ed, ops[2]))
     )
+    return nothing
 end
 
 end # module expansion
