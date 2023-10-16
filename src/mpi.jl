@@ -17,7 +17,12 @@
 #
 # Authors: Hugo U. R. Strand, Igor Krivenko
 
+"""
+MPI-related utility functions.
+"""
 module mpi
+
+using DocStringExtensions
 
 using MPI: MPI
 
@@ -25,17 +30,42 @@ using QInchworm.sector_block_matrix: SectorBlockMatrix
 using QInchworm.utility: split_count, range_from_chunks_and_idx
 using QInchworm.utility: iobuffer_serialize, iobuffer_deserialize
 
+"""
+    $(TYPEDSIGNATURES)
+
+Check whether the calling process has the rank 0 within the group associated with the
+communicator `comm`.
+"""
 function ismaster(comm::MPI.Comm = MPI.COMM_WORLD)::Bool
     return MPI.Comm_rank(comm) == 0
 end
 
-function rank_sub_range(n::Integer; comm::MPI.Comm = MPI.COMM_WORLD)
+"""
+    $(TYPEDSIGNATURES)
+
+Split the range `1:N` between MPI processes in the communicator `comm` as evenly as
+possible and return the sub-range 'owned' by the calling process.
+"""
+function rank_sub_range(N::Integer; comm::MPI.Comm = MPI.COMM_WORLD)::UnitRange{Int}
     comm_size = MPI.Comm_size(comm)
     comm_rank = MPI.Comm_rank(comm) # zero based indexing
-    chunks = split_count(n, comm_size)
+    chunks = split_count(N, comm_size)
     return range_from_chunks_and_idx(chunks, comm_rank + 1)
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Perform the MPI collective operation `Allgather` for vectors of elements of a generic type
+`T`.
+
+# Parameters
+- `subvec`: Subvector to be gathered.
+- `comm`:   MPI communicator.
+
+# Returns
+The gathered vector of the same element type `T`.
+"""
 function all_gather(subvec::Vector{T}; comm::MPI.Comm = MPI.COMM_WORLD)::Vector{T} where T
     data_raw = iobuffer_serialize(subvec)
     data_size = length(data_raw)
@@ -57,6 +87,20 @@ function all_gather(subvec::Vector{T}; comm::MPI.Comm = MPI.COMM_WORLD)::Vector{
     return out_vec
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Perform the in-place MPI collective operation `Allreduce` for a [sector block matrix](
+@ref SectorBlockMatrix).
+
+# Parameters
+- `sbm`:  Sector block matrices to be reduced.
+- `op`:   Reduction operation.
+- `comm`: MPI communicator.
+
+# Returns
+The gathered vector of the same element type `T`.
+"""
 function all_reduce!(sbm::SectorBlockMatrix, op; comm::MPI.Comm = MPI.COMM_WORLD)
     for (s_i, (s_f, mat)) in sbm
         MPI.Allreduce!(mat, op, comm)
