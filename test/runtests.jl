@@ -14,7 +14,7 @@
 # details.
 #
 # You should have received a copy of the GNU General Public License along with
-# QInchworm.jl. If not, see <http://www.gnu.org/licenses/.
+# QInchworm.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 # Authors: Igor Krivenko, Hugo U. R. Strand, Joseph Kleinhenz
 
