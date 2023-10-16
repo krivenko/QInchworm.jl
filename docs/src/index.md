@@ -7,10 +7,7 @@ interacting fermions. Using quasi Monte Carlo, a ``1/N`` convergence rate with
 the number of samples is achievable, which compares favorably to the
 ``1/\sqrt{N}`` convergence of the Monte Carlo methods.
 
-Below, you can find an API reference of the modules meant to be used by the
-end user of the package as well as those containing the internal machinery
-of the solver.
-
+Below, you can find an API reference of QInchworm.jl's modules.
 Some parts of the API, such as handling of the atomic problem and of the pair
 interactions/hybridization, depend on container types from
 [Keldysh.jl](https://github.com/kleinhenz/Keldysh.jl) and exact diagonalization
@@ -28,12 +25,12 @@ tools of [KeldyshED.jl](https://github.com/krivenko/KeldyshED.jl).
 ## Modules
 
 - [`QInchworm`](@ref QInchworm)
+- [`QInchworm.expansion`](@ref QInchworm.expansion)
 - [`QInchworm.inchworm`](@ref QInchworm.inchworm)
 - [`QInchworm.ppgf`](@ref QInchworm.ppgf)
-- [`QInchworm.expansion`](@ref QInchworm.expansion)
+- [`QInchworm.spline_gf`](@ref QInchworm.spline_gf)
+- [`QInchworm.utility`](@ref QInchworm.utility)
+- [`QInchworm.mpi`](@ref QInchworm.mpi)
+- [`QInchworm.qmc_integrate`](@ref QInchworm.qmc_integrate)
 - [`QInchworm.diagrammatics`](@ref QInchworm.diagrammatics)
 - [`QInchworm.topology_eval`](@ref QInchworm.topology_eval)
-- [`QInchworm.qmc_integrate`](@ref QInchworm.qmc_integrate)
-- [`QInchworm.spline_gf`](@ref QInchworm.spline_gf)
-- [`QInchworm.mpi`](@ref QInchworm.mpi)
-- [`QInchworm.utility`](@ref QInchworm.utility)

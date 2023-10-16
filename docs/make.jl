@@ -36,16 +36,16 @@ makedocs(;
         "Home" => "index.md",
         "Modules" => String[
             "modules/QInchworm.md",
+            "modules/expansion.md",
             "modules/inchworm.md",
-	        "modules/ppgf.md",
-	        "modules/expansion.md",
+            "modules/ppgf.md",
+            "modules/spline_gf.md",
+            "modules/utility.md",
+            "modules/mpi.md",
             "modules/diagrammatics.md",
             "modules/topology_eval.md",
-            "modules/qmc_integrate.md",
-            "modules/spline_gf.md",
-            "modules/mpi.md",
-            "modules/utility.md"
-	    ],
+            "modules/qmc_integrate.md"
+        ],
         "About QInchworm.jl" => "about.md"
     ]
 )
