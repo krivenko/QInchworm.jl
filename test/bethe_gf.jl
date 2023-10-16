@@ -31,22 +31,16 @@ using QInchworm.ppgf: normalize!, density_matrix
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.inchworm: inchworm!, correlator_2p
 
-# Solve non-interacting two fermion AIM coupled to
-# semi-circular (Bethe lattice) hybridization functions.
+# Solve non-interacting two fermion impurity model coupled to semi-circular (Bethe lattice)
+# hybridization functions.
 #
-# Performing two kinds of tests:
+# Compare to numerically exact results for the 1st, 2nd and 3rd order dressed
+# self-consistent expansion for the many-body density matrix and the single-particle
+# Green's function (computed using DLR elsewhere).
 #
-# 1. Checking that the InchWorm expansion does not break particle-hole
-# symmetry for an AIM with ph-symmetry.
-#
-# 2. Compare to numerically exact results for the 1st, 2nd and 3rd
-# order dressed self-consistent expansion for the many-body
-# density matrix (computed using DLR elsewhere).
-#
-# Note that the 1, 2, 3 order density matrix differs from the
-# exact density matrix of the non-interacting system, since
-# the low order expansions introduce "artificial" effective
-# interactions between hybridization insertions.
+# Note that the 1, 2, 3 order density matrix differs from the exact density matrix
+# of the non-interacting system, since the low order expansions introduce "artificial"
+# effective interactions between hybridization insertions.
 @testset "Bethe GF" verbose=true begin
 
     # Reference results from DLR calculations
