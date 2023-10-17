@@ -17,7 +17,36 @@
 #
 # Authors: Hugo U. R. Strand, Igor Krivenko, Joseph Kleinhenz
 
+"""
+Pseudo-particle Green's functions (propagators) of finite fermionic systems and
+related tools.
+
+For a system defined by a time-independent Hamiltonian ``\\hat H``, the pseudo-particle
+Green's function (PPGF) is
+
+```math
+P(z, z') = \\left\\{
+\\begin{array}{ll}
+-i (-1)^{\\hat N} e^{-i \\hat H(z-z')},& z \\succ -i\\beta \\cap -i\\beta \\succeq z',\\\\
+-i e^{-i \\hat H(z-z')},& \\text{otherwise}.
+\\end{array}
+\\right.
+```
+
+In particular, on the imaginary time segment alone one has
+``P(\\tau) = -i e^{-\\hat H \\tau}``.
+
+This operator has a block-diagonal structure determined by the symmetry sectors of
+``\\hat H``, and is stored as a vector of GF containers corresponding to the individual
+diagonal blocks ([`FullTimePPGF`](@ref FullTimePPGF),
+[`ImaginaryTimePPGF`](@ref ImaginaryTimePPGF)).
+
+# Exports
+$(EXPORTS)
+"""
 module ppgf
+
+using DocStringExtensions
 
 using LinearAlgebra: Diagonal, tr, I, diagm
 
@@ -28,14 +57,16 @@ using QInchworm.spline_gf: SplineInterpolatedGF
 
 export FullTimePPGF, ImaginaryTimePPGF
 export atomic_ppgf
-export operator_product
 export partition_function, density_matrix
 export normalize!
 
 """
-Get matrix representation of operator expression in each sector
+    $(TYPEDSIGNATURES)
 
-NB! Requires that the operator expression does not mix symmetry sectors
+Make matrix representation of an operator expression `op_expr` in each invariant subspace
+(symmetry sector) defined by the exact diagonalization object `ed`.
+
+**NB!** Requires that the operator expression does not mix symmetry sectors.
 """
 function operator_matrix_representation(
     op_expr::ked.OperatorExpr{S}, ed::ked.EDCore)::Vector{Matrix{S}} where {S <: Number}
@@ -57,6 +88,12 @@ function operator_matrix_representation(
     return op_sector_matrices
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Return the total density operator ``\\hat N = \\sum_i n_i``, where ``i`` labels all
+single-particle basis states used to construct the exact diagonalization object `ed`.
+"""
 function total_density_operator(ed::ked.EDCore)
     return sum([ked.Operators.n(label...) for (label, i) in ed.full_hs.soi])
 end
@@ -64,14 +101,25 @@ end
 # N.B. We cannot use FullTimeGF instead of GenericTimeGF here,
 # because FullTimeGF's data storage scheme relies on the symmetry
 # properties the pseudo-particle GF's do not possess.
+
+"A single block of an atomic propagator (PPGF) defined on a full Keldysh contour"
 const FullTimePPGFSector = kd.GenericTimeGF{ComplexF64, false, kd.FullTimeGrid}
+"An atomic propagator (PPGF) defined on a full Keldysh contour"
 const FullTimePPGF = Vector{FullTimePPGFSector}
+"A single block of an atomic propagator (PPGF) defined on an imaginary time segment"
 const ImaginaryTimePPGFSector = kd.ImaginaryTimeGF{ComplexF64, false}
+"An atomic propagator (PPGF) defined on an imaginary time segment"
 const ImaginaryTimePPGF = Vector{ImaginaryTimePPGFSector}
 
 """
-Compute atomic pseudo-particle Green's function on the time grid
-for a time-independent problem defined by the EDCore instance.
+    $(TYPEDSIGNATURES)
+
+Compute atomic pseudo-particle Green's function on a full contour time `grid` for a
+time-independent exact diagonalization problem `ed`.
+
+As the resulting PPGF ``P(z, z')`` is defined up to a multiplier ``e^{-i\\lambda (z-z')}``,
+we choose the energy shift ``\\lambda`` to fulfil the normalization property
+``i \\mathrm{Tr}[P(-i\\beta, 0)] = 1``.
 """
 function atomic_ppgf(grid::kd.FullTimeGrid, ed::ked.EDCore)::FullTimePPGF
     P = [kd.GenericTimeGF(grid, length(s)) for s in ed.subspaces]
@@ -79,18 +127,35 @@ function atomic_ppgf(grid::kd.FullTimeGrid, ed::ked.EDCore)::FullTimePPGF
     return P
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Compute atomic pseudo-particle Green's function on an imaginary time `grid` for a
+time-independent exact diagonalization problem `ed`.
+
+As the resulting PPGF ``P(\\tau)`` is defined up to a multiplier ``e^{-\\lambda\\tau}``,
+we choose the energy shift ``\\lambda`` to fulfil the normalization property
+``i \\mathrm{Tr}[P(\\beta)] = 1``.
+"""
 function atomic_ppgf(grid::kd.ImaginaryTimeGrid, ed::ked.EDCore)::ImaginaryTimePPGF
     P = [kd.ImaginaryTimeGF(grid, length(s)) for s in ed.subspaces]
     atomic_ppgf!(P, ed)
     return P
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+In-place version of [`atomic_ppgf()`](@ref atomic_ppgf) that writes the computed PPGF into
+its first argument `P`. If `Δλ` is non-zero, then ``P(z, z')`` is multiplied by
+``e^{-i\\Delta\\lambda (z-z')}``.
+"""
 function atomic_ppgf!(P::Vector, ed::ked.EDCore; Δλ::Float64 = 0.0)
     @assert length(P) == length(ed.subspaces)
 
     β = first(P).grid.contour.β
     Z = ked.partition_function(ed, β)
-    λ = log(Z) / β # Pseudo-particle chemical potential (enforcing Tr[P0(β)]=Tr[ρ]=1)
+    λ = log(Z) / β # Pseudo-particle chemical potential (enforcing Tr[i P(β)] = Tr[ρ] = 1)
 
     N_op = total_density_operator(ed)
     N = operator_matrix_representation(N_op, ed)
@@ -98,15 +163,16 @@ function atomic_ppgf!(P::Vector, ed::ked.EDCore; Δλ::Float64 = 0.0)
     for (P_s, s, E, n) in zip(P, ed.subspaces, ked.energies(ed), N)
         ξ = (-1)^n[1,1] # Statistics sign
         grid = P_s.grid
-        atomic_ppgf_fill_P!(P_s, grid, E, λ + Δλ, ξ)
+        _atomic_ppgf_fill_P!(P_s, grid, E, λ + Δλ, ξ)
     end
+    return nothing
 end
 
-function atomic_ppgf_fill_P!(P_s::kd.AbstractTimeGF{T, scalar} where {T, scalar},
-                             grid::kd.AbstractTimeGrid,
-                             E,
-                             λ,
-                             ξ)
+function _atomic_ppgf_fill_P!(P_s::kd.AbstractTimeGF{T, scalar} where {T, scalar},
+                              grid::kd.AbstractTimeGrid,
+                              E,
+                              λ,
+                              ξ)
     β = P_s.grid.contour.β
     z_β = grid[kd.imaginary_branch][end]
     Threads.@threads for z1 in grid
@@ -122,11 +188,11 @@ function atomic_ppgf_fill_P!(P_s::kd.AbstractTimeGF{T, scalar} where {T, scalar}
     end
 end
 
-function atomic_ppgf_fill_P!(P_s::kd.ImaginaryTimeGF{T, scalar} where {T, scalar},
-                             grid::kd.ImaginaryTimeGrid,
-                             E,
-                             λ,
-                             ξ)
+function _atomic_ppgf_fill_P!(P_s::kd.ImaginaryTimeGF{T, scalar} where {T, scalar},
+                              grid::kd.ImaginaryTimeGrid,
+                              E,
+                              λ,
+                              ξ)
     z2 = grid[kd.imaginary_branch][1]
     z_β = grid[kd.imaginary_branch][end]
     for z1 in grid
@@ -137,15 +203,29 @@ function atomic_ppgf_fill_P!(P_s::kd.ImaginaryTimeGF{T, scalar} where {T, scalar
 end
 
 """
-    operator_product(...)
+    $(TYPEDSIGNATURES)
 
-Evaluate a product of vertices at different contour times `z_i` with
-the pseudo-particle Green's function sandwiched in between.
+Evaluate a product of vertices at different contour times ``z_n, n=1\\ldots N`` with the
+pseudo-particle Green's functions sandwiched in between. The product is padded with the
+PPGFs ``P(z_1, z_i)`` and ``P(z_f, z_N)`` at the respective ends of the contour segment
+``[z_i, z_f]``.
 
-`vertices` is a contour-time ordered list of triples `(z_i, c_i, o_i)` were:
-  `z_i` is a contour time,
-  `c_i` is +1/-1 for creation/annihilation operator respectively, and
-  `o_i` is a spin-orbital index
+`vertices` is a contour-time ordered list of triples `(z_n, c_n, o_n)` were:
+- `z_n` is a contour time,
+- `c_n` is +1/-1 for creation/annihilation operator respectively, and
+- `o_n` is a spin-orbital index.
+
+# Parameters
+- `ed`:       An object defining the exact diagonalization problem.
+- `P`:        The pseudo-particle Green's function as a list of its diagonal blocks.
+- `s_i`:      Initial symmetry sector, in which the rightmost PPGF is acting.
+- `z_i`:      Initial contour time ``z_i``.
+- `z_f`:      Final contour time ``z_f``.
+- `vertices`: The list of vertices.
+
+# Returns
+The evaluated matrix product and the final symmetry sector, in which the leftmost PPGF is
+acting.
 """
 function operator_product(ed::ked.EDCore, P, s_i::Integer, z_i, z_f, vertices)
 
@@ -182,8 +262,19 @@ function operator_product(ed::ked.EDCore, P, s_i::Integer, z_i, z_f, vertices)
 end
 
 """
-Compute the first order pseudo-particle diagram contribution to
-the single-particle Green's function g_{o1, o2}(z, z')
+    $(TYPEDSIGNATURES)
+
+Compute the first order pseudo-particle diagram contribution to the single-particle
+Green's function ``g_{o_1, o_2}(z, z')`` defined on the full Keldysh contour.
+
+# Parameters
+- `P`:  Pseudo-particle Green's function.
+- `ed`: An object defining the exact diagonalization problem.
+- `o1`: First index of the single-particle Green's function to be computed.
+- `o2`: Second index of the single-particle Green's function to be computed.
+
+# Returns
+The computed single-particle Green's function.
 """
 function first_order_spgf(P::FullTimePPGF,
                           ed::ked.EDCore,
@@ -194,6 +285,21 @@ function first_order_spgf(P::FullTimePPGF,
     return g
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Compute the first order pseudo-particle diagram contribution to the single-particle
+Green's function ``g_{o_1, o_2}(\\tau)`` defined on the imaginary time segment.
+
+# Parameters
+- `P`:  Pseudo-particle Green's function.
+- `ed`: An object defining the exact diagonalization problem.
+- `o1`: First index of the single-particle Green's function to be computed.
+- `o2`: Second index of the single-particle Green's function to be computed.
+
+# Returns
+The computed single-particle Green's function.
+"""
 function first_order_spgf(P::ImaginaryTimePPGF,
                           ed::ked.EDCore,
                           o1, o2)::kd.ImaginaryTimeGF
@@ -203,6 +309,12 @@ function first_order_spgf(P::ImaginaryTimePPGF,
     return g
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+In-place version of [`first_order_spgf()`](@ref first_order_spgf) that writes the computed
+single-particle Green's function into its first argument `g`.
+"""
 function first_order_spgf!(g, P, ed::ked.EDCore, o1, o2)
     @assert length(P) == length(ed.subspaces)
 
@@ -258,7 +370,17 @@ function first_order_spgf!(g, P, ed::ked.EDCore, o1, o2)
     end
 end
 
-function check_ppgf_real_time_symmetries(P::FullTimePPGF, ed)
+"""
+    $(TYPEDSIGNATURES)
+
+Check whether a given pseudo-particle Green's function `P` obeys all symmetry relations
+between its Keldysh components.
+
+# Parameters
+- `P`:  Pseudo-particle Green's function to check.
+- `ed`: An object defining the respective exact diagonalization problem.
+"""
+function check_ppgf_real_time_symmetries(P::FullTimePPGF, ed::ked.EDCore)::Bool
     @assert length(P) == length(ed.subspaces)
     grid = first(P).grid
 
@@ -332,6 +454,12 @@ function check_ppgf_real_time_symmetries(P::FullTimePPGF, ed)
     return true
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Given a pseudo-particle Green's function `P`, set its values to zero except for
+the same-time components ``P(z, z) = -i``.
+"""
 function set_ppgf_initial_conditions!(P::Union{FullTimePPGF, ImaginaryTimePPGF})
     for P_s in P
         P_s = zero(P_s)
@@ -341,6 +469,17 @@ function set_ppgf_initial_conditions!(P::Union{FullTimePPGF, ImaginaryTimePPGF})
     end
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Given a pseudo-particle Green's function `P`, set its values at the real branch edges
+``t = 0`` to be consistent with values on the imaginary time branch.
+
+# Parameters
+- `P`:  Pseudo-particle Green's function.
+- `ed`: Exact diagonalization object used to derive statistical sign pre-factors of PPGF
+        sectors.
+"""
 function ppgf_real_time_initial_conditions!(P::FullTimePPGF, ed::ked.EDCore)
     @assert length(P) == length(ed.subspaces)
 
@@ -357,20 +496,32 @@ function ppgf_real_time_initial_conditions!(P::FullTimePPGF, ed::ked.EDCore)
         for τ in grid[kd.imaginary_branch]
             set_ppgf_symmetric!(P_s, n, τ, zb0, P_s[τ, τ_0])
         end
-        P_s[zf0, zb0] = (-1)^n[1,1] * P_s[τ_β, τ_0]
+        P_s[zf0, zb0] = (-1)^n[1, 1] * P_s[τ_β, τ_0]
     end
 end
 
 """
-Set real-time ppgf symmetry connected time pairs
+    $(TYPEDSIGNATURES)
 
-NB! times has to be in the inching region with z2 ∈ backward_branch.
+Set real-time pseudo-particle Green's function symmetry connected time pairs.
+
+# Parameters
+- `P_s`:   Diagonal block of the PPGF to be updated.
+- `n`:     The number of particles in the corresponding sector.
+- `z1`:    First argument of the PPGF.
+- `z2`:    Second argument of the PPGF (must lie on the backward branch).
+- `value`: Value to set elements of the PPGF to.
 """
-function set_ppgf_symmetric!(P_s::FullTimePPGF, n, z1, z2, val)
+function set_ppgf_symmetric!(P_s::FullTimePPGFSector,
+                             n,
+                             z1::kd.TimeGridPoint,
+                             z2::kd.TimeGridPoint,
+                             value)
     grid = P_s.grid
 
     grid_bwd = grid[kd.backward_branch]
     zb_i, zb_f = grid_bwd[1], grid_bwd[end]
+    @assert z2 ∈ grid_bwd
 
     grid_fwd = grid[kd.forward_branch]
     zf_i, zf_f = grid_fwd[1], grid_fwd[end]
@@ -397,11 +548,17 @@ function set_ppgf_symmetric!(P_s::FullTimePPGF, n, z1, z2, val)
         @assert false
     end
 
-    ξ = η^n[1, 1]
-    P_s[z3, z4] = -ξ * conj(val)
-    P_s[z1, z2] = val
+    ξ = η ^ n[1, 1]
+    P_s[z3, z4] = -ξ * conj(value)
+    P_s[z1, z2] = value
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Extract the partition function ``Z = i\\mathrm{Tr}[P(-i\\beta, 0)]`` from a un-normalized
+pseudo-particle Green's function `P`.
+"""
 function partition_function(P::Vector{<:kd.AbstractTimeGF})::ComplexF64
     return sum(P, init = 0im) do P_s
         tau_grid = P_s.grid[kd.imaginary_branch]
@@ -410,6 +567,16 @@ function partition_function(P::Vector{<:kd.AbstractTimeGF})::ComplexF64
     end
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Normalize a pseudo-particle Green's function `P` by multiplying it by
+``e^{-i\\lambda (z-z')}`` with ``\\lambda`` chosen such that
+``i\\mathrm{Tr}[P(-i\\beta, 0)] = 1``.
+
+# Returns
+The energy shift ``\\lambda``.
+"""
 function normalize!(P::Vector{<:kd.AbstractTimeGF}, β)
     Z = partition_function(P)
     λ = log(Z) / β
@@ -419,6 +586,12 @@ function normalize!(P::Vector{<:kd.AbstractTimeGF}, β)
     return λ
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Multiply a given diagonal block of a pseudo-particle Green's function `P_s` by
+``e^{-i\\lambda (z-z')}``.
+"""
 function normalize!(P_s::kd.AbstractTimeGF, λ)
     tau_grid = P_s.grid[kd.imaginary_branch]
     τ_0 = tau_grid[1]
@@ -427,6 +600,19 @@ function normalize!(P_s::kd.AbstractTimeGF, λ)
     end
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Compute the imaginary time derivative of the atomic pseudo-particle Green's function,
+``\\partial_\\tau P(\\tau)`` at ``\\tau=0``.
+
+# Parameters
+- `ed`: Exact diagonalization object defining the atomic propagator.
+- `β`:  Inverse temperature.
+
+# Returns
+Value of the derivative as a block-diagonal matrix (a list of blocks).
+"""
 function initial_ppgf_derivative(ed::ked.EDCore, β::Float64)
     Z = sum([sum(exp.(-β * eig.eigenvalues)) for eig in ed.eigensystems])
     λ = log(Z) / β
@@ -439,12 +625,33 @@ function initial_ppgf_derivative(ed::ked.EDCore, β::Float64)
     return dP
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Extract the equilibrium density matrix ``\\rho = i P(-i\\beta, 0)`` from a normalized
+pseudo-particle Green's function `P`. The density matrix is block-diagonal and is returned
+as a vector of blocks.
+"""
 function density_matrix(P::Vector{<:kd.AbstractTimeGF})
     @assert !isempty(P)
     τ_0, τ_β = kd.branch_bounds(first(P).grid, kd.imaginary_branch)
     return [1im * P_s[τ_β, τ_0] for P_s in P]
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Take a partial trace of a pseudo-particle Green's function.
+
+# Parameters
+- `P`:          Pseudo-particle Green's function.
+- `ed`:         Exact diagonalization object compatible with `P`.
+- `target_soi`: A subset of creation/annihilation operator labels defining the target
+                subsystem, in which the reduced PPGF acts.
+
+# Returns
+The reduced PPGF written in the Fock state basis of the target subsystem.
+"""
 function reduced_ppgf(P::Vector{<:kd.AbstractTimeGF},
                       ed::ked.EDCore,
                       target_soi::ked.SetOfIndices)
