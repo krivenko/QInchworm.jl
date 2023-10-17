@@ -29,15 +29,6 @@ function ismaster(comm::MPI.Comm = MPI.COMM_WORLD)::Bool
     return MPI.Comm_rank(comm) == 0
 end
 
-function N_skip_and_N_samples_on_rank(N_samples::Integer; comm::MPI.Comm = MPI.COMM_WORLD)
-    comm_rank = MPI.Comm_rank(comm)
-    comm_size = MPI.Comm_size(comm)
-    N_split = split_count(N_samples, comm_size)
-    N_skip = sum(N_split[1:comm_rank])
-    N_samples_on_rank = N_split[comm_rank+1]
-    return N_skip, N_samples_on_rank
-end
-
 function rank_sub_range(n::Integer; comm::MPI.Comm = MPI.COMM_WORLD)
     comm_size = MPI.Comm_size(comm)
     comm_rank = MPI.Comm_rank(comm) # zero based indexing

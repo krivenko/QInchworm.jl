@@ -24,7 +24,6 @@ using MPI: MPI
 using Keldysh; kd = Keldysh
 
 using QInchworm.utility: SobolSeqWith0, next!
-using QInchworm.mpi: N_skip_and_N_samples_on_rank
 
 #
 # Notations used gere are introduced in https://arxiv.org/pdf/2002.12372.pdf

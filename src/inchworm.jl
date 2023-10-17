@@ -38,7 +38,7 @@ using QInchworm.diagrammatics: get_topologies_at_order
 
 using QInchworm.utility: SobolSeqWith0, next!, arbitrary_skip!
 using QInchworm.utility: split_count
-using QInchworm.mpi: ismaster, N_skip_and_N_samples_on_rank, all_reduce!
+using QInchworm.mpi: ismaster, rank_sub_range, all_reduce!
 
 using QInchworm.expansion: Expansion, set_bold_ppgf!, set_bold_ppgf_at_order!
 using QInchworm.configuration: Configuration,
@@ -145,11 +145,11 @@ function inchworm_step(expansion::Expansion,
             fixed_nodes = Dict(1 => n_i, d_before + 2 => n_w, 2 * td.order + 3 => n_f)
             eval = teval.TopologyEvaluator(expansion, td.order, fixed_nodes, tmr=tmr)
 
-            N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(td.N_samples)
-            rank_weight = N_samples_on_rank / td.N_samples
+            N_range = rank_sub_range(td.N_samples)
+            rank_weight = length(N_range) / td.N_samples
 
             seq = SobolSeqWith0(2 * td.order)
-            arbitrary_skip!(seq, N_skip)
+            arbitrary_skip!(seq, first(N_range) - 1)
             end # tmr
 
             @timeit tmr "Evaluation" begin
@@ -159,7 +159,7 @@ function inchworm_step(expansion::Expansion,
                 c, t_i, t_w, t_f,
                 init = deepcopy(zero_sector_block_matrix),
                 seq = seq,
-                N = N_samples_on_rank
+                N = length(N_range)
             )
             end # tmr
 
@@ -240,11 +240,11 @@ function inchworm_step_bare(expansion::Expansion,
             fixed_nodes = Dict(1 => n_i, 2 * td.order + 2 => n_f)
             eval = teval.TopologyEvaluator(expansion, td.order, fixed_nodes, tmr=tmr)
 
-            N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(td.N_samples)
-            rank_weight = N_samples_on_rank / td.N_samples
+            N_range = rank_sub_range(td.N_samples)
+            rank_weight = length(N_range) / td.N_samples
 
             seq = SobolSeqWith0(d)
-            arbitrary_skip!(seq, N_skip)
+            arbitrary_skip!(seq, first(N_range) - 1)
             end # tmr
 
             @timeit tmr "Evaluation" begin
@@ -254,7 +254,7 @@ function inchworm_step_bare(expansion::Expansion,
                 c, t_i, t_f,
                 init = deepcopy(zero_sector_block_matrix),
                 seq = seq,
-                N = N_samples_on_rank
+                N = length(N_range)
             )
             end # tmr
 
@@ -482,11 +482,11 @@ function correlator_2p(expansion::Expansion,
             fixed_nodes = Dict(1 => n_B, d_before + 2 => n_A, 2 * td.order + 3 => n_f)
             eval = teval.TopologyEvaluator(expansion, td.order, fixed_nodes, tmr=tmr)
 
-            N_skip, N_samples_on_rank = N_skip_and_N_samples_on_rank(td.N_samples)
-            rank_weight = N_samples_on_rank / td.N_samples
+            N_range = rank_sub_range(td.N_samples)
+            rank_weight = length(N_range) / td.N_samples
 
             seq = SobolSeqWith0(2 * td.order)
-            arbitrary_skip!(seq, N_skip)
+            arbitrary_skip!(seq, first(N_range) - 1)
             end # tmr
 
             @timeit tmr "Evaluation" begin
@@ -496,7 +496,7 @@ function correlator_2p(expansion::Expansion,
                 grid.contour, t_B, t_A, t_f,
                 init = ComplexF64(0),
                 seq = seq,
-                N = N_samples_on_rank
+                N = length(N_range)
             )
             end # tmr
 
