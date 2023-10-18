@@ -69,11 +69,6 @@ const FullTimePPGF = Vector{FullTimePPGFSector}
 const ImaginaryTimePPGFSector = kd.ImaginaryTimeGF{ComplexF64, false}
 const ImaginaryTimePPGF = Vector{ImaginaryTimePPGFSector}
 
-const AllImaginaryTimeGF = Union{
-    kd.ImaginaryTimeGF{ComplexF64, false},
-    SplineInterpolatedGF{kd.ImaginaryTimeGF{ComplexF64, false}, ComplexF64, false}
-}
-
 """
 Compute atomic pseudo-particle Green's function on the time grid
 for a time-independent problem defined by the EDCore instance.
@@ -413,33 +408,6 @@ function partition_function(P::Vector{<:kd.AbstractTimeGF})::ComplexF64
         τ0, β = tau_grid[1], tau_grid[end]
         im * tr(P_s[β, τ0])
     end
-end
-
-"""Set all time translation invariant values of the Matsubara branch"""
-function set_matsubara!(g::kd.GenericTimeGF{T, scalar, kd.FullTimeGrid} where {T, scalar},
-                        τ,
-                        value)
-    tau_grid = g.grid[kd.imaginary_branch]
-
-    τ_0 = tau_grid[1]
-    τ_beta = tau_grid[end]
-
-    sidx = τ.cidx
-    eidx = τ_beta.cidx
-
-    for τ_1 in g.grid[sidx:eidx]
-        i1 = τ_1.cidx
-        i2 = τ_0.cidx + τ_1.cidx - τ.cidx
-        t1 = g.grid[i1]
-        t2 = g.grid[i2]
-        g[t1, t2] = value
-    end
-end
-
-function set_matsubara!(g::AllImaginaryTimeGF, τ, value)
-    tau_grid = g.grid[kd.imaginary_branch]
-    τ_0 = tau_grid[1]
-    g[τ, τ_0] = value
 end
 
 function normalize!(P::Vector{<:kd.AbstractTimeGF}, β)

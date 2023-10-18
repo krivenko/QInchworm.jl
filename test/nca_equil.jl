@@ -33,7 +33,33 @@ using QInchworm.qmc_integrate: qmc_time_ordered_integral_root
 
 import QInchworm.ppgf
 
-function ppgf.set_matsubara!(
+function set_matsubara!(g::kd.GenericTimeGF{T, scalar, kd.FullTimeGrid} where {T, scalar},
+                        τ,
+                        value)
+    tau_grid = g.grid[kd.imaginary_branch]
+
+    τ_0 = tau_grid[1]
+    τ_beta = tau_grid[end]
+
+    sidx = τ.cidx
+    eidx = τ_beta.cidx
+
+    for τ_1 in g.grid[sidx:eidx]
+        i1 = τ_1.cidx
+        i2 = τ_0.cidx + τ_1.cidx - τ.cidx
+        t1 = g.grid[i1]
+        t2 = g.grid[i2]
+        g[t1, t2] = value
+    end
+end
+
+function set_matsubara!(g::kd.ImaginaryTimeGF{T, scalar}, τ, value) where {T, scalar}
+    tau_grid = g.grid[kd.imaginary_branch]
+    τ_0 = tau_grid[1]
+    g[τ, τ_0] = value
+end
+
+function set_matsubara!(
     g::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, scalar}, T, scalar} where {T, scalar},
     τ, value)
     g[τ, g.grid[1], τ_max=τ] = value
@@ -114,7 +140,7 @@ end
 
             for (s, P_s) in enumerate(ppsc_exp.P)
                 sf, mat = val[s]
-                ppgf.set_matsubara!(P_s, τ_f, mat)
+                set_matsubara!(P_s, τ_f, mat)
             end
 
         end
@@ -196,7 +222,7 @@ end
 
             for (s, P_s) in enumerate(ppsc_exp.P)
                 sf, mat = val[s]
-                ppgf.set_matsubara!(P_s, τ_f, mat)
+                set_matsubara!(P_s, τ_f, mat)
             end
 
         end
