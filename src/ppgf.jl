@@ -23,7 +23,6 @@ using LinearAlgebra: Diagonal, tr, I, diagm
 
 using Keldysh; kd = Keldysh;
 using KeldyshED; ked = KeldyshED;
-import KeldyshED: partition_function
 
 using QInchworm.spline_gf: SplineInterpolatedGF
 
@@ -95,7 +94,7 @@ function atomic_ppgf!(P::Vector, ed::ked.EDCore; Δλ::Float64 = 0.0)
     @assert length(P) == length(ed.subspaces)
 
     β = first(P).grid.contour.β
-    Z = partition_function(ed, β)
+    Z = ked.partition_function(ed, β)
     λ = log(Z) / β # Pseudo-particle chemical potential (enforcing Tr[P0(β)]=Tr[ρ]=1)
 
     N_op = total_density_operator(ed)
