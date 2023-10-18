@@ -23,3 +23,12 @@ TODO list for QInchworm
 * Direction coefficients calculated in `qmc_*_integral_*()` are ambiguous at the branch
   boundaries. This is going to become a problem once we generalize the solver to
   the full Keldysh contour.
+
+* The name of `QInchworm.utility.ph_conj()` is appropriate for the imaginary time GFs,
+  but shouldn't we change it to describe the time argument swapping of a general GF on
+  a contour. That would make more sense as part of the full-contour generalization of
+  the solver.
+
+* An idea for `TopologyEval` optimization: Consider two node trees growing towards
+  each other, rooted at the leftmost/rightmost node+subspace and meeting in the middle
+  of a configuration.
