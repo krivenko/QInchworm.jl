@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License along with
 # QInchworm.jl. If not, see <http://www.gnu.org/licenses/.
 #
-# Authors: Igor Krivenko, Hugo U. R. Strand
+# Authors: Hugo U. R. Strand, Igor Krivenko
 
 module configuration
 
