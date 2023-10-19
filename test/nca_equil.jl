@@ -25,8 +25,8 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 using QInchworm.utility: ph_conj
 using QInchworm.spline_gf: SplineInterpolatedGF, update_interpolants!
 
-using QInchworm.expansion: Expansion, InteractionPair, get_diagrams_at_order
-using QInchworm.configuration: Configuration, Node, InchNode, NodePair
+using QInchworm.expansion: Expansion, InteractionPair
+using QInchworm.configuration: Configuration, get_diagrams_at_order
 using QInchworm.diagrammatics: generate_topologies
 using QInchworm; cfg = QInchworm.configuration
 using QInchworm.qmc_integrate: qmc_time_ordered_integral_root

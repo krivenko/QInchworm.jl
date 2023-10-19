@@ -39,8 +39,7 @@ using QInchworm.configuration: Configuration,
 
 using QInchworm.diagrammatics: Topology,
                                is_doubly_k_connected,
-                               generate_topologies,
-                               Diagram
+                               generate_topologies
 
 using QInchworm.utility: LazyMatrixProduct, eval!
 

@@ -26,7 +26,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm: SectorBlockMatrix, operator_to_sector_block_matrix
 using QInchworm.ppgf
-using QInchworm.diagrammatics: Topology, Diagram
+using QInchworm.diagrammatics: Topology
 using QInchworm.spline_gf: SplineInterpolatedGF
 using QInchworm.spline_gf: IncSplineImaginaryTimeGF, extend!
 
@@ -307,37 +307,6 @@ function add_corr_operators!(exp::Expansion, ops::Tuple{Operator, Operator})
           (operator_to_sector_block_matrix(exp.ed, ops[1]),
            operator_to_sector_block_matrix(exp.ed, ops[2]))
     )
-end
-
-"""
-Get all diagrams as combinations of a `Topology` and a list of pseudo particle interaction indices
-
-Parameters
-----------
-
-expansion : Pseudo particle expansion
-order     : Inch worm perturbation order
-
-Returns
--------
-
-diagrams : Vector with tuples of topologies and pseudo particle interaction indices
-"""
-function get_diagrams_at_order(
-    expansion::Expansion, topologies::Vector{Topology}, order::Int64
-    )::Vector{Diagram}
-
-    # Generate all `order` lenght vector of combinations of pseudo particle interaction
-    # pair indices
-    pair_idx_range = 1:length(expansion.pairs) # range of allowed interaction pair indices
-    pair_idxs_combinations = collect(Iterators.product(
-        repeat([pair_idx_range], outer=[order])...)
-    )
-
-    diagrams = vec([Diagram(topology, pair_idxs) for (topology, pair_idxs) in
-            collect(Iterators.product(topologies, pair_idxs_combinations))])
-
-    return diagrams
 end
 
 end # module expansion

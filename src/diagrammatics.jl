@@ -303,14 +303,4 @@ function get_topologies_at_order(order::Int64,
     return topologies
 end
 
-"""
-Diagram with a topology and tuple of pseudo particle interaction pair indices
-"""
-struct Diagram
-    "Topology"
-    topology::Topology
-    "Pair indices"
-    pair_idxs::Tuple{Vararg{Int64}}
-end
-
 end # module diagrammatics

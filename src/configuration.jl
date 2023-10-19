@@ -17,6 +17,16 @@
 #
 # Authors: Hugo U. R. Strand, Igor Krivenko
 
+"""
+**Functionality of this module is completely superseded by `QInchworm.topology_eval`.**
+
+The `configuration` module is a framework for representing generic pseudo-particle diagrams
+with a back-bone of pseudo-particle propagators and insertions of pseudo-particle
+interactions at fixed times.
+
+There is also functionality to represent Inchworm diagrams with a fixed "inch" time where
+the back bone propagator switches from bold to bare.
+"""
 module configuration
 
 using DocStringExtensions
@@ -27,9 +37,51 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 using QInchworm: SectorBlockMatrix
 using QInchworm.ppgf
 using QInchworm.expansion: Operator, Expansion
-using QInchworm.diagrammatics: Diagram, n_crossings
+using QInchworm.diagrammatics: Topology, n_crossings
 
 const Time = kd.BranchPoint
+
+"""
+Diagram with a topology and tuple of pseudo particle interaction pair indices
+"""
+struct Diagram
+    "Topology"
+    topology::Topology
+    "Pair indices"
+    pair_idxs::Tuple{Vararg{Int64}}
+end
+
+"""
+Get all diagrams as combinations of a `Topology` and a list of pseudo particle interaction
+indices
+
+Parameters
+----------
+
+expansion : Pseudo particle expansion
+order     : Inch worm perturbation order
+
+Returns
+-------
+
+diagrams : Vector with tuples of topologies and pseudo particle interaction indices
+"""
+function get_diagrams_at_order(
+    expansion::Expansion, topologies::Vector{Topology}, order::Int64
+    )::Vector{Diagram}
+
+    # Generate all `order` lenght vector of combinations of pseudo particle interaction
+    # pair indices
+    pair_idx_range = 1:length(expansion.pairs) # range of allowed interaction pair indices
+    pair_idxs_combinations = collect(Iterators.product(
+        repeat([pair_idx_range], outer=[order])...)
+    )
+
+    diagrams = vec([Diagram(topology, pair_idxs) for (topology, pair_idxs) in
+            collect(Iterators.product(topologies, pair_idxs_combinations))])
+
+    return diagrams
+end
 
 """
 Interaction type classification using `@enum`
