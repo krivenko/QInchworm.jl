@@ -23,7 +23,7 @@ julia> Pkg.add(PackageSpec(url="https://github.com/krivenko/QInchworm.jl", rev="
 
 ## Usage
 
-![output](docs/example/output.svg)
+![](docs/src/example/output.svg)
 
 The following example demonstrates solution of the single orbital Anderson model
 in thermodynamic equilibrium coupled to a fermionic bath with a semi-elliptic

@@ -34,6 +34,7 @@ makedocs(;
     warnonly=true,
     pages=[
         "Home" => "index.md",
+        "Example" => "example.md",
         "Modules" => String[
             "modules/QInchworm.md",
             "modules/expansion.md",
