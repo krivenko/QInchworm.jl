@@ -13,6 +13,10 @@ interactions/hybridization, depend on container types from
 [Keldysh.jl](https://github.com/kleinhenz/Keldysh.jl) and exact diagonalization
 tools of [KeldyshED.jl](https://github.com/krivenko/KeldyshED.jl).
 
+There is also an [example page](@ref example) showing how to use QInchworm.jl
+to solve a quantum impurity problem in thermodynamic equilibrium and to compute
+two-point correlation functions for it.
+
 [^1]: [Inchworm quasi Monte Carlo for quantum impurities.
        Hugo U. R. Strand, Joseph Kleinhenz and Igor Krivenko.]
       (arXiv link)

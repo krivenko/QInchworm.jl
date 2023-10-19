@@ -17,7 +17,27 @@
 #
 # Authors: Igor Krivenko, Hugo U. R. Strand
 
+"""
+Quasi Monte Carlo integration routines.
+
+Concepts and notation used here are introduced in
+
+```
+Quantum Quasi-Monte Carlo Technique for Many-Body Perturbative Expansions
+M. Maček, P. T. Dumitrescu, C. Bertrand, B.Triggs, O. Parcollet, and X. Waintal
+Phys. Rev. Lett. 125, 047702 (2020)
+```
+
+Integration domain transformations `Sort` and `Root` are defined in
+```
+Transforming low-discrepancy sequences from a cube to a simplex
+T. Pillards and R. Cools
+J. Comput. Appl. Math. 174, 29 (2005)
+```
+"""
 module qmc_integrate
+
+using DocStringExtensions
 
 using MPI: MPI
 
@@ -25,12 +45,13 @@ using Keldysh; kd = Keldysh
 
 using QInchworm.utility: SobolSeqWith0, next!
 
-#
-# Notations used gere are introduced in https://arxiv.org/pdf/2002.12372.pdf
-#
-
 """
-    Make the model function p_d(u) out of h_i(v).
+    $(TYPEDSIGNATURES)
+
+Make the model function ``p_d(\\mathbf{u}) = \\prod_{i=1}^d h_i(u_{i-1} - u_i)``
+out of a list of functions ``h_i(v)``.
+
+``u_0`` is the distance measured along the time contour `c` to the point `t_f`.
 """
 function make_model_function(c::kd.AbstractContour, t_f::kd.BranchPoint, h::Vector)
     u_f = kd.get_ref(c, t_f)
@@ -46,7 +67,12 @@ function make_model_function(c::kd.AbstractContour, t_f::kd.BranchPoint, h::Vect
 end
 
 """
-    Make p_d(u) from the exponential h(v).
+    $(TYPEDSIGNATURES)
+
+Make the model function ``p_d(\\mathbf{u}) = \\prod_{i=1}^d h(u_{i-1} - u_i)`` out of an
+exponential function ``h(v) = e^{-v/\\tau}``.
+
+``u_0`` is the distance measured along the time contour `c` to the point `t_f`.
 """
 function make_exp_model_function(c::kd.AbstractContour,
                                  t_f::kd.BranchPoint,
@@ -60,14 +86,16 @@ function make_exp_model_function(c::kd.AbstractContour,
     end
 end
 
-raw"""
-    Make the corresponding transformation x -> u
+"""
+    $(TYPEDSIGNATURES)
 
-    x ∈ [0,1]^d and components of u are reference values of time points measured
-    as distances along the contour (c.f. get_point(c::AbstractContour, ref)).
-    These components satisfy
+Make a transformation from the unit hypercube ``\\mathbf{x}\\in[0, 1]^d`` to a
+``d``-dimensional simplex ``u_f > u_1 > u_2 > \\ldots > u_{d-1} > u_d > -\\infty``
+induced by the model function
+``p_d(\\mathbf{u}) = \\prod_{i=1}^d e^{(u_{i-1} - u_i)/\\tau}``.
 
-        u_f > u_1 > u_2 > \ldots > u_{d-1} > u_d > -\infty.
+The target variables `u_i` are reference values of time points measured as distances along
+the contour `c`. ``u_0`` is the distance to the point `t_f`.
 """
 function make_exp_trans(c::kd.AbstractContour, t_f::kd.BranchPoint, τ::Real)
     u_f = kd.get_ref(c, t_f)
@@ -82,20 +110,28 @@ function make_exp_trans(c::kd.AbstractContour, t_f::kd.BranchPoint, τ::Real)
 end
 
 """
-    Normalization of the model function p_d(u)
+    $(TYPEDSIGNATURES)
+
+Norm of the model function ``p_d(\\mathbf{u}) = \\prod_{i=1}^d e^{(u_{i-1} - u_i)/\\tau}``.
 """
-exp_p_norm(τ::Real, d::Int) = τ^d
+exp_p_norm(τ::Real, d::Int)::Real = τ^d
 
 """
-    Quasi Monte Carlo integration with warping.
+    $(TYPEDSIGNATURES)
 
-    `f`      Integrand.
-    `init`   Initial value of the integral.
-    `p`      Positive model function p_n(u).
-    `p_norm` Integral of p_n(u) over the u-domain.
-    `trans`  Transformation from x ∈ [0,1]^d onto the u-domain.
-    `seq`    Quasi-random sequence generator.
-    `N`      The number of points taken from the quasi-random sequence.
+Quasi Monte Carlo integration with warping.
+
+# Parameters
+- `f`:      Integrand.
+- `init`:   Initial (zero) value of the integral.
+- `p`:      Positive model function ``p_d(\\mathbf{u})``.
+- `p_norm`: Integral of ``p_d(\\mathbf{u})`` over the ``\\mathbf{u}``-domain.
+- `trans`:  Transformation from ``\\mathbf{x}\\in[0, 1]^d`` onto the ``\\mathbf{u}``-domain.
+- `seq`:    Quasi-random sequence generator.
+- `N`:      The number of points to be taken from the quasi-random sequence.
+
+# Returns
+Value of the integral.
 """
 function qmc_integral(f, init = zero(typeof(f(trans(0))));
                       p, p_norm, trans, seq, N::Int)
@@ -112,18 +148,24 @@ function qmc_integral(f, init = zero(typeof(f(trans(0))));
 end
 
 """
-    Quasi Monte Carlo integration with warping.
+    $(TYPEDSIGNATURES)
 
-    This function takes a specified number of valid samples of the integrand.
-    `nothing` returned by the integrand does not count towards this number.
+Quasi Monte Carlo integration with warping.
 
-    `f`         Integrand.
-    `init`      Initial value of the integral.
-    `p`         Positive model function p_n(u).
-    `p_norm`    Integral of p_n(u) over the u-domain.
-    `trans`     Transformation from x ∈ [0,1]^d onto the u-domain.
-    `seq`       Quasi-random sequence generator.
-    `N_samples` The number of taken samples.
+This function takes a specified number of valid (non-`nothing`) samples of the integrand.
+
+# Parameters
+- `f`:         Integrand.
+- `init`:      Initial (zero) value of the integral.
+- `p`:         Positive model function ``p_d(\\mathbf{u})``.
+- `p_norm`:    Integral of ``p_d(\\mathbf{u})`` over the ``\\mathbf{u}``-domain.
+- `trans`:     Transformation from ``\\mathbf{x}\\in[0, 1]^d`` onto the
+               ``\\mathbf{u}``-domain.
+- `seq`:       Quasi-random sequence generator.
+- `N_samples`: The number of samples to be taken.
+
+# Returns
+Value of the integral.
 """
 function qmc_integral_n_samples(f, init = zero(typeof(f(trans(0))));
                                 p, p_norm, trans, seq, N_samples::Int)
@@ -143,6 +185,10 @@ function qmc_integral_n_samples(f, init = zero(typeof(f(trans(0))));
     (p_norm / N) * res
 end
 
+"""
+Dictionary mapping branches of the Keldysh contour to their unitary direction coefficients
+in the complex time plane.
+"""
 const branch_direction = Dict(
     kd.forward_branch => 1.0,
     kd.backward_branch => -1.0,
@@ -150,29 +196,38 @@ const branch_direction = Dict(
 )
 
 """
-    Detect the return type of a function applied to a vector of branch points.
+    $(TYPEDSIGNATURES)
+
+Detect the return type of a function applied to a vector of `Keldysh.BranchPoint`.
 """
 function contour_function_return_type(f::Function)
     Base.return_types(f, (Vector{kd.BranchPoint},))[1]
 end
 
-raw"""
-    Evaluate a d-dimensional contour-ordered integral of a function 'f',
+"""
+    $(TYPEDSIGNATURES)
 
-    \int_{t_i}^{t_f} dt_1 \int_{t_i}^{t_1} dt_2 \ldots \int_{t_i}^{t_{d-1}} dt_d
-        f(t_1, t_2, \ldots, t_d)
+Evaluate a ``d``-dimensional contour-ordered integral of a function ``f(\\mathbf{t})``,
+```math
+    \\int_{t_i}^{t_f} dt_1 \\int_{t_i}^{t_1} dt_2 \\ldots \\int_{t_i}^{t_{d-1}} dt_d
+    \\ f(t_1, t_2, \\ldots, t_d)
+```
+using the Sobol sequence for quasi-random sampling and the exponential model function
+``p_d(\\mathbf{t}) = \\prod_{i=1}^d e^{(t_{i-1} - t_i)/\\tau}``.
 
-    using the Sobol sequence for quasi-random sampling.
+# Parameters
+- `f`:    Integrand.
+- `d`:    Dimensionality of the integral.
+- `c`:    Time contour to integrate over.
+- `t_i`:  Starting time point on the contour.
+- `t_f`:  Final time point on the contour.
+- `init`: Initial (zero) value of the integral.
+- `seq`:  Quasi-random sequence generator.
+- `τ`:    Decay parameter of the exponential model function.
+- `N`:    The number of points to be taken from the quasi-random sequence.
 
-    `f`    Integrand.
-    `d`    Dimensionality of the integral.
-    `c`    Time contour to integrate over.
-    `t_i`  Starting time point on the contour.
-    `t_f`  Final time point on the contour.
-    `init` Initial value of the integral.
-    `seq`  Quasi-random sequence generator.
-    `τ`    Decay parameter of the exponential model function.
-    `N`    The number of points taken from the quasi-random sequence.
+# Returns
+Value of the integral.
 """
 function qmc_time_ordered_integral(f,
                                    d::Int,
@@ -207,25 +262,33 @@ function qmc_time_ordered_integral(f,
     end, N_samples)
 end
 
-raw"""
-    Evaluate a d-dimensional contour-ordered integral of a function 'f',
+"""
+    $(TYPEDSIGNATURES)
 
-    \int_{t_i}^{t_f} dt_1 \int_{t_i}^{t_1} dt_2 \ldots \int_{t_i}^{t_{d-1}} dt_d
-        f(t_1, t_2, \ldots, t_d)
+Evaluate a ``d``-dimensional contour-ordered integral of a function ``f(\\mathbf{t})``,
+```math
+    \\int_{t_i}^{t_f} dt_1 \\int_{t_i}^{t_1} dt_2 \\ldots \\int_{t_i}^{t_{d-1}} dt_d
+    \\ f(t_1, t_2, \\ldots, t_d)
+```
+using the Sobol sequence for quasi-random sampling and the exponential model function
+``p_d(\\mathbf{t}) = \\prod_{i=1}^d e^{(t_{i-1} - t_i)/\\tau}``.
 
-    using the Sobol sequence for quasi-random sampling.
+This function evaluates the integrand a specified number of times while discarding any
+transformed sequence points that fall outside the integration domain.
 
-    This function evaluates the integrand a specified number of times.
+# Parameters
+- `f`:         Integrand.
+- `d`:         Dimensionality of the integral.
+- `c`:         Time contour to integrate over.
+- `t_i`:       Starting time point on the contour.
+- `t_f`:       Final time point on the contour.
+- `init`:      Initial (zero) value of the integral.
+- `seq`:       Quasi-random sequence generator.
+- `τ`:         Decay parameter of the exponential model function.
+- `N_samples`: The number of samples to be taken.
 
-    `f`         Integrand.
-    `d`         Dimensionality of the integral.
-    `c`         Time contour to integrate over.
-    `t_i`       Starting time point on the contour.
-    `t_f`       Final time point on the contour.
-    `init`      Initial value of the integral.
-    `seq`       Quasi-random sequence generator.
-    `τ`         Decay parameter of the exponential model function.
-    `N_samples` The number of taken samples.
+# Returns
+Value of the integral.
 """
 function qmc_time_ordered_integral_n_samples(
     f,
@@ -261,22 +324,28 @@ function qmc_time_ordered_integral_n_samples(
     end, N)
 end
 
-raw"""
-    Evaluate a d-dimensional contour-ordered integral of a function 'f',
+"""
+    $(TYPEDSIGNATURES)
 
-    \int_{t_i}^{t_f} dt_1 \int_{t_i}^{t_1} dt_2 \ldots \int_{t_i}^{t_{d-1}} dt_d
-        f(t_1, t_2, \ldots, t_d)
+Evaluate a ``d``-dimensional contour-ordered integral of a function ``f(\\mathbf{t})``,
+```math
+    \\int_{t_i}^{t_f} dt_1 \\int_{t_i}^{t_1} dt_2 \\ldots \\int_{t_i}^{t_{d-1}} dt_d
+    \\ f(t_1, t_2, \\ldots, t_d)
+```
+using the Sobol sequence for quasi-random sampling and the 'Sort' transform.
 
-    using the Sobol sequence for quasi-random sampling and the `Sort` transform.
+# Parameters
+- `f`:    Integrand.
+- `d`:    Dimensionality of the integral.
+- `c`:    Time contour to integrate over.
+- `t_i`:  Starting time point on the contour.
+- `t_f`:  Final time point on the contour.
+- `init`: Initial (zero) value of the integral.
+- `seq`:  Quasi-random sequence generator.
+- `N`:    The number of points to be taken from the quasi-random sequence.
 
-    `f`    Integrand.
-    `d`    Dimensionality of the integral.
-    `c`    Time contour to integrate over.
-    `t_i`  Starting time point on the contour.
-    `t_f`  Final time point on the contour.
-    `init` Initial value of the integral.
-    `seq`  Quasi-random sequence generator.
-    `N`    The number of points taken from the quasi-random sequence.
+# Returns
+Value of the integral.
 """
 function qmc_time_ordered_integral_sort(f,
                                         d::Int,
@@ -305,22 +374,28 @@ function qmc_time_ordered_integral_sort(f,
     end
 end
 
-raw"""
-    Evaluate a d-dimensional contour-ordered integral of a function 'f',
+"""
+    $(TYPEDSIGNATURES)
 
-    \int_{t_i}^{t_f} dt_1 \int_{t_i}^{t_1} dt_2 \ldots \int_{t_i}^{t_{d-1}} dt_d
-        f(t_1, t_2, \ldots, t_d)
+Evaluate a ``d``-dimensional contour-ordered integral of a function ``f(\\mathbf{t})``,
+```math
+    \\int_{t_i}^{t_f} dt_1 \\int_{t_i}^{t_1} dt_2 \\ldots \\int_{t_i}^{t_{d-1}} dt_d
+    \\ f(t_1, t_2, \\ldots, t_d)
+```
+using the Sobol sequence for quasi-random sampling and the 'Root' transform.
 
-    using the Sobol sequence for quasi-random sampling and the `Root` transform.
+# Parameters
+- `f`:    Integrand.
+- `d`:    Dimensionality of the integral.
+- `c`:    Time contour to integrate over.
+- `t_i`:  Starting time point on the contour.
+- `t_f`:  Final time point on the contour.
+- `init`: Initial (zero) value of the integral.
+- `seq`:  Quasi-random sequence generator.
+- `N`:    The number of points to be taken from the quasi-random sequence.
 
-    `f`    Integrand.
-    `d`    Dimensionality of the integral.
-    `c`    Time contour to integrate over.
-    `t_i`  Starting time point on the contour.
-    `t_f`  Final time point on the contour.
-    `init` Initial value of the integral.
-    `seq`  Quasi-random sequence generator.
-    `N`    The number of points taken from the quasi-random sequence.
+# Returns
+Value of the integral.
 """
 function qmc_time_ordered_integral_root(f,
                                         d::Int,
@@ -357,39 +432,38 @@ function qmc_time_ordered_integral_root(f,
     end
 end
 
-raw"""
-    Evaluate an inchworm-type contour-ordered integral of a function 'f',
+"""
+    $(TYPEDSIGNATURES)
 
-    \int_{t_w}^{t_f} dt_1
-    \int_{t_w}^{t_1} dt_2 \ldots
-    \int_{t_w}^{t_{d_{after}-1}} dt_{d_{after}}
-    \int_{t_i}^{t_w} dt_{d_{after}+1} \ldots
-    \int_{t_i}^{t_{d-2}} dt_{d-1}
-    \int_{t_i}^{t_{d-1}} dt_d
-        f(t_1, t_2, \ldots, t_d)
+Evaluate an inchworm-type contour-ordered integral of a function ``f(\\mathbf{t})``,
+```math
+\\int_{t_w}^{t_f} dt_1
+\\int_{t_w}^{t_1} dt_2 \\ldots
+\\int_{t_w}^{t_{d_{after}-1}} dt_{d_{after}}
+\\int_{t_i}^{t_w} dt_{d_{after}+1} \\ldots
+\\int_{t_i}^{t_{d-2}} dt_{d-1}
+\\int_{t_i}^{t_{d-1}} dt_d\\
+    f(t_1, t_2, \\ldots, t_d)
+```
 
-    using the Sobol sequence for quasi-random sampling and a two-piece `Root`
-    transform.
-    The total dimension of the domain `d` is a sum of the amount of integration
-    variables in the 'before' (`d_{before}`) and the after (`d_{after}`) components.
+using the Sobol sequence for quasi-random sampling and a two-piece 'Root' transform.
+The total dimension of the domain `d` is the sum of the amounts of integration
+variables in the 'before' (``d_\\text{before}``) and the after (``d_\\text{after}``)
+components.
 
-Parameters
-----------
+# Parameters
+- `f`:        Integrand.
+- `d_before`: Dimensionality of the before-``t_w`` component of the integration domain.
+- `d_after`:  Dimensionality of the after-``t_w`` component of the integration domain.
+- `c`:        Time contour to integrate over.
+- `t_i`:      Starting time point on the contour.
+- `t_w`:      'Worm' time point on the contour separating the 'before' and 'after' parts.
+- `t_f`:      Final time point on the contour.
+- `init`:     Initial (zero) value of the integral.
+- `seq`:      Quasi-random sequence generator.
+- `N`:        The number of samples to be taken.
 
-f : Integrand.
-d_before : Dimensionality of the before-t_w component of the integration domain.
-d_after : Dimensionality of the after-t_w component of the integration domain.
-c : Time contour to integrate over.
-t_i : Starting time point on the contour.
-t_w : 'Worm' time point on the contour separating 'before' and 'after' parts.
-t_f : Final time point on the contour.
-init : Initial value of the integral.
-seq : Quasi-random sequence generator.
-N : The number of samples.
-
-Returns
--------
-
+# Returns
 Value of the integral.
 """
 function qmc_inchworm_integral_root(f,
