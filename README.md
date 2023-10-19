@@ -23,9 +23,13 @@ julia> Pkg.add(PackageSpec(url="https://github.com/krivenko/QInchworm.jl", rev="
 
 ## Usage
 
-The following example demonstrates solution of the single band Anderson model
+![output](docs/example/output.svg)
+
+The following example demonstrates solution of the single orbital Anderson model
 in thermodynamic equilibrium coupled to a fermionic bath with a semi-elliptic
-density of states.
+density of states. We compute the single-particle Green's function, the
+dynamical double-occupancy and the transversal magnetic susceptibility of the
+impurity. The resulting curves are shown above.
 
 ```julia
 # For GF containers and DOS objects
@@ -110,39 +114,118 @@ inchworm!(expansion, grid, orders, orders_bare, N_samples)
 # Extract system's partition function from the un-normalized bold propagators `P`
 println("Z = ", partition_function(expansion.P))
 
-# Normalize the bold propagators and extract the atomic density matrix
+# Normalize the bold propagators and extract the impurity density matrix
 normalize!(expansion.P, β)
-println("ρ_{at} = ", density_matrix(expansion.P))
+println("ρ_{imp} = ", density_matrix(expansion.P))
 
 #
-# Single-particle Green's function
+# Two-point correlation functions
 #
 
-# Register a measurement of the two-point correlator G(τ) = -⟨c_↑(τ) c^†_↑(0)⟩
+# Register a few measurements of two-point correlators
+
+# Green's function G(τ) = -⟨c_↑(τ) c^†_↑(0)⟩
 add_corr_operators!(expansion, (-op.c("up"), op.c_dag("up")))
+# Dynamical double-occupancy d(τ) = ⟨n_↑(τ) n_↓(0)⟩
+add_corr_operators!(expansion, (op.n("up"), op.n("dn")))
+# Transversal magnetic susceptibility χ(τ) = <S_+(τ) S_-(0)>
+add_corr_operators!(expansion, (op.c_dag("up") * op.c("dn"),
+                                op.c_dag("dn") * op.c("up")))
 
-# Use the bold propagators to perform accumulation of the registered correlator (GF)
-orders_gf = 0:2  # Range of expansion orders to be accounted for
-g = correlator_2p(expansion, grid, orders_gf, N_samples)[1]
+# Use the bold propagators to perform accumulation of the registered correlators
+orders_gf = 0:3  # Range of expansion orders to be accounted for
+g, d, χ = correlator_2p(expansion, grid, orders_gf, N_samples)
 
 #
 # Plot results
 #
 
-plt.plot(imagtimes(grid), -g[:matsubara])
+plt.plot(imagtimes(grid), g[:matsubara],
+         label=raw"$-G(\tau) = \langle c_\uparrow(\tau) c^\dagger_\uparrow(0) \rangle$")
+plt.plot(imagtimes(grid), -d[:matsubara],
+         label=raw"$d(\tau) = \langle n_\uparrow(\tau) n_\downarrow(0) \rangle$")
+plt.plot(imagtimes(grid), -χ[:matsubara],
+         label=raw"$\chi(\tau) = \langle S_+(\tau) S_-(0) \rangle$")
 plt.xlabel(raw"$\tau$")
-plt.ylabel(raw"$g(\tau)$")
 plt.xlim((0, β))
+plt.legend()
 plt.tight_layout()
-plt.savefig("g_tau.jpg", dpi=200)
+plt.savefig("output.svg")
 ```
 
-A possible output of this script is
+A possible text output of this script is
 ```
-Z = 22.515295574175735 + 0.0im
-ρ_{at} = Matrix{ComplexF64}[[0.5147267752890133 + 0.0im;;], [0.2304334197863534 + 0.0im;;], [0.2304334197863534 + 0.0im;;], [0.024406385138280095 + 0.0im;;]]
+┌ Info:
+│ ________  .___              .__    __      __
+│ \_____  \ |   | ____   ____ |  |__/  \    /  \___________  _____
+│  /  / \  \|   |/    \_/ ___\|  |  \   \/\/   /  _ \_  __ \/     \
+│ /   \_/.  \   |   |  \  \___|   Y  \        (  <_> )  | \/  Y Y  \
+│ \_____\ \_/___|___|  /\___  >___|  /\__/\  / \____/|__|  |__|_|  /
+│        \__>        \/     \/     \/      \/                    \/
+│
+│ n_τ = 200
+│ orders_bare = 0:4
+│ orders = 0:4
+│ n_pts_after_max = unrestricted
+│ # qMC samples = 1024
+│ # MPI ranks = 1
+└ # qMC samples (per rank, min:max) = 1024:1024
+┌ Info: Diagrams with bare propagators
+│ Bare order 0, # topologies = 1
+│ Bare order 1, # topologies = 1
+│ Bare order 2, # topologies = 3
+│ Bare order 3, # topologies = 15
+└ Bare order 4, # topologies = 105
+[ Info: Initial inchworm step: Evaluating diagrams with bare propagators
+┌ Info: Diagrams with bold propagators
+│ Bold order 0, n_pts_after 0, # topologies = 1
+│ Bold order 1, n_pts_after 1, # topologies = 1
+│ Bold order 2, n_pts_after 1, # topologies = 1
+│ Bold order 2, n_pts_after 2, # topologies = 2
+│ Bold order 2, n_pts_after 3, # topologies = 1
+│ Bold order 3, n_pts_after 1, # topologies = 4
+│ Bold order 3, n_pts_after 2, # topologies = 6
+│ Bold order 3, n_pts_after 3, # topologies = 7
+│ Bold order 3, n_pts_after 4, # topologies = 6
+│ Bold order 3, n_pts_after 5, # topologies = 4
+│ Bold order 4, n_pts_after 1, # topologies = 27
+│ Bold order 4, n_pts_after 2, # topologies = 36
+│ Bold order 4, n_pts_after 3, # topologies = 40
+│ Bold order 4, n_pts_after 4, # topologies = 42
+│ Bold order 4, n_pts_after 5, # topologies = 40
+│ Bold order 4, n_pts_after 6, # topologies = 36
+└ Bold order 4, n_pts_after 7, # topologies = 27
+[ Info: Evaluating diagrams with bold propagators
+Z = 22.51529557417572 + 0.0im
+ρ_{imp} = Matrix{ComplexF64}[[0.5147267752890132 + 0.0im;;], [0.23043341978635334 + 0.0im;;], [0.23043341978635334 + 0.0im;;], [0.02440638513828009 + 0.0im;;]]
+┌ Info:
+│ ________  .___              .__    __      __
+│ \_____  \ |   | ____   ____ |  |__/  \    /  \___________  _____
+│  /  / \  \|   |/    \_/ ___\|  |  \   \/\/   /  _ \_  __ \/     \
+│ /   \_/.  \   |   |  \  \___|   Y  \        (  <_> )  | \/  Y Y  \
+│ \_____\ \_/___|___|  /\___  >___|  /\__/\  / \____/|__|  |__|_|  /
+│        \__>        \/     \/     \/      \/                    \/
+│
+│ n_τ = 200
+│ orders = 0:3
+│ # qMC samples = 1024
+│ # MPI ranks = 1
+└ # qMC samples (per rank, min:max) = 1024:1024
+┌ Info: Diagrams
+│ Order 0, n_pts_after 0, # topologies = 1
+│ Order 1, n_pts_after 1, # topologies = 1
+│ Order 2, n_pts_after 1, # topologies = 1
+│ Order 2, n_pts_after 2, # topologies = 2
+│ Order 2, n_pts_after 3, # topologies = 1
+│ Order 3, n_pts_after 1, # topologies = 4
+│ Order 3, n_pts_after 2, # topologies = 6
+│ Order 3, n_pts_after 3, # topologies = 7
+│ Order 3, n_pts_after 4, # topologies = 6
+└ Order 3, n_pts_after 5, # topologies = 4
+[ Info: Evaluating correlator ⟨-1.0*c("up"), 1.0*c†("up")⟩
+[ Info: Evaluating correlator ⟨1.0*c†("up")c("up"), 1.0*c†("dn")c("dn")⟩
+[ Info: Evaluating correlator ⟨1.0*c†("up")c("dn"), 1.0*c†("dn")c("up")⟩
 ```
-![g_tau](docs/example/g_tau.jpg)
 
 ## License
 
