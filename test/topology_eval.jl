@@ -25,10 +25,9 @@ using HDF5
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-using QInchworm;
 using QInchworm.diagrammatics: Topology, get_topologies_at_order
 teval = QInchworm.topology_eval
-using QInchworm: SectorBlockMatrix
+using QInchworm.sector_block_matrix: SectorBlockMatrix
 
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 

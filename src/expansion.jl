@@ -24,7 +24,7 @@ using DocStringExtensions
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-using QInchworm: SectorBlockMatrix, operator_to_sector_block_matrix
+using QInchworm.sector_block_matrix: SectorBlockMatrix, operator_to_sector_block_matrix
 using QInchworm.ppgf
 using QInchworm.diagrammatics: Topology
 using QInchworm.spline_gf: SplineInterpolatedGF

@@ -30,7 +30,7 @@ using LinearAlgebra: tr
 
 using Keldysh; kd = Keldysh
 
-using QInchworm: SectorBlockMatrix
+using QInchworm.sector_block_matrix: SectorBlockMatrix
 using QInchworm.ppgf: partition_function
 
 using QInchworm; teval = QInchworm.topology_eval

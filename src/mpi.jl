@@ -21,7 +21,7 @@ module mpi
 
 using MPI: MPI
 
-using QInchworm: SectorBlockMatrix
+using QInchworm.sector_block_matrix: SectorBlockMatrix
 using QInchworm.utility: split_count, range_from_chunks_and_idx
 using QInchworm.utility: iobuffer_serialize, iobuffer_deserialize
 

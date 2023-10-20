@@ -25,9 +25,7 @@ using TimerOutputs: TimerOutput, @timeit
 
 using Keldysh; kd = Keldysh
 
-using QInchworm
-
-using QInchworm: SectorBlockMatrix
+using QInchworm.sector_block_matrix: SectorBlockMatrix
 using QInchworm.expansion: Expansion
 using QInchworm.configuration: Configuration,
                                Time,

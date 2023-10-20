@@ -17,6 +17,8 @@
 #
 # Author: Igor Krivenko
 
+module sector_block_matrix
+
 using DocStringExtensions
 
 using LinearAlgebra: norm
@@ -115,3 +117,5 @@ function Base.isapprox(A::SectorBlockMatrix, B::SectorBlockMatrix; atol::Real=0)
     end
     return true
 end
+
+end # module sector_block_matrix

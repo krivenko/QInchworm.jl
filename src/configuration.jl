@@ -34,7 +34,7 @@ using DocStringExtensions
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
-using QInchworm: SectorBlockMatrix
+using QInchworm.sector_block_matrix: SectorBlockMatrix
 using QInchworm.ppgf
 using QInchworm.expansion: Operator, Expansion
 using QInchworm.diagrammatics: Topology, n_crossings
