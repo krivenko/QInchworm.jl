@@ -170,9 +170,10 @@ function iobuffer_deserialize(data_raw)
 end
 
 """
-Given an imaginary time Green's function g(τ), returns its particle-hole conjugate g(β-τ).
+Given a scalar-valued imaginary time Green's function g(τ), returns its particle-hole
+conjugate g(β-τ).
 """
-function ph_conj(g::kd.ImaginaryTimeGF)::kd.ImaginaryTimeGF
+function ph_conj(g::kd.ImaginaryTimeGF{T, true})::kd.ImaginaryTimeGF{T, true} where {T}
     g_rev = deepcopy(g)
     τ_0, τ_β = g.grid[1], g.grid[end]
     for τ in g.grid

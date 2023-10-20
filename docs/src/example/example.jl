@@ -49,15 +49,19 @@ bath_dos = kd.bethe_dos(t=D / 2)
 # Strong coupling expansion
 #
 
-# List of pair interactions
+# List of imaginary-time ordered pair interactions
 int_pairs = [
-    InteractionPair(op.c_dag("up"), op.c("up"), Δ),             # c^†_↑(τ) Δ(τ) c_↑(0)
-    InteractionPair(op.c("up"), op.c_dag("up"), ph_conj(Δ)),    # c_↑(τ) Δ(-τ) c^†_↑(0)
-    InteractionPair(op.c_dag("dn"), op.c("dn"), Δ),             # c^†_↓(τ) Δ(τ) c_↓(0)
-    InteractionPair(op.c("dn"), op.c_dag("dn"), ph_conj(Δ))     # c_↓(τ) Δ(-τ) c^†_↓(0)
+    # c^†_↑(τ_1) Δ(τ_1 - τ_2) c_↑(τ_2), τ_1 ≥ τ_2
+    InteractionPair(op.c_dag("up"), op.c("up"), Δ),
+    # c_↑(τ_1) [-Δ(τ_2 - τ_1)] c^†_↑(τ_2), τ_1 ≥ τ_2
+    InteractionPair(op.c("up"), op.c_dag("up"), ph_conj(Δ)),
+    # c^†_↓(τ_1) Δ(τ_1 - τ_2) c_↓(τ_2), τ_1 ≥ τ_2
+    InteractionPair(op.c_dag("dn"), op.c("dn"), Δ),
+    # c_↓(τ_1) [-Δ(τ_2 - τ_1)] c^†_↓(τ_2), τ_1 ≥ τ_2
+    InteractionPair(op.c("dn"), op.c_dag("dn"), ph_conj(Δ))
 ]
 # N.B.: These can include types of pair interactions other than hybridization, e.g.
-# a density-density coupling n(τ) U(τ) n(0)
+# a density-density coupling n(τ_1) U(τ_1 - τ_2) n(τ_2)
 
 # `Expansion` keeps track of atomic propagators and other relevant quantities
 expansion = Expansion(ed, grid, int_pairs)
