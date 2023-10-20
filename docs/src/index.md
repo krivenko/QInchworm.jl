@@ -28,6 +28,11 @@ two-point correlation functions for it.
 
 ## Submodules
 
+```@autodocs
+Modules = [QInchworm]
+Order   = [:module]
+```
+
 - [`QInchworm.expansion`](@ref QInchworm.expansion)
 - [`QInchworm.inchworm`](@ref QInchworm.inchworm)
 - [`QInchworm.ppgf`](@ref QInchworm.ppgf)

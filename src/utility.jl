@@ -17,7 +17,15 @@
 #
 # Authors: Igor Krivenko, Hugo U. R. Strand
 
+"""
+An assorted collection of utility types and functions.
+
+# Exports
+$(EXPORTS)
+"""
 module utility
+
+using DocStringExtensions
 
 import Interpolations
 using Octavian: matmul
@@ -31,25 +39,46 @@ using Keldysh; kd = Keldysh
 
 export ph_conj
 
-#
-# Interpolations.jl addon: Implementation of the Neumann boundary
-# conditions for the cubic spline.
-#
+"""
+    $(TYPEDEF)
 
+Interpolations.jl addon: Implementation of the Neumann boundary conditions for the cubic
+spline.
+
+# Fields
+$(TYPEDFIELDS)
+"""
 struct NeumannBC{GT <: Union{Interpolations.GridType, Nothing},
                  T <: Number
-                } <: Interpolations.BoundaryCondition
+                 } <: Interpolations.BoundaryCondition
+    "Grid type"
     gt::GT
+    "Function derivative at the left boundary"
     left_derivative::T
+    "Function derivative at the right boundary"
     right_derivative::T
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Compute the system used to prefilter cubic spline coefficients when using the Neumann
+boundary conditions.
+
+# Parameters
+- `T`, `TC`: Element types.
+- `n`:       The number of rows in the data input.
+- `degree`:  Interpolation degree information.
+
+# Returns
+Woodbury matrix and the RHS of the computed system.
+"""
 function Interpolations.prefiltering_system(::Type{T},
                                             ::Type{TC},
                                             n::Int,
                                             degree::Interpolations.Cubic{BC}) where {
     T, TC, BC <: NeumannBC{Interpolations.OnGrid}}
-    dl,d,du = Interpolations.inner_system_diags(T, n, degree)
+    dl, d, du = Interpolations.inner_system_diags(T, n, degree)
     d[1] = d[end] = -oneunit(T)
     du[1] = dl[end] = zero(T)
 
@@ -66,14 +95,27 @@ function Interpolations.prefiltering_system(::Type{T},
 end
 
 """
-    Quadratic spline on an equidistant grid that allows for
-    incremental construction.
+    $(TYPEDEF)
+
+Quadratic spline on an equidistant grid that allows for incremental construction.
+
+# Fields
+$(TYPEDFIELDS)
 """
 struct IncrementalSpline{KnotT <: Number, T <: Number}
+    "Locations of interpolation knots"
     knots::AbstractRange{KnotT}
+    "Values of the interpolated function at the knots"
     data::Vector{T}
+    "Values of the interpolated function derivative at the knots"
     der_data::Vector{T}
 
+    @doc """
+        $(TYPEDSIGNATURES)
+
+    Initialize an incremental spline and add the first segment to it by fixing values
+    of the interpolated function `val1` and its derivative `der1` at the first knot.
+    """
     function IncrementalSpline(knots::AbstractRange{KnotT}, val1::T, der1::T) where {
         KnotT <: Number, T <: Number}
         data = T[val1]
@@ -84,12 +126,23 @@ struct IncrementalSpline{KnotT <: Number, T <: Number}
     end
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Add a segment to an incremental spline by fixing value `val` of the interpolated function
+at the next knot.
+"""
 function extend!(spline::IncrementalSpline, val)
    push!(spline.data, val)
    push!(spline.der_data,
          2 * (spline.data[end] - spline.data[end - 1]) - spline.der_data[end])
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Evaluate spline interpolant at a point `z`.
+"""
 function (spline::IncrementalSpline)(z)
     @boundscheck first(spline.knots) <= z <= last(spline.knots)
     x = 1 + (z - first(spline.knots)) / step(spline.knots)
@@ -103,9 +156,11 @@ function (spline::IncrementalSpline)(z)
 end
 
 """
-    Sobol sequence including the initial point (0, 0, ...)
+    $(TYPEDEF)
 
-    C.f. https://github.com/stevengj/Sobol.jl/issues/31
+Sobol low discrepancy sequence including the initial point ``(0, 0, \\ldots)``.
+The need for this modified version of `Sobol.SobolSeq` is discussed in
+[JuliaMath/Sobol.jl#31](https://github.com/stevengj/Sobol.jl/issues/31).
 """
 mutable struct SobolSeqWith0{N} <: AbstractSobolSeq{N}
     seq::SobolSeq{N}
@@ -114,48 +169,62 @@ mutable struct SobolSeqWith0{N} <: AbstractSobolSeq{N}
     SobolSeqWith0(N::Int) = new{N}(SobolSeq(N), false)
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Return the next point in the Sobol sequence `s`.
+"""
 function next!(s::SobolSeqWith0)
     if s.init_pt_returned
-        next!(s.seq)
+        return next!(s.seq)
     else
         s.init_pt_returned = true
-        zeros(Float64, ndims(s.seq))
+        return zeros(Float64, ndims(s.seq))
     end
 end
 
-function arbitrary_skip!(s::SobolSeq, n::Integer)
-    x = Array{Float64,1}(undef, ndims(s))
-    for _ = 1:n
-        next!(s, x)
-    end
-    return nothing
-end
+"""
+    $(TYPEDSIGNATURES)
 
+Skip exactly `n` points in the Sobol sequence `s`.
+"""
 function arbitrary_skip!(s::SobolSeqWith0, n::Integer)
     @assert n >= 0
     if n >= 1
         s.init_pt_returned = true
-        arbitrary_skip!(s.seq, n - 1)
+        x = Array{Float64,1}(undef, ndims(s.seq))
+        for _ = 1:(n - 1); next!(s.seq, x); end
     end
     return nothing
 end
 
 """
-split_count(N::Integer, n::Integer)
+    $(TYPEDSIGNATURES)
 
-Return a vector of `n` integers which are approximately equally sized and sum to `N`.
+Return a vector of `n` integers which are approximately equal and sum to `N`.
 """
 function split_count(N::Integer, n::Integer)
     q, r = divrem(N, n)
     return [i <= r ? q + 1 : q for i = 1:n]
 end
 
-function range_from_chunks_and_idx(chunks, idx)
-    sidx = 1 + sum(chunks[1:idx - 1])
-    eidx = sidx + chunks[idx] - 1
+"""
+    $(TYPEDSIGNATURES)
+
+Given a list of chunk sizes, return the range that enumerates elements
+in the `idx`-th chunk.
+"""
+function range_from_chunks_and_idx(chunk_sizes::AbstractVector, idx::Integer)
+    sidx = 1 + sum(chunk_sizes[1:idx - 1])
+    eidx = sidx + chunk_sizes[idx] - 1
     return sidx:eidx
 end
 
+"""
+    $(SIGNATURES)
+
+Serialize data using an `IOBuffer` object.
+"""
 function iobuffer_serialize(data)
     io = IOBuffer()
     serialize(io, data)
@@ -165,13 +234,20 @@ function iobuffer_serialize(data)
     return data_raw
 end
 
+"""
+    $(SIGNATURES)
+
+Deserialize data using an `IOBuffer` object.
+"""
 function iobuffer_deserialize(data_raw)
     return deserialize(IOBuffer(data_raw))
 end
 
 """
-Given a scalar-valued imaginary time Green's function g(τ), returns its particle-hole
-conjugate g(β-τ).
+    $(TYPEDSIGNATURES)
+
+Given a scalar-valued imaginary time Green's function ``g(\\tau)``, return its conjugate
+``g(\\beta-\\tau)``.
 """
 function ph_conj(g::kd.ImaginaryTimeGF{T, true})::kd.ImaginaryTimeGF{T, true} where {T}
     g_rev = deepcopy(g)
@@ -187,18 +263,20 @@ end
 #
 
 """
-A matrix product of the form A_N A_{N-1} ... A_1.
+    $(TYPEDEF)
 
-Functions `pushfirst!()` and `popfirst!()` can be used to add and remove multipliers
-to/from the left of the product. The product is lazy in the sense that the actual
-multiplication takes place only when the `eval!()` function is called. The structure keeps
-track of previously evaluated partial products and reuses them upon successive calls to
-`eval!()`.
+A matrix product of the form ``A_N A_{N-1} \\ldots A_1``.
+
+Functions [`pushfirst!()`](@ref) and [`popfirst!()`](@ref) can be used to add and remove
+multipliers to/from the left of the product. The product is lazy in the sense that the
+actual multiplication takes place only when the [`eval!()`](@ref) function is called.
+The structure keeps track of previously evaluated partial products and reuses them upon
+successive calls to [`eval!()`](@ref).
 """
 mutable struct LazyMatrixProduct{T <: Number}
-    "Multipliers A_i"
+    "Multipliers ``A_i``"
     matrices::Vector{Matrix{T}}
-    "Partial products A_1, A_2 A_1, A_3 A_2 A_1, ..."
+    "Partial products ``A_1, A_2 A_1, A_3 A_2 A_1, \\ldots``"
     partial_prods::Vector{Matrix{T}}
     "Current number of matrices in the product"
     n_mats::Int
@@ -207,10 +285,13 @@ mutable struct LazyMatrixProduct{T <: Number}
 end
 
 """
-Make a `LazyMatrixProduct` instance and pre-allocate all necessary containers.
+    $(TYPEDSIGNATURES)
 
-T          : Element type of the matrices to be multiplied.
-max_n_mats : Maximal number of matrices in the product used to pre-allocate containers.
+Make a [`LazyMatrixProduct`](@ref) instance and pre-allocate all necessary containers.
+
+# Parameters
+- `T`:           Element type of the matrices to be multiplied.
+- `max_n_mats` : Maximal number of matrices in the product used to pre-allocate containers.
 """
 function LazyMatrixProduct(::Type{T}, max_n_mats::Int) where {T <: Number}
     @assert max_n_mats > 0
@@ -222,7 +303,9 @@ function LazyMatrixProduct(::Type{T}, max_n_mats::Int) where {T <: Number}
 end
 
 """
-Add a new matrix to the left of the product.
+    $(TYPEDSIGNATURES)
+
+Add a new matrix `A` to the left of the product `lmp`.
 """
 function Base.pushfirst!(lmp::LazyMatrixProduct{T}, A::Matrix{T}) where {T <: Number}
     @boundscheck lmp.n_mats < length(lmp.matrices)
@@ -231,7 +314,9 @@ function Base.pushfirst!(lmp::LazyMatrixProduct{T}, A::Matrix{T}) where {T <: Nu
 end
 
 """
-Remove `n` matrices from the left of the product.
+    $(TYPEDSIGNATURES)
+
+Remove `n` matrices from the left of the product `lmp`. By default, `n = 1`.
 """
 function Base.popfirst!(lmp::LazyMatrixProduct{T}, n::Int = 1) where {T <: Number}
     @boundscheck n <= lmp.n_mats
@@ -240,7 +325,9 @@ function Base.popfirst!(lmp::LazyMatrixProduct{T}, n::Int = 1) where {T <: Numbe
 end
 
 """
-Evaluate the product.
+    $(TYPEDSIGNATURES)
+
+Evaluate the matrix product `lmp`.
 """
 function eval!(lmp::LazyMatrixProduct{T}) where {T <: Number}
     @boundscheck lmp.n_mats > 0
