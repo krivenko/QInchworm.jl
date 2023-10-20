@@ -17,6 +17,10 @@
 #
 # Author: Igor Krivenko
 
+"""
+Matrix representation of operators acting in a many-body Hilbert space partitioned into
+invariant subspaces (sectors) of a Hamiltonian.
+"""
 module sector_block_matrix
 
 using DocStringExtensions
@@ -29,15 +33,19 @@ using KeldyshED: EDCore, OperatorExpr, operator_blocks
 """
 Complex block matrix stored as a dictionary of non-vanishing blocks.
 
-An element of the dictionary has the form
-right block index => (left block index, block).
+Each element of the dictionary has the form
+`right block index => (left block index, block)`.
+
+Objects of this type support addition/subtraction, matrix multiplication and multiplication
+by a scalar.
 """
 const SectorBlockMatrix = Dict{Int64, Tuple{Int64, Matrix{ComplexF64}}}
 
 """
-$(TYPEDSIGNATURES)
+    $(TYPEDSIGNATURES)
 
-Returns the [`SectorBlockMatrix`](@ref) representation of the many-body operator.
+Return the [`SectorBlockMatrix`](@ref) representation of a many-body operator `op`
+acting in the Hilbert space of the exact diagonalization problem `ed`.
 """
 function operator_to_sector_block_matrix(ed::EDCore, op::OperatorExpr)::SectorBlockMatrix
     sbm = SectorBlockMatrix()
@@ -49,10 +57,10 @@ function operator_to_sector_block_matrix(ed::EDCore, op::OperatorExpr)::SectorBl
 end
 
 """
-$(TYPEDSIGNATURES)
+    $(TYPEDSIGNATURES)
 
-Construct a block-diagonal complex matrix, whose block structure is consistent
-with the invariant subspace partition of a given KeldyshED.EDCore object.
+Construct a block-diagonal [`SectorBlockMatrix`](@ref), whose block structure is consistent
+with the invariant subspace partition of a given exact diagonalization object `ed`.
 All matrix elements of the stored blocks are set to zero.
 """
 function Base.zeros(::Type{SectorBlockMatrix}, ed::EDCore)::SectorBlockMatrix
@@ -60,6 +68,12 @@ function Base.zeros(::Type{SectorBlockMatrix}, ed::EDCore)::SectorBlockMatrix
                 for (s, sp) in enumerate(ed.subspaces))
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Construct a [`SectorBlockMatrix`](@ref) that shares the list of stored blocks with another
+matrix `A` but has all those blocks set to zero.
+"""
 function Base.zero(A::SectorBlockMatrix)::SectorBlockMatrix
     Z = SectorBlockMatrix()
     for (s_i, (s_f, A_mat)) in A
@@ -68,6 +82,11 @@ function Base.zero(A::SectorBlockMatrix)::SectorBlockMatrix
     return Z
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Set elements of all stored blocks of a [`SectorBlockMatrix`](@ref) `A` to `x`.
+"""
 function Base.fill!(A::SectorBlockMatrix, x)
     for m in A
         fill!(m.second[2], x)
@@ -104,11 +123,23 @@ end
 
 Base.:-(A::SectorBlockMatrix, B::SectorBlockMatrix) = A + (-1) * B
 
+"""
+    $(TYPEDSIGNATURES)
+
+Trace of a [`SectorBlockMatrix`](@ref) `A`.
+"""
 function LinearAlgebra.tr(A::SectorBlockMatrix)::ComplexF64
     return sum(LinearAlgebra.tr(A_mat) for (s_i, (s_f, A_mat)) in A if s_i == s_f;
                init=zero(ComplexF64))
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Inexact equality comparison of two [`SectorBlockMatrix`](@ref) objects `A` and `B`.
+Block structures of the objects must agree. `atol` specifies the absolute tolerance for
+the single element comparison (zero by default).
+"""
 function Base.isapprox(A::SectorBlockMatrix, B::SectorBlockMatrix; atol::Real=0)::Bool
     @assert keys(A) == keys(B)
     for k in keys(A)

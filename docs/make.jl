@@ -35,11 +35,11 @@ makedocs(;
     pages=[
         "Home" => "index.md",
         "Example" => "example.md",
-        "Modules" => String[
-            "modules/QInchworm.md",
+        "Submodules" => String[
             "modules/expansion.md",
             "modules/inchworm.md",
             "modules/ppgf.md",
+            "modules/sector_block_matrix.md",
             "modules/spline_gf.md",
             "modules/utility.md",
             "modules/mpi.md",

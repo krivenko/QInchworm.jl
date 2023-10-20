@@ -26,12 +26,12 @@ two-point correlation functions for it.
        Phys. Rev. Lett. 115, 266802 (2015)]
       (https://link.aps.org/doi/10.1103/PhysRevLett.115.266802)
 
-## Modules
+## Submodules
 
-- [`QInchworm`](@ref QInchworm)
 - [`QInchworm.expansion`](@ref QInchworm.expansion)
 - [`QInchworm.inchworm`](@ref QInchworm.inchworm)
 - [`QInchworm.ppgf`](@ref QInchworm.ppgf)
+- [`QInchworm.sector_block_matrix`](@ref QInchworm.sector_block_matrix)
 - [`QInchworm.spline_gf`](@ref QInchworm.spline_gf)
 - [`QInchworm.utility`](@ref QInchworm.utility)
 - [`QInchworm.mpi`](@ref QInchworm.mpi)
