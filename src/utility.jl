@@ -246,8 +246,8 @@ end
 """
     $(TYPEDSIGNATURES)
 
-Given a scalar-valued imaginary time Green's function ``g(\\tau)``, return its conjugate
-``g(\\beta-\\tau)``.
+Given a scalar-valued imaginary time Green's function ``g(\\tau)``, return its particle-hole
+conjugate ``g(\\beta-\\tau)``.
 """
 function ph_conj(g::kd.ImaginaryTimeGF{T, true})::kd.ImaginaryTimeGF{T, true} where {T}
     g_rev = deepcopy(g)

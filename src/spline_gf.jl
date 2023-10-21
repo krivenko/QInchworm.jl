@@ -17,7 +17,15 @@
 #
 # Authors: Igor Krivenko, Hugo U. R. Strand
 
+"""
+Spline-interpolated Green's function containers.
+
+# Exports
+$(EXPORTS)
+"""
 module spline_gf
+
+using DocStringExtensions
 
 using Interpolations: BSplineInterpolation,
                       scale,
@@ -34,14 +42,25 @@ import QInchworm.utility: extend!
 import QInchworm.utility: ph_conj
 
 export SplineInterpolatedGF
+export ph_conj
 
 #
 # SplineInterpolatedGF
 #
 
 """
-Wrapper around a Green's function object that allows for
-fast cubic spline interpolation on the time grid.
+    $(TYPEDEF)
+
+Wrapper around a Green's function object that allows for fast cubic spline interpolation on
+the time grid.
+
+The wrapper supports square bracket access to the wrapped object, direct access to the
+`grid` property, `eltype()`, `Keldysh.norbitals()` and `Keldysh.TimeDomain()`. Evaluation at
+an arbitrary contour time point (via operator `()`) is carried out by a stored set of
+pre-computed B-spline interpolants.
+
+# Fields
+$(TYPEDFIELDS)
 """
 struct SplineInterpolatedGF{GFType, T, scalar} <: kd.AbstractTimeGF{T, scalar}
     "Wrapped Green's function"
@@ -50,6 +69,12 @@ struct SplineInterpolatedGF{GFType, T, scalar} <: kd.AbstractTimeGF{T, scalar}
     interpolants
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Make a [`SplineInterpolatedGF`](@ref) wrapper around `GF` and compute interpolants of its
+data from the start of the grid up to `τ_max`. By default, the entire data array is used.
+"""
 function SplineInterpolatedGF(
     GF::GFType;
     τ_max::kd.TimeGridPoint = GF.grid[end]) where {
@@ -108,6 +133,13 @@ end
 # Imaginary time GF
 #
 
+"""
+    $(TYPEDSIGNATURES)
+
+Update the interpolant stored in `G_int` and corresponding to its matrix indices `k`, `l`.
+The updated interpolant interpolates data points of `G_int.GF` from the start of the grid
+up to `τ_max`. By default, the entire data array is used.
+"""
 function update_interpolant!(
     G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, scalar}, T, scalar},
     k, l;
@@ -115,6 +147,13 @@ function update_interpolant!(
     G_int.interpolants[k, l] = make_interpolant(G_int.GF, k, l, τ_max)
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Update all interpolants stored in `G_int`. The updated interpolants interpolate data points
+of `G_int.GF` from the start of the grid up to `τ_max`. By default, the entire data array is
+used.
+"""
 function update_interpolants!(
     G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, scalar}, T, scalar};
     τ_max::kd.TimeGridPoint = G_int.GF.grid[end]) where {T <: Number, scalar}
@@ -145,6 +184,12 @@ end
     return v
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Make a cubic B-spline interpolant from `GF`'s data corresponding to its matrix indices
+`k`, `l`. Data points from the start of the grid up to `τ_max` are used.
+"""
 function make_interpolant(GF::kd.ImaginaryTimeGF{T, scalar},
                           k, l,
                           τ_max::kd.TimeGridPoint) where {T <: Number, scalar}
@@ -156,6 +201,12 @@ function make_interpolant(GF::kd.ImaginaryTimeGF{T, scalar},
         knots)
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Evaluate the spline-interpolated Green's function `G_int` at the contour time arguments
+`t1`, `t2`.
+"""
 function interpolate(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, true}, T, true},
                      t1::kd.BranchPoint, t2::kd.BranchPoint) where T
     grid = G_int.GF.grid
@@ -167,6 +218,12 @@ function interpolate(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, true}, T,
                           Int(G_int.GF.ξ) * G_int.interpolants[1, 1](β + ref1 - ref2)
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Evaluate the spline-interpolated Green's function `G_int` at the contour time arguments
+`t1`, `t2`.
+"""
 function interpolate(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, false}, T, false},
     t1::kd.BranchPoint, t2::kd.BranchPoint) where T
     grid = G_int.GF.grid
@@ -183,28 +240,63 @@ function interpolate(G_int::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, false}, T
     end
 end
 
-ph_conj(G_int::SplineInterpolatedGF) = SplineInterpolatedGF(ph_conj(G_int.GF))
+"""
+    $(TYPEDSIGNATURES)
+
+Given a spline-interpolated scalar-valued imaginary time Green's function ``g(\\tau)``,
+return its particle-hole conjugate ``g(\\beta-\\tau)``.
+"""
+function ph_conj(G_int::SplineInterpolatedGF{GFType, T, true}) where {
+        T <: Number, GFType <: kd.ImaginaryTimeGF{T, true}
+    }
+    return SplineInterpolatedGF{GFType, T, true}(ph_conj(G_int.GF))
+end
 
 #
 # IncSplineImaginaryTimeGF
 #
 
 """
-Wrapper around an imaginary time Green's function object that
-supports interpolation based on the IncrementalSpline.
+    $(TYPEDEF)
+
+Wrapper around an imaginary time Green's function object that supports interpolation based
+on the [`IncrementalSpline`](@ref).
+
+The wrapper supports square bracket access to the wrapped object, direct access to the
+`grid` property, `eltype()`, `Keldysh.norbitals()` and `Keldysh.TimeDomain()`. Evaluation at
+an arbitrary imaginary time point (via operator `()`) is carried out by a stored set of
+pre-computed [`IncrementalSpline`](@ref) interpolants.
+
+# Fields
+$(TYPEDFIELDS)
 """
 struct IncSplineImaginaryTimeGF{T, scalar} <: kd.AbstractTimeGF{T, scalar}
     "Wrapped Green's function"
     GF::kd.ImaginaryTimeGF{T, scalar}
-    "Incremental spline interpolants, one object per matrix element of G"
+    "Incremental spline interpolants, one object per matrix element of GF"
     interpolants
 
+    @doc """
+        $(TYPEDSIGNATURES)
+
+    Make a [`IncSplineImaginaryTimeGF`](@ref) wrapper around a scalar-valued `GF` and
+    initialize incremental interpolants of its data. `derivative_at_0` is imaginary time
+    derivative of `GF` at ``\\tau=0`` needed to compute the first segment of the
+    interpolants.
+    """
     function IncSplineImaginaryTimeGF(GF::kd.ImaginaryTimeGF{T, true},
                                       derivative_at_0::T) where {T <: Number}
         interpolants = [make_inc_interpolant(GF, k, l, derivative_at_0)]
         return new{T, true}(GF, interpolants)
     end
+    @doc """
+        $(TYPEDSIGNATURES)
 
+    Make a [`IncSplineImaginaryTimeGF`](@ref) wrapper around a matrix-valued `GF` and
+    initialize incremental interpolants of its data. `derivative_at_0` is imaginary time
+    derivative of `GF` at ``\\tau=0`` needed to compute the first segment of the
+    interpolants.
+    """
     function IncSplineImaginaryTimeGF(GF::kd.ImaginaryTimeGF{T, false},
                                       derivative_at_0::Matrix{T}) where {T <: Number}
         norb = kd.norbitals(GF)
@@ -214,6 +306,13 @@ struct IncSplineImaginaryTimeGF{T, scalar} <: kd.AbstractTimeGF{T, scalar}
     end
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Make an incremental spline interpolant from `GF`'s data and corresponding to its matrix
+indices `k`, `l`. `derivative_at_0` is imaginary time derivative of `GF[k, l]` at
+``\\tau=0`` needed to compute the first segment of the interpolant.
+"""
 function make_inc_interpolant(GF::kd.ImaginaryTimeGF{T, scalar},
                               k, l,
                               derivative_at_0::T) where {T <: Number, scalar}
@@ -226,11 +325,21 @@ end
 Base.eltype(::Type{<:IncSplineImaginaryTimeGF{T, scalar}}) where {T, scalar} = T
 Base.eltype(X::IncSplineImaginaryTimeGF) = eltype(typeof(X))
 
+"""
+    $(TYPEDSIGNATURES)
+
+Make a zero matrix-valued [`IncSplineImaginaryTimeGF`](@ref) object similar to `G_int`.
+"""
 function Base.zero(G_int::IncSplineImaginaryTimeGF{T, false}) where {T <: Number}
     norb = kd.norbitals(G_int.GF)
     return IncSplineImaginaryTimeGF(kd.zero(G_int.GF), zeros(T, (norb, norb)))
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Make a zero scalar-valued [`IncSplineImaginaryTimeGF`](@ref) object similar to `G_int`.
+"""
 function Base.zero(G_int::IncSplineImaginaryTimeGF{T, true}) where {T <: Number}
     return IncSplineImaginaryTimeGF(kd.zero(G_int.GF), zero(T))
 end
@@ -259,6 +368,12 @@ function (G_int::IncSplineImaginaryTimeGF)(t1::kd.BranchPoint, t2::kd.BranchPoin
     return interpolate(G_int, t1, t2)
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Extend the underlying [`IncrementalSpline`](@ref) objects stored in `G_int` with a value
+`val`.
+"""
 function extend!(G_int::IncSplineImaginaryTimeGF, val)
     grid = G_int.GF.grid
     norb = kd.norbitals(G_int)
@@ -270,23 +385,35 @@ function extend!(G_int::IncSplineImaginaryTimeGF, val)
     G_int.GF[τ, τ_0] = val
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Evaluate the spline-interpolated scalar-valued Green's function `G_int` at the imaginary
+time arguments `τ1`, `τ2`.
+"""
 function interpolate(G_int::IncSplineImaginaryTimeGF{T, true},
-                     t1::kd.BranchPoint, t2::kd.BranchPoint) where T
+                     τ1::kd.BranchPoint, τ2::kd.BranchPoint) where T
     grid = G_int.GF.grid
     β = grid.contour.β
-    ref1 = kd.get_ref(grid.contour, t1)
-    ref2 = kd.get_ref(grid.contour, t2)
+    ref1 = kd.get_ref(grid.contour, τ1)
+    ref2 = kd.get_ref(grid.contour, τ2)
 
     return ref1 >= ref2 ? G_int.interpolants[1, 1](ref1 - ref2) :
                           Int(G_int.GF.ξ) * G_int.interpolants[1, 1](β + ref1 - ref2)
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Evaluate the spline-interpolated matrix-valued Green's function `G_int` at the imaginary
+time arguments `τ1`, `τ2`.
+"""
 function interpolate(G_int::IncSplineImaginaryTimeGF{T, false},
-                     t1::kd.BranchPoint, t2::kd.BranchPoint) where T
+                     τ1::kd.BranchPoint, τ2::kd.BranchPoint) where T
     grid = G_int.GF.grid
     β = grid.contour.β
-    ref1 = kd.get_ref(grid.contour, t1)
-    ref2 = kd.get_ref(grid.contour, t2)
+    ref1 = kd.get_ref(grid.contour, τ1)
+    ref2 = kd.get_ref(grid.contour, τ2)
 
     norb = kd.norbitals(G_int.GF)
     if ref1 >= ref2
