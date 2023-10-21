@@ -17,6 +17,9 @@
 #
 # Authors: Igor Krivenko, Hugo U. R. Strand, Joseph Kleinhenz
 
+"""
+Evaluator for strong-coupling expansion diagrams of a specific topology.
+"""
 module topology_eval
 
 using DocStringExtensions
@@ -27,14 +30,6 @@ using Keldysh; kd = Keldysh
 
 using QInchworm.sector_block_matrix: SectorBlockMatrix
 using QInchworm.expansion: Expansion
-using QInchworm.configuration: Configuration,
-                               Time,
-                               InteractionEnum,
-                               pair_flag,
-                               identity_flag,
-                               inch_flag,
-                               operator_flag
-
 using QInchworm.diagrammatics: Topology,
                                is_doubly_k_connected,
                                generate_topologies
@@ -43,15 +38,41 @@ using QInchworm.utility: LazyMatrixProduct, eval!
 
 Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint) = !kd.heaviside(t1, t2)
 
+"""
+$(TYPEDEF)
+
+Node kind classification using `@enum`.
+
+Possible values: `pair_flag`, `identity_flag`, `inch_flag`, `operator_flag`.
+"""
+@enum NodeKind pair_flag=1 identity_flag=2 inch_flag=3 operator_flag=4
+
+"""
+    $(TYPEDEF)
+
+Node in the atomic propagator backbone of a strong-coupling diagram.
+
+# Fields
+$(TYPEDFIELDS)
+"""
 struct Node
-    "Interaction type of operator"
-    kind::InteractionEnum
+    "Kind of the node"
+    kind::NodeKind
     "Index for pair interaction arc"
     arc_index::Int64
-    "Index to operator"
+    "Index of operator"
     operator_index::Int64
 end
 
+"""
+    $(TYPEDEF)
+
+Node in the atomic propagator backbone of a strong-coupling diagram fixed at a certain
+contour time point.
+
+# Fields
+$(TYPEDFIELDS)
+"""
 struct FixedNode
     "Reference to operator"
     node::Node
@@ -60,27 +81,29 @@ struct FixedNode
 end
 
 """
-$(TYPEDSIGNATURES)
+    $(TYPEDSIGNATURES)
 
-Returns a fixed node at time `time` with an associated identity operator.
+Return a fixed node at time `time` with an associated identity operator.
 """
 function IdentityNode(time::kd.BranchPoint)::FixedNode
     return FixedNode(Node(identity_flag, -1, -1), time)
 end
 
 """
-$(TYPEDSIGNATURES)
+    $(TYPEDSIGNATURES)
 
-Returns a fixed "inch" node at time `time` with an associated identity operator.
+Return a fixed 'inch' node at time `time` with an associated identity operator.
 """
 function InchNode(time::kd.BranchPoint)::FixedNode
     return FixedNode(Node(inch_flag, -1, -1), time)
 end
 
 """
-$(TYPEDSIGNATURES)
+    $(TYPEDSIGNATURES)
 
-Returns a fixed operator node at time `time` with an associated operator.
+Return a fixed operator node at time `time` with an associated operator.
+The actual operator is stored in an [`Expansion`](@ref) structure and is uniquely identified
+by the pair `(operator_pair_index, operator_index)`.
 """
 function OperatorNode(time::kd.BranchPoint,
                       operator_pair_index::Int64,
@@ -88,6 +111,17 @@ function OperatorNode(time::kd.BranchPoint,
     return FixedNode(Node(operator_flag, operator_pair_index, operator_index), time)
 end
 
+"""
+    $(TYPEDEF)
+
+The evaluation engine for the strong-coupling expansion diagrams.
+
+In the following, a sequence of [`Node`'s](@ref Node) contributing to a diagram of a certain
+topology is referred to as 'configuration'.
+
+# Fields
+$(TYPEDFIELDS)
+"""
 struct TopologyEvaluator
 
     "Pseudo-particle expansion problem"
@@ -107,17 +141,16 @@ struct TopologyEvaluator
 
     """
     PPGFs evaluated at all relevant pairs of time arguments.
-
-    ppgf_mats[i, s] is the s-th diagonal block of exp.P (or exp.P0) evaluated at the pair
-    of time points ``(t_{i+1}, t_i)``.
+    `ppgf_mats[i, s]` is the `s`-th diagonal block of `exp.P` (or `exp.P0`) evaluated at
+    the pair of time points ``(t_{i+1}, t_i)``.
     """
     ppgf_mats::Array{Matrix{ComplexF64}, 2}
 
     """
     Pair interaction arcs evaluated at all relevant pairs of time arguments.
 
-    pair_ints[a, p] is the propagator from `exp.pairs[p]` evaluated at the pair of time
-    points corresponding to the a-th arc in a topology.
+    `pair_ints[a, p]` is the propagator from `exp.pairs[p]` evaluated at the pair of time
+    points corresponding to the `a`-th arc in a topology.
     """
     pair_ints::Array{ComplexF64, 2}
 
@@ -136,6 +169,15 @@ struct TopologyEvaluator
     """Internal performance timer"""
     tmr::TimerOutput
 
+    @doc """
+        $(TYPEDSIGNATURES)
+
+    # Parameters
+    - `exp`: Strong-coupling expansion problem.
+    - `order`: Expansion order of the diagrams.
+    - `fixed_nodes`: List of fixed nodes in a configuration along with their positions.
+    - `tmr`: Internal performance timer.
+    """
     function TopologyEvaluator(exp::Expansion,
                                order::Int,
                                fixed_nodes::Dict{Int, FixedNode};
@@ -185,11 +227,23 @@ struct TopologyEvaluator
     end
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Given a single diagram topology, evaluate contribution from all relevant configurations
+assuming that non-fixed nodes are located at contour time points `times`.
+"""
 function (eval::TopologyEvaluator)(topology::Topology,
     times::Vector{kd.BranchPoint})::SectorBlockMatrix
     return eval([topology], times)
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Given a list of diagram topologies, evaluate contribution from all relevant configurations
+assuming that non-fixed nodes are located at contour time points `times`.
+"""
 function (eval::TopologyEvaluator)(topologies::Vector{Topology},
                                    times::Vector{kd.BranchPoint})::SectorBlockMatrix
 
@@ -267,14 +321,19 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
 end
 
 """
-Recursively traverse a tree of all configurations (lists of nodes) stemming from given
-topology and contributing to the quantity of interest.
+    $(TYPEDSIGNATURES)
 
-eval            : Evaluator object.
-pos             : Position of the currently processed node in the configuration.
-s_i             : Left block index of the matrix representation of the current node.
-s_f             : Right block index expected at the final node.
-pair_int_weight : Current weight of the pair interaction contribution.
+Recursively traverse a tree of all configurations stemming from a given topology and
+contributing to the quantity of interest. The result is accumulated in
+`eval.top_result_mats`.
+
+# Parameters
+- `eval`:            Evaluator object.
+- `pos`:             Position of the currently processed [`Node`](@ref) in the
+                     configuration.
+- `s_i`:             Left block index of the matrix representation of the current node.
+- `s_f`:             Right block index expected at the final node.
+- `pair_int_weight`: Current weight of the pair interaction contribution.
 """
 function _traverse_configuration_tree!(eval::TopologyEvaluator,
                                        pos::Int,
@@ -372,6 +431,7 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
         @assert false
     end
 
+    return
 end
 
 end # module topology_eval
