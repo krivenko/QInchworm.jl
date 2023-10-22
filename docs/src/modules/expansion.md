@@ -1,26 +1,11 @@
-```@meta
-CurrentModule = QInchworm
-```
-
 # [`QInchworm.expansion`](@id QInchworm.expansion)
 
-```@autodocs
-Modules = [QInchworm.expansion]
-Order   = [:module]
+```@meta
+CurrentModule = QInchworm.expansion
 ```
-
-## Public API
-
-```@autodocs
-Modules = [QInchworm.expansion]
-Order   = [:type, :function]
-Private = false
-```
-
-## Internals
-
-```@autodocs
-Modules = [QInchworm.expansion]
-Order   = [:constant, :type, :function]
-Public  = false
+```@docs
+AllPPGFSectorTypes
+AllPPGFTypes
+set_bold_ppgf!
+set_bold_ppgf_at_order!
 ```

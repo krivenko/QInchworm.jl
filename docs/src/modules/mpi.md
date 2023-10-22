@@ -1,17 +1,12 @@
-```@meta
-CurrentModule = QInchworm
-```
-
 # [`QInchworm.mpi`](@id QInchworm.mpi)
 
-```@autodocs
-Modules = [QInchworm.mpi]
-Order   = [:module]
+```@meta
+CurrentModule = QInchworm.mpi
 ```
-
-## Internals
-
-```@autodocs
-Modules = [QInchworm.mpi]
-Public  = false
+```@docs
+mpi
+ismaster
+rank_sub_range
+all_gather(::Vector{T}; ::MPI.Comm) where T
+all_reduce!(::SectorBlockMatrix, op; ::MPI.Comm)
 ```

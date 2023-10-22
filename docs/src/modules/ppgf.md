@@ -1,26 +1,29 @@
-```@meta
-CurrentModule = QInchworm
-```
-
 # [`QInchworm.ppgf`](@id QInchworm.ppgf)
 
-```@autodocs
-Modules = [QInchworm.ppgf]
-Order   = [:module]
+```@meta
+CurrentModule = QInchworm.ppgf
 ```
 
-## Public API
+## Operators and their matrices
 
-```@autodocs
-Modules = [QInchworm.ppgf]
-Order   = [:type, :constant, :function]
-Private = false
+```@docs
+total_density_operator
+operator_matrix_representation
+operator_product
 ```
 
-## Internals
+## Pseudo-particle Green's functions
 
-```@autodocs
-Modules = [QInchworm.ppgf]
-Order   = [:type, :constant, :function]
-Public  = false
+```@docs
+FullTimePPGFSector
+ImaginaryTimePPGFSector
+atomic_ppgf!
+first_order_spgf
+first_order_spgf!
+check_ppgf_real_time_symmetries
+set_ppgf_initial_conditions!
+ppgf_real_time_initial_conditions!
+set_ppgf_symmetric!
+initial_ppgf_derivative
+reduced_ppgf
 ```

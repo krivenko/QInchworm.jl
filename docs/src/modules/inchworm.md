@@ -1,26 +1,10 @@
-```@meta
-CurrentModule = QInchworm
-```
-
 # [`QInchworm.inchworm`](@id QInchworm.inchworm)
 
-```@autodocs
-Modules = [QInchworm.inchworm]
-Order   = [:module]
+```@meta
+CurrentModule = QInchworm.inchworm
 ```
-
-## Public API
-
-```@autodocs
-Modules = [QInchworm.inchworm]
-Order   = [:type, :function]
-Private = false
-```
-
-## Internals
-
-```@autodocs
-Modules = [QInchworm.inchworm]
-Order   = [:type, :function]
-Public  = false
+```@docs
+TopologiesInputData
+inchworm_step
+inchworm_step_bare
 ```

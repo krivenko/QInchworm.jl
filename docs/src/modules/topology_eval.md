@@ -1,21 +1,10 @@
-```@meta
-CurrentModule = QInchworm
-```
-
 # [`QInchworm.topology_eval`](@id QInchworm.topology_eval)
-
-```@autodocs
-Modules = [QInchworm.topology_eval]
-Order   = [:module]
-```
-
-## Internals
 
 ```@meta
 CurrentModule = QInchworm.topology_eval
 ```
-
 ```@docs
+topology_eval
 NodeKind
 Node
 FixedNode

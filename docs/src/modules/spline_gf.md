@@ -1,27 +1,10 @@
-```@meta
-CurrentModule = QInchworm
-```
-
 # [`QInchworm.spline_gf`](@id QInchworm.spline_gf)
-
-```@autodocs
-Modules = [QInchworm.spline_gf]
-Order   = [:module]
-```
-
-## Public API
-
-```@autodocs
-Modules = [QInchworm.spline_gf]
-Order = [:type, :function]
-Private = false
-```
-
-## Internals
 
 ```@meta
 CurrentModule = QInchworm.spline_gf
 ```
+
+## `SplineInterpolatedGF`
 
 ```@docs
 make_interpolant(::kd.ImaginaryTimeGF{T, scalar}, k, l, ::kd.TimeGridPoint) where {
@@ -34,6 +17,11 @@ interpolate(::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, true}, T, true},
             ::kd.BranchPoint, ::kd.BranchPoint) where T
 interpolate(::SplineInterpolatedGF{kd.ImaginaryTimeGF{T, false}, T, false},
             ::kd.BranchPoint, ::kd.BranchPoint) where T
+```
+
+## `IncSplineImaginaryTimeGF`
+
+```@docs
 IncSplineImaginaryTimeGF
 IncSplineImaginaryTimeGF(::kd.ImaginaryTimeGF{T, true}, ::T) where {T <: Number}
 IncSplineImaginaryTimeGF(::kd.ImaginaryTimeGF{T, false}, ::Matrix{T}) where {T <: Number}

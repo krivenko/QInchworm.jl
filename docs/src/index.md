@@ -26,12 +26,15 @@ two-point correlation functions for it.
        Phys. Rev. Lett. 115, 266802 (2015)]
       (https://link.aps.org/doi/10.1103/PhysRevLett.115.266802)
 
-## Submodules
+## Public API
 
-```@autodocs
-Modules = [QInchworm]
-Order   = [:module]
-```
+- [`QInchworm.expansion`](@ref api:QInchworm.expansion)
+- [`QInchworm.inchworm`](@ref api:QInchworm.inchworm)
+- [`QInchworm.ppgf`](@ref api:QInchworm.ppgf)
+- [`QInchworm.spline_gf`](@ref api:QInchworm.spline_gf)
+- [`QInchworm.utility`](@ref api:QInchworm.utility)
+
+## Internals
 
 - [`QInchworm.expansion`](@ref QInchworm.expansion)
 - [`QInchworm.inchworm`](@ref QInchworm.inchworm)

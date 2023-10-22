@@ -1,17 +1,15 @@
-```@meta
-CurrentModule = QInchworm
-```
-
 # [`QInchworm.sector_block_matrix`](@id QInchworm.sector_block_matrix)
 
-```@autodocs
-Modules = [QInchworm.sector_block_matrix]
-Order   = [:module]
+```@meta
+CurrentModule = QInchworm.sector_block_matrix
 ```
-
-## Internals
-
-```@autodocs
-Modules = [QInchworm.sector_block_matrix]
-Public  = false
+```@docs
+sector_block_matrix
+SectorBlockMatrix
+operator_to_sector_block_matrix
+Base.zeros(::Type{SectorBlockMatrix}, ::EDCore)
+Base.zero(::SectorBlockMatrix)
+Base.fill!(::SectorBlockMatrix, x)
+LinearAlgebra.tr(::SectorBlockMatrix)
+Base.isapprox(::SectorBlockMatrix, ::SectorBlockMatrix; atol::Real)
 ```

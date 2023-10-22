@@ -35,7 +35,8 @@ makedocs(;
     pages=[
         "Home" => "index.md",
         "Example" => "example.md",
-        "Submodules" => String[
+        "Public API" => "api.md",
+        "Internals" => String[
             "modules/expansion.md",
             "modules/inchworm.md",
             "modules/ppgf.md",
