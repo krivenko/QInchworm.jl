@@ -119,7 +119,7 @@ time-independent exact diagonalization problem `ed`.
 
 As the resulting PPGF ``P(z, z')`` is defined up to a multiplier ``e^{-i\\lambda (z-z')}``,
 we choose the energy shift ``\\lambda`` to fulfil the normalization property
-``i \\mathrm{Tr}[P(-i\\beta, 0)] = 1``.
+``\\mathrm{Tr}[i P(-i\\beta, 0)] = 1``.
 """
 function atomic_ppgf(grid::kd.FullTimeGrid, ed::ked.EDCore)::FullTimePPGF
     P = [kd.GenericTimeGF(grid, length(s)) for s in ed.subspaces]
@@ -135,7 +135,7 @@ time-independent exact diagonalization problem `ed`.
 
 As the resulting PPGF ``P(\\tau)`` is defined up to a multiplier ``e^{-\\lambda\\tau}``,
 we choose the energy shift ``\\lambda`` to fulfil the normalization property
-``i \\mathrm{Tr}[P(\\beta)] = 1``.
+``\\mathrm{Tr}[i P(\\beta)] = 1``.
 """
 function atomic_ppgf(grid::kd.ImaginaryTimeGrid, ed::ked.EDCore)::ImaginaryTimePPGF
     P = [kd.ImaginaryTimeGF(grid, length(s)) for s in ed.subspaces]
@@ -556,7 +556,7 @@ end
 """
     $(TYPEDSIGNATURES)
 
-Extract the partition function ``Z = i\\mathrm{Tr}[P(-i\\beta, 0)]`` from a un-normalized
+Extract the partition function ``Z = \\mathrm{Tr}[i P(-i\\beta, 0)]`` from a un-normalized
 pseudo-particle Green's function `P`.
 """
 function partition_function(P::Vector{<:kd.AbstractTimeGF})::ComplexF64
@@ -572,7 +572,7 @@ end
 
 Normalize a pseudo-particle Green's function `P` by multiplying it by
 ``e^{-i\\lambda (z-z')}`` with ``\\lambda`` chosen such that
-``i\\mathrm{Tr}[P(-i\\beta, 0)] = 1``.
+``\\mathrm{Tr}[i P(-i\\beta, 0)] = 1``.
 
 # Returns
 The energy shift ``\\lambda``.
