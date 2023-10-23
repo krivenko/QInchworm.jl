@@ -37,8 +37,8 @@ Complex block matrix stored as a dictionary of non-vanishing blocks.
 Each element of the dictionary has the form
 `right block index => (left block index, block)`.
 
-Objects of this type support addition/subtraction, matrix multiplication and multiplication
-by a scalar.
+Objects of this type support addition/subtraction, matrix multiplication and
+multiplication/division by a scalar.
 """
 const SectorBlockMatrix = Dict{Int64, Tuple{Int64, Matrix{ComplexF64}}}
 
@@ -135,6 +135,11 @@ function LinearAlgebra.tr(A::SectorBlockMatrix)::ComplexF64
                init=zero(ComplexF64))
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+`p`-norm of a [`SectorBlockMatrix`](@ref) `A`.
+"""
 function LinearAlgebra.norm(A::SectorBlockMatrix, p::Real=2)
     isempty(A) && return float(norm(zero(eltype(A))))
 
@@ -165,6 +170,15 @@ function Base.isapprox(A::SectorBlockMatrix, B::SectorBlockMatrix; atol::Real=0)
     return true
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Compute the sample variance of collection of [`SectorBlockMatrix`](@ref) `itr`.
+
+If `corrected` is `true`, then the sum is scaled with `n-1`, whereas the sum is scaled
+with `n` if `corrected` is `false` where `n` is the number of elements in `itr`.
+A pre-computed `mean` may be provided.
+"""
 function Statistics.var(itr::AbstractArray{SectorBlockMatrix};
                         corrected::Bool=true,
                         mean=nothing)
@@ -183,6 +197,15 @@ function Statistics.var(itr::AbstractArray{SectorBlockMatrix};
     return v
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Compute the sample standard deviation of collection `itr`.
+
+If `corrected` is `true`, then the sum is scaled with `n-1`, whereas the sum is scaled
+with `n` if `corrected` is `false` where `n` is the number of elements in `itr`.
+A pre-computed `mean` may be provided.
+"""
 function Statistics.std(itr::AbstractArray{SectorBlockMatrix};
                         corrected::Bool=true,
                         mean=nothing)
