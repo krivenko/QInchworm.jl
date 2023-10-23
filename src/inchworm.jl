@@ -81,7 +81,7 @@ struct TopologiesInputData
     "Number of qMC samples per sequence (should be a power of 2)"
     N_samples::Int
     "qMC randomization parameters"
-    randomization_params::RandomizationParams
+    rand_params::RandomizationParams
 end
 
 # http://patorjk.com/software/taag/#p=display&f=Graffiti&t=QInchWorm
@@ -163,7 +163,7 @@ function inchworm_step(expansion::Expansion,
 
             @timeit tmr "Evaluation" begin
             order_contrib_mean, order_contrib_std =
-            mean_std_from_randomization(2 * td.order, td.randomization_params) do seq
+            mean_std_from_randomization(2 * td.order, td.rand_params) do seq
                 skip!(seq, first(N_range) - 1, exact=true)
                 res::SectorBlockMatrix = rank_weight * contour_integral(
                     t -> eval(td.topologies, t),
@@ -261,7 +261,7 @@ function inchworm_step_bare(expansion::Expansion,
 
             @timeit tmr "Evaluation" begin
             order_contrib, order_contrib_std =
-            mean_std_from_randomization(d, td.randomization_params) do seq
+            mean_std_from_randomization(d, td.rand_params) do seq
                 skip!(seq, first(N_range) - 1, exact=true)
                 res::SectorBlockMatrix = rank_weight * contour_integral(
                     t -> eval(td.topologies, t),
@@ -299,18 +299,17 @@ Perform a complete qMC inchworm calculation of the bold propagators on the imagi
 time segment. Results of the calculation are written into `expansion.P`.
 
 # Parameters
-- `expansion`:            Strong coupling expansion problem.
-- `grid`:                 Imaginary time grid of the bold propagators.
-- `orders`:               List of expansion orders to be accounted for during a regular
-                          inchworm step.
-- `orders_bare`:          List of expansion orders to be accounted for during the initial
-                          inchworm step.
-- `N_samples`:            Number of samples to be used in qMC integration. Must be a power
-                          of 2.
-- `n_pts_after_max`:      Maximum number of points in the after-``\\tau_w`` region to be
-                          taken into account. By default, diagrams with all valid numbers of
-                          the after-``\\tau_w`` points are considered.
-- `randomization_params`: Parameters of the randomized qMC integration.
+- `expansion`:       Strong coupling expansion problem.
+- `grid`:            Imaginary time grid of the bold propagators.
+- `orders`:          List of expansion orders to be accounted for during a regular
+                     inchworm step.
+- `orders_bare`:     List of expansion orders to be accounted for during the initial
+                     inchworm step.
+- `N_samples`:       Number of samples to be used in qMC integration. Must be a power of 2.
+- `n_pts_after_max`: Maximum number of points in the after-``\\tau_w`` region to be
+                     taken into account. By default, diagrams with all valid numbers of
+                     the after-``\\tau_w`` points are considered.
+- `rand_params`:     Parameters of the randomized qMC integration.
 """
 function inchworm!(expansion::Expansion,
                    grid::kd.ImaginaryTimeGrid,
@@ -318,12 +317,12 @@ function inchworm!(expansion::Expansion,
                    orders_bare,
                    N_samples::Int64;
                    n_pts_after_max::Int64 = typemax(Int64),
-                   randomization_params::RandomizationParams = RandomizationParams())
+                   rand_params::RandomizationParams = RandomizationParams())
 
     tmr = TimerOutput()
 
     @assert N_samples == 0 || ispow2(N_samples)
-    @assert randomization_params.N_seqs > 0
+    @assert rand_params.N_seqs > 0
 
     if ismaster()
         comm = MPI.COMM_WORLD
@@ -342,7 +341,7 @@ function inchworm!(expansion::Expansion,
         # qMC samples = $(N_samples)
         # MPI ranks = $(comm_size)
         # qMC samples (per rank, min:max) = $(minimum(N_split)):$(maximum(N_split))
-        $(randomization_params)
+        $(rand_params)
         """
     end
 
@@ -373,7 +372,7 @@ function inchworm!(expansion::Expansion,
                                   2 * order,
                                   topologies,
                                   N_samples,
-                                  randomization_params)
+                                  rand_params)
         )
 
         end; end; end # tmr "Bare" "Order" "Topologies"
@@ -424,7 +423,7 @@ function inchworm!(expansion::Expansion,
                           n_pts_after,
                           topologies,
                           N_samples,
-                          randomization_params
+                          rand_params
                       )
                 )
             end
@@ -547,7 +546,7 @@ function correlator_2p(expansion::Expansion,
 
             @timeit tmr "Evaluation" begin
             order_contrib, order_contrib_std =
-            mean_std_from_randomization((2 * td.order), td.randomization_params) do seq
+            mean_std_from_randomization((2 * td.order), td.rand_params) do seq
                 skip!(seq, first(N_range) - 1, exact=true)
                 res::ComplexF64 = rank_weight * contour_integral(
                     t -> tr(eval(td.topologies, t)),
@@ -582,11 +581,12 @@ time segment. Accumulation is performed for each pair of operators ``(A, B)`` in
 ``c/c^\\dagger`` are supported.
 
 # Parameters
-- `expansion`: Strong coupling expansion problem. `expansion.P` must contain precomputed
-               bold propagators.
-- `grid`:      Imaginary time grid of the correlator to be computed.
-- `orders`:    List of expansion orders to be accounted for.
-- `N_samples`: Number of samples to be used in qMC integration. Must be a power of 2.
+- `expansion`:   Strong coupling expansion problem. `expansion.P` must contain precomputed
+                 bold propagators.
+- `grid`:        Imaginary time grid of the correlator to be computed.
+- `orders`:      List of expansion orders to be accounted for.
+- `N_samples`:   Number of samples to be used in qMC integration. Must be a power of 2.
+- `rand_params`: Parameters of the randomized qMC integration.
 
 # Returns
 - `corr`: A list of scalar-valued GF objects containing the computed correlators,
@@ -599,14 +599,14 @@ function correlator_2p(expansion::Expansion,
                        grid::kd.ImaginaryTimeGrid,
                        orders,
                        N_samples::Int64;
-                       randomization_params::RandomizationParams = RandomizationParams()
+                       rand_params::RandomizationParams = RandomizationParams()
                        )::Tuple{Vector{kd.ImaginaryTimeGF{ComplexF64, true}},
                                 Vector{kd.ImaginaryTimeGF{ComplexF64, true}}}
 
     tmr = TimerOutput()
 
     @assert N_samples == 0 || ispow2(N_samples)
-    @assert randomization_params.N_seqs > 0
+    @assert rand_params.N_seqs > 0
     @assert grid.contour.β == expansion.P[1].grid.contour.β
 
     if ismaster()
@@ -623,7 +623,7 @@ function correlator_2p(expansion::Expansion,
         # qMC samples = $(N_samples)
         # MPI ranks = $(comm_size)
         # qMC samples (per rank, min:max) = $(minimum(N_split)):$(maximum(N_split))
-        $(randomization_params)
+        $(rand_params)
         """
     end
 
@@ -648,7 +648,7 @@ function correlator_2p(expansion::Expansion,
                             n_pts_after,
                             topologies,
                             N_samples,
-                            randomization_params
+                            rand_params
                         )
                 )
             end

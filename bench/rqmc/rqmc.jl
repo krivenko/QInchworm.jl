@@ -94,7 +94,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, N_seqs, n_pt
 
     inchworm!(expansion, grid, orders, orders_bare, N_samples;
               n_pts_after_max=n_pts_after_max,
-              randomization_params=rand_params)
+              rand_params=rand_params)
 
     λ = normalize!(expansion.P, β)
 
@@ -106,7 +106,7 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, N_seqs, n_pt
 
     add_corr_operators!(expansion, (op.c(1), op.c_dag(1)))
     g, g_std = correlator_2p(expansion, grid, orders_gf, N_samples;
-                             randomization_params=rand_params)
+                             rand_params=rand_params)
 
     # ==
     if ismaster()
