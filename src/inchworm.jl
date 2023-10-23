@@ -426,7 +426,7 @@ function inchworm!(expansion::Expansion,
 
     ismaster() && @debug string("Timed sections in inchworm!()\n", tmr)
 
-    return Nothing
+    return
 end
 
 #
