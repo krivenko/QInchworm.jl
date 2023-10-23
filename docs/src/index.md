@@ -26,7 +26,7 @@ two-point correlation functions for it.
        Phys. Rev. Lett. 115, 266802 (2015)]
       (https://link.aps.org/doi/10.1103/PhysRevLett.115.266802)
 
-## Public API
+### Public API
 
 - [`QInchworm.expansion`](@ref api:QInchworm.expansion)
 - [`QInchworm.inchworm`](@ref api:QInchworm.inchworm)
@@ -34,7 +34,7 @@ two-point correlation functions for it.
 - [`QInchworm.spline_gf`](@ref api:QInchworm.spline_gf)
 - [`QInchworm.utility`](@ref api:QInchworm.utility)
 
-## Internals
+### Internals
 
 - [`QInchworm.expansion`](@ref QInchworm.expansion)
 - [`QInchworm.inchworm`](@ref QInchworm.inchworm)

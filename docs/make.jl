@@ -48,6 +48,6 @@ makedocs(;
             "modules/topology_eval.md",
             "modules/qmc_integrate.md"
         ],
-        "About QInchworm.jl" => "about.md"
+        "About" => "about.md"
     ]
 )
