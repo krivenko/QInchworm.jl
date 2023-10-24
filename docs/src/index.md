@@ -44,6 +44,7 @@ two-point correlation functions for it.
 - [`QInchworm.spline_gf`](@ref QInchworm.spline_gf)
 - [`QInchworm.utility`](@ref QInchworm.utility)
 - [`QInchworm.mpi`](@ref QInchworm.mpi)
+- [`QInchworm.scrambled_sobol`](@ref QInchworm.scrambled_sobol)
 - [`QInchworm.qmc_integrate`](@ref QInchworm.qmc_integrate)
 - [`QInchworm.randomization`](@ref QInchworm.randomization)
 - [`QInchworm.diagrammatics`](@ref QInchworm.diagrammatics)
