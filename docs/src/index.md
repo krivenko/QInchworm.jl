@@ -30,6 +30,7 @@ two-point correlation functions for it.
 
 - [`QInchworm.expansion`](@ref api:QInchworm.expansion)
 - [`QInchworm.inchworm`](@ref api:QInchworm.inchworm)
+- [`QInchworm.randomization`](@ref api:QInchworm.randomization)
 - [`QInchworm.ppgf`](@ref api:QInchworm.ppgf)
 - [`QInchworm.spline_gf`](@ref api:QInchworm.spline_gf)
 - [`QInchworm.utility`](@ref api:QInchworm.utility)
@@ -44,5 +45,6 @@ two-point correlation functions for it.
 - [`QInchworm.utility`](@ref QInchworm.utility)
 - [`QInchworm.mpi`](@ref QInchworm.mpi)
 - [`QInchworm.qmc_integrate`](@ref QInchworm.qmc_integrate)
+- [`QInchworm.randomization`](@ref QInchworm.randomization)
 - [`QInchworm.diagrammatics`](@ref QInchworm.diagrammatics)
 - [`QInchworm.topology_eval`](@ref QInchworm.topology_eval)

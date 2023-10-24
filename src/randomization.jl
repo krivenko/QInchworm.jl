@@ -17,6 +17,12 @@
 #
 # Author: Igor Krivenko
 
+"""
+Randomized quasi Monte Carlo.
+
+# Exports
+$(EXPORTS)
+"""
 module randomization
 
 using DocStringExtensions
@@ -27,19 +33,21 @@ using LinearAlgebra: norm
 
 using QInchworm.ScrambledSobol: ScrambledSobolSeq
 
-#
-# Randomized quasi Monte Carlo
-#
+export RandomizationParams
 
 """
-$(TYPEDEF)
+    $(TYPEDEF)
 
 Parameters of the randomized qMC integration.
 
+# Fields
 $(TYPEDFIELDS)
 """
 struct RandomizationParams
-    "Random Number Generator used to scramble the Sobol sequences"
+    """
+    Random Number Generator used to scramble Sobol sequences
+    or `nothing` to disable scrambling
+    """
     rng::Union{AbstractRNG, Nothing}
     "Maximal number of scrambled Sobol sequences to be used"
     N_seqs::Int64
@@ -54,7 +62,14 @@ function Base.show(io::IO, rp::RandomizationParams)
 end
 
 """
-Estimate mean and standard deviation using randomized qMC.
+    $(TYPEDSIGNATURES)
+
+Estimate mean and standard deviation using randomized quasi Monte Carlo.
+
+This function initializes a number of `D`-dimensional
+[scrambled Sobol sequences](@ref ScrambledSobolSeq) using the
+[set of parameters](@ref RandomizationParams) `params` and passes each of them to
+the function `f`. It returns the mean and the standard deviation of `f`'s return values.
 """
 function mean_std_from_randomization(f::Function, D::Int, params::RandomizationParams)
     @assert params.N_seqs > 0

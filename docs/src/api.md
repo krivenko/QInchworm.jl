@@ -43,6 +43,18 @@ inchworm!
 correlator_2p
 ```
 
+## [`QInchworm.randomization`](@id api:QInchworm.randomization)
+
+```@meta
+CurrentModule = QInchworm.randomization
+```
+```@docs
+randomization
+```
+```@docs
+RandomizationParams
+```
+
 ## [`QInchworm.ppgf`](@id api:QInchworm.ppgf)
 
 ```@meta

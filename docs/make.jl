@@ -46,7 +46,8 @@ makedocs(;
             "modules/mpi.md",
             "modules/diagrammatics.md",
             "modules/topology_eval.md",
-            "modules/qmc_integrate.md"
+            "modules/qmc_integrate.md",
+            "modules/randomization.md"
         ],
         "About" => "about.md"
     ]
