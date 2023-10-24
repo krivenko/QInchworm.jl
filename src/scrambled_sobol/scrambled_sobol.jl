@@ -9,7 +9,7 @@
 # - Inclusion of the initial point in the Sobol sequence.
 # - skip!() now skips 2^m points.
 
-module ScrambledSobol
+module scrambled_sobol
 
 using Random
 using LinearAlgebra: dot, LowerTriangular
@@ -145,4 +145,4 @@ function Base.show(io::IO, ::MIME"text/html", s::ScrambledSobolSeq)
     print(io, "$(ndims(s))-dimensional scrambled Sobol sequence on [0,1]<sup>$(ndims(s))</sup>")
 end
 
-end # module ScrambledSobol
+end # module scrambled_sobol

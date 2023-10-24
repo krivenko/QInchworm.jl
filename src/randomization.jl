@@ -31,7 +31,7 @@ using Random: AbstractRNG
 using Statistics: mean, var, std
 using LinearAlgebra: norm
 
-using QInchworm.ScrambledSobol: ScrambledSobolSeq
+using QInchworm.scrambled_sobol: ScrambledSobolSeq
 
 export RandomizationParams
 

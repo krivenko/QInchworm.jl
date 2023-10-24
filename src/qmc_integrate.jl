@@ -37,7 +37,7 @@ using MPI: MPI
 
 using Keldysh; kd = Keldysh
 
-using QInchworm.ScrambledSobol: ScrambledSobolSeq, next!
+using QInchworm.scrambled_sobol: ScrambledSobolSeq, next!
 
 #
 # AbstractDomainTransform

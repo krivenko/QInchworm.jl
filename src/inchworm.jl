@@ -42,7 +42,7 @@ using QInchworm.ppgf: partition_function
 using QInchworm; teval = QInchworm.topology_eval
 using QInchworm.diagrammatics: get_topologies_at_order
 
-using QInchworm.ScrambledSobol: ScrambledSobolSeq, next!, skip!
+using QInchworm.scrambled_sobol: ScrambledSobolSeq, next!, skip!
 using QInchworm.utility: split_count
 using QInchworm.mpi: ismaster, rank_sub_range, all_reduce!
 

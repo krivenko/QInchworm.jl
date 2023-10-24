@@ -23,7 +23,7 @@ using Random: AbstractRNG
 import Random
 
 
-using QInchworm.ScrambledSobol: ScrambledSobolSeq, next!, skip!
+using QInchworm.scrambled_sobol: ScrambledSobolSeq, next!, skip!
 
 @testset "ScrambledSobolSeq" begin
 
