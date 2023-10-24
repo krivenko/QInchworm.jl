@@ -1,49 +1,40 @@
-"""
-
-Author: Hugo U. R. Strand (2023)
-
-"""
-
-using ArgParse
-using MD5
-using QuadGK: quadgk
-using Random: MersenneTwister
-using HDF5; h5 = HDF5
+# QInchworm.jl
+#
+# Copyright (C) 2021-2023 I. Krivenko, H. U. R. Strand and J. Kleinhenz
+#
+# QInchworm.jl is free software: you can redistribute it and/or modify it under the
+# terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+#
+# QInchworm.jl is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# QInchworm.jl. If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors: Hugo U. R. Strand, Igor Krivenko
 
 using MPI; MPI.Init()
+using HDF5; h5 = HDF5
 
+using MD5
+using ArgParse
+using Random: MersenneTwister
 
 using Keldysh; kd = Keldysh
-using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
+using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators
 
-using QInchworm.ppgf: partition_function, normalize!
+using QInchworm.utility: ph_conj
+using QInchworm.ppgf: normalize!
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.inchworm: inchworm!, correlator_2p
 using QInchworm.randomization: RandomizationParams
 using QInchworm.mpi: ismaster
 
-function semi_circular_g_tau(times, t, h, β)
-
-    g_out = zero(times)
-
-    function kernel(t, w)
-        if w > 0
-            return exp(-t * w) / (1 + exp(-w))
-        else
-            return exp((1 - t)*w) / (1 + exp(w))
-        end
-    end
-
-    for (i, τ) in enumerate(times)
-        I = x -> -2 / pi / t^2 * kernel(τ/β, β*x) * sqrt(x + t - h) * sqrt(t + h - x)
-        g, err = quadgk(I, -t+h, t+h; rtol=1e-12)
-        g_out[i] = g
-    end
-
-    return g_out
-end
-
-function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, N_seqs, n_pts_after_max)
+function run_bethe(nτ, orders, orders_bare, orders_gf, N_samples, N_seqs, n_pts_after_max)
 
     β = 10.0
     μ = 0.0
@@ -51,43 +42,26 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, N_seqs, n_pt
     V = 0.5 * t_bethe
     μ_bethe = 0.0
 
-    # -- ED solution
+    # ED solution
 
     H_imp = -μ * op.n(1)
 
-    # -- Impurity problem
+    # Impurity problem
 
-    contour = kd.ImaginaryContour(β=β);
-    grid = kd.ImaginaryTimeGrid(contour, ntau);
+    contour = kd.ImaginaryContour(β=β)
+    grid = kd.ImaginaryTimeGrid(contour, nτ)
 
     soi = ked.Hilbert.SetOfIndices([[1]])
     ed = ked.EDCore(H_imp, soi)
 
-    # -- Hybridization propagator
+    # Hybridization propagator
 
-    tau = [ real(im * τ.bpoint.val) for τ in grid ]
-    delta_bethe = V^2 * semi_circular_g_tau(tau, t_bethe, μ_bethe, β)
+    Δ = V^2 * kd.ImaginaryTimeGF(kd.bethe_dos(t=t_bethe/2, ϵ=μ_bethe), grid)
 
-    Δ = kd.ImaginaryTimeGF(
-        (t1, t2) -> 1.0im * V^2 *
-            semi_circular_g_tau(
-                [-imag(t1.bpoint.val - t2.bpoint.val)],
-                t_bethe, μ_bethe, β)[1],
-        grid, 1, kd.fermionic, true)
-
-    function reverse(g::kd.ImaginaryTimeGF)
-        g_rev = deepcopy(g)
-        τ_0, τ_β = first(g.grid), last(g.grid)
-        for τ in g.grid
-            g_rev[τ, τ_0] = g[τ_β, τ]
-        end
-        return g_rev
-    end
-
-    # -- Pseudo Particle Strong Coupling Expansion
+    # Pseudo Particle Strong Coupling Expansion
 
     ip_1_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
-    ip_1_bwd = InteractionPair(op.c(1), op.c_dag(1), reverse(Δ))
+    ip_1_bwd = InteractionPair(op.c(1), op.c_dag(1), ph_conj(Δ))
     expansion = Expansion(ed, grid, [ip_1_fwd, ip_1_bwd])
 
     rand_params = RandomizationParams(MersenneTwister(12345678), N_seqs, .0)
@@ -108,68 +82,72 @@ function run_bethe(ntau, orders, orders_bare, orders_gf, N_samples, N_seqs, n_pt
     g, g_std = correlator_2p(expansion, grid, orders_gf, N_samples;
                              rand_params=rand_params)
 
-    # ==
     if ismaster()
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, vcat(g[1].mat.data...))))
-        filename = "data_order_$(orders)_ntau_$(ntau)_N_samples_$(N_samples)_N_seqs_$(N_seqs)_md5_$(id).h5"
-
+        filename = "data_order_$(orders)_ntau_$(nτ)_N_samples_$(N_samples)_md5_$(id).h5"
         @show filename
-        fid = h5.h5open(filename, "w")
-        grp = h5.create_group(fid, "data")
 
-        h5.attributes(grp)["beta"] = β
-        h5.attributes(grp)["ntau"] = ntau
-        h5.attributes(grp)["N_samples"] = N_samples
-        h5.attributes(grp)["N_seqs"] = N_seqs
-        h5.attributes(grp)["n_pts_after_max"] = n_pts_after_max
+        h5.h5open(filename, "w") do fid
+            grp = h5.create_group(fid, "data")
 
-        grp["orders"] = collect(orders)
-        grp["orders_bare"] = collect(orders_bare)
-        grp["orders_gf"] = collect(orders_gf)
+            h5.attributes(grp)["beta"] = β
+            h5.attributes(grp)["ntau"] = nτ
+            h5.attributes(grp)["N_samples"] = N_samples
+            h5.attributes(grp)["N_seqs"] = N_seqs
+            h5.attributes(grp)["n_pts_after_max"] = n_pts_after_max
 
-        grp["tau"] = collect(kd.imagtimes(g[1].grid))
+            grp["orders"] = collect(orders)
+            grp["orders_bare"] = collect(orders_bare)
+            grp["orders_gf"] = collect(orders_gf)
 
-        P_grp = h5.create_group(grp, "P")
-        P_std_grp = h5.create_group(grp, "P_std")
-        for n in axes(expansion.P, 1)
-            P_grp[string(n)] = expansion.P[n].mat.data[1, 1, :]
-            P_std_grp[string(n)] = P_std[n].mat.data[1, 1, :]
+            grp["tau"] = collect(kd.imagtimes(g[1].grid))
+
+            P_grp = h5.create_group(grp, "P")
+            P_std_grp = h5.create_group(grp, "P_std")
+            for n in axes(expansion.P, 1)
+                P_grp[string(n)] = expansion.P[n].mat.data[1, 1, :]
+                P_std_grp[string(n)] = P_std[n].mat.data[1, 1, :]
+            end
+
+            grp["gf"] = g[1].mat.data[1, 1, :]
+            grp["gf_std"] = g_std[1].mat.data[1, 1, :]
+            grp["gf_ref"] = -Δ.mat.data[1, 1, :] / V^2
         end
-
-        grp["gf"] = g[1].mat.data[1, 1, :]
-        grp["gf_std"] = g_std[1].mat.data[1, 1, :]
-        grp["gf_ref"] = -Δ.mat.data[1, 1, :] / V^2
-
-        h5.close(fid)
     end
 end
 
 s = ArgParseSettings()
 @add_arg_table s begin
-    "--order"
+    "order"
         arg_type = Int
         help = "Maximal expansion order in the PPGF calculations"
-    "--ntau"
+    "ntau"
         arg_type = Int
         help = "Number of imaginary time slices in GF meshes"
+    "N_samples"
+        arg_type = Int
+        help = "Number of qMC samples per Sobol sequence"
+    "N_seqs"
+        arg_type = Int
+        default = 1
+        help = "Number of scrambled Sobol sequences to be used"
     "--n_pts_after_max"
         arg_type = Int
         default = typemax(Int64)
         help = "Maximum number of points in the after-t_w region to be taken into account"
-    "--N_samples"
-        arg_type = Int
-        help = "Number of qMC samples per Sobol sequence"
-    "--N_seqs"
-        arg_type = Int
-        default = 1
-        help = "Number of scrambled Sobol sequences to be used"
 end
 
 parsed_args = parse_args(ARGS, s)
+
+order = parsed_args["order"]
+nτ = parsed_args["ntau"]
+N_samples = parsed_args["N_samples"]
+N_seqs = parsed_args["N_seqs"]
+n_pts_after_max = parsed_args["n_pts_after_max"]
+
 if ismaster()
-    for (arg, val) in parsed_args
-        println("$arg => $val")
-    end
+    println("order $(order) nτ $(nτ) N_samples $(N_samples) N_seqs $(N_seqs) " *
+            "n_pts_after_max $(n_pts_after_max)")
 end
 
 order = parsed_args["order"]
@@ -178,10 +156,4 @@ order_gf = order - 1
 orders = 0:order
 orders_gf = 0:order_gf
 
-run_bethe(parsed_args["ntau"],
-          orders,
-          orders,
-          orders_gf,
-          parsed_args["N_samples"],
-          parsed_args["N_seqs"],
-          parsed_args["n_pts_after_max"])
+run_bethe(nτ, orders, orders, orders_gf, N_samples, N_seqs, n_pts_after_max)

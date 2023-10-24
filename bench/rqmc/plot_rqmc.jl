@@ -1,7 +1,24 @@
-using Glob: glob
-using HDF5; h5 = HDF5;
+# QInchworm.jl
+#
+# Copyright (C) 2021-2023 I. Krivenko, H. U. R. Strand and J. Kleinhenz
+#
+# QInchworm.jl is free software: you can redistribute it and/or modify it under the
+# terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+#
+# QInchworm.jl is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# QInchworm.jl. If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors: Hugo U. R. Strand, Igor Krivenko
 
-using PyPlot; plt = PyPlot;
+using PyPlot; plt = PyPlot
+using HDF5; h5 = HDF5
 
 function read_group(group)
     return merge(
@@ -11,7 +28,6 @@ function read_group(group)
 end
 
 filenames = filter(f -> occursin("data_", f), readdir(".", join=true))
-@show filenames
 
 for filename in filenames
     @show filename
@@ -46,7 +62,7 @@ for filename in filenames
     # Plot GF
     plt.subplot(2, 1, 2);
     plt.errorbar(τ, -imag(d["gf"]), yerr=real(d["gf_std"]),
-                 lw=0.5, color="red", label="RqMC")
+                lw=0.5, color="red", label="RqMC")
     plt.plot(τ, imag(d["gf_ref"]), lw=0.5, color="blue", label="ref")
     plt.title("orders = $(orders), N_samples = $(N_samples), N_seqs = $(N_seqs)")
     plt.xlim((0, β))
