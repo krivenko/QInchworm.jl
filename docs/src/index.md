@@ -18,12 +18,12 @@ to solve a quantum impurity problem in thermodynamic equilibrium and to compute
 two-point correlation functions for it.
 
 [^1]: [Inchworm quasi Monte Carlo for quantum impurities.
-       Hugo U. R. Strand, Joseph Kleinhenz and Igor Krivenko.]
-      (arXiv link)
+       Hugo U. R. Strand, Joseph Kleinhenz and Igor Krivenko.
+       arXiv:2310.16957.](https://arxiv.org/abs/2310.16957)
 [^2]: [Taming the Dynamical Sign Problem in Real-Time Evolution of Quantum
        Many-Body Problems.
        Guy Cohen, Emanuel Gull, David R. Reichman, and Andrew J. Millis.
-       Phys. Rev. Lett. 115, 266802 (2015)]
+       Phys. Rev. Lett. 115, 266802 (2015).]
       (https://link.aps.org/doi/10.1103/PhysRevLett.115.266802)
 
 ### Public API

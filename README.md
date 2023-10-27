@@ -8,7 +8,7 @@ https://github.com/krivenko/QInchworm.jl/actions/workflows/CI.yml)
 A quasi Monte Carlo inchworm impurity solver for multi-orbital fermionic models.
 
 This package implements the quasi Monte Carlo variant of the inchworm algorithm
-as described in arXiv:...
+as described in [arXiv:2310.16957](https://arxiv.org/abs/2310.16957).
 
 Copyright (C) 2021-2023 Igor Krivenko, Hugo U. R. Strand and Joseph Kleinhenz
 
