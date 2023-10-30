@@ -55,8 +55,9 @@ using QInchworm.configuration: Configuration,
                                sector_block_matrix_from_ppgf
 using QInchworm.configuration: Node, InchNode, OperatorNode
 
-using QInchworm.qmc_integrate: qmc_time_ordered_integral_root,
-                               qmc_inchworm_integral_root
+using QInchworm.qmc_integrate: contour_integral,
+                               RootTransform,
+                               DoubleSimplexRootTransform
 
 export inchworm!, correlator_2p
 
@@ -150,6 +151,7 @@ function inchworm_step(expansion::Expansion,
 
             fixed_nodes = Dict(1 => n_i, d_before + 2 => n_w, 2 * td.order + 3 => n_f)
             eval = teval.TopologyEvaluator(expansion, td.order, fixed_nodes, tmr=tmr)
+            trans = DoubleSimplexRootTransform(d_before, d_after, c, t_i, t_w, t_f)
 
             N_range = rank_sub_range(td.N_samples)
             rank_weight = length(N_range) / td.N_samples
@@ -159,10 +161,10 @@ function inchworm_step(expansion::Expansion,
             end # tmr
 
             @timeit tmr "Evaluation" begin
-            order_contrib = rank_weight * qmc_inchworm_integral_root(
+            order_contrib = rank_weight * contour_integral(
                 t -> eval(td.topologies, t),
-                d_before, d_after,
-                c, t_i, t_w, t_f,
+                c,
+                trans,
                 init = deepcopy(zero_sector_block_matrix),
                 seq = seq,
                 N = length(N_range)
@@ -243,6 +245,7 @@ function inchworm_step_bare(expansion::Expansion,
 
             fixed_nodes = Dict(1 => n_i, 2 * td.order + 2 => n_f)
             eval = teval.TopologyEvaluator(expansion, td.order, fixed_nodes, tmr=tmr)
+            trans = RootTransform(d, c, t_i, t_f)
 
             N_range = rank_sub_range(td.N_samples)
             rank_weight = length(N_range) / td.N_samples
@@ -252,10 +255,10 @@ function inchworm_step_bare(expansion::Expansion,
             end # tmr
 
             @timeit tmr "Evaluation" begin
-            order_contrib = rank_weight * qmc_time_ordered_integral_root(
+            order_contrib = rank_weight * contour_integral(
                 t -> eval(td.topologies, t),
-                d,
-                c, t_i, t_f,
+                c,
+                trans,
                 init = deepcopy(zero_sector_block_matrix),
                 seq = seq,
                 N = length(N_range)
@@ -493,6 +496,10 @@ function correlator_2p(expansion::Expansion,
 
             fixed_nodes = Dict(1 => n_B, d_before + 2 => n_A, 2 * td.order + 3 => n_f)
             eval = teval.TopologyEvaluator(expansion, td.order, fixed_nodes, tmr=tmr)
+            trans = DoubleSimplexRootTransform(d_before,
+                                               d_after,
+                                               grid.contour,
+                                               t_B, t_A, t_f)
 
             N_range = rank_sub_range(td.N_samples)
             rank_weight = length(N_range) / td.N_samples
@@ -502,10 +509,10 @@ function correlator_2p(expansion::Expansion,
             end # tmr
 
             @timeit tmr "Evaluation" begin
-            order_contrib = rank_weight * qmc_inchworm_integral_root(
+            order_contrib = rank_weight * contour_integral(
                 t -> tr(eval(td.topologies, t)),
-                d_before, d_after,
-                grid.contour, t_B, t_A, t_f,
+                grid.contour,
+                trans,
                 init = ComplexF64(0),
                 seq = seq,
                 N = length(N_range)

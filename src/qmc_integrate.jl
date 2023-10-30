@@ -20,20 +20,14 @@
 """
 Quasi Monte Carlo integration routines.
 
-Concepts and notation used here are introduced in
+[^1]: Integration domain transformations based on product model functions are described in
+      "Quantum Quasi-Monte Carlo Technique for Many-Body Perturbative Expansions",
+      M. Maček, P. T. Dumitrescu, C. Bertrand, B.Triggs, O. Parcollet, and X. Waintal,
+      Phys. Rev. Lett. 125, 047702 (2020).
 
-```
-Quantum Quasi-Monte Carlo Technique for Many-Body Perturbative Expansions
-M. Maček, P. T. Dumitrescu, C. Bertrand, B.Triggs, O. Parcollet, and X. Waintal
-Phys. Rev. Lett. 125, 047702 (2020)
-```
-
-Integration domain transformations `Sort` and `Root` are defined in
-```
-Transforming low-discrepancy sequences from a cube to a simplex
-T. Pillards and R. Cools
-J. Comput. Appl. Math. 174, 29 (2005)
-```
+[^2]: Integration domain transformations `Sort` and `Root` are defined in
+      "Transforming low-discrepancy sequences from a cube to a simplex",
+      T. Pillards and R. Cools, J. Comput. Appl. Math. 174, 29 (2005).
 """
 module qmc_integrate
 
@@ -45,144 +39,517 @@ using Keldysh; kd = Keldysh
 
 using QInchworm.utility: SobolSeqWith0, next!
 
+#
+# AbstractDomainTransform
+#
+
+"""
+    $(TYPEDEF)
+
+Abstract domain transformation ``[0, 1]^d \\mapsto \\mathscr{D}``.
+"""
+abstract type AbstractDomainTransform{D} end
+
 """
     $(TYPEDSIGNATURES)
 
-Make the model function ``p_d(\\mathbf{u}) = \\prod_{i=1}^d h_i(u_{i-1} - u_i)``
-out of a list of functions ``h_i(v)``.
-
-``u_0`` is the distance measured along the time contour `c` to the point `t_f`.
+Return the number of dimensions ``d`` of a domain transformation
+``[0, 1]^d \\mapsto \\mathscr{D}``.
 """
-function make_model_function(c::kd.AbstractContour, t_f::kd.BranchPoint, h::Vector)
-    u_f = kd.get_ref(c, t_f)
-    # Eq. (6)
-    return u::Vector{Float64} -> begin
-        # Transformation u -> v
-        v = similar(u)
-        v[1] = u_f - u[1]
-        v[2:end] = -diff(u)
-        # Product of h(v_i)
-        reduce(*, [hi(vi) for (hi, vi) in zip(h, v)])
-    end
+Base.ndims(::AbstractDomainTransform{D}) where D = D
+
+#
+# ExpModelFunctionTransform
+#
+
+"""
+    $(TYPEDEF)
+
+Domain transformation
+```math
+\\mathbf{x}\\in[0,1]^d \\mapsto
+    \\{\\mathbf{u}: u_f \\geq u_1 \\geq u_2 \\geq \\ldots \\geq u_d > -\\infty\\}
+```
+induced by the implicit variable change
+```math
+x_n(v_n) = \\frac{\\int_0^{v_n} d\\bar v_n h(\\bar v_n)}
+                 {\\int_0^\\infty d\\bar v_n h(\\bar v_n)},
+\\quad
+v_n = \\left\\{
+\\begin{array}{ll}
+u_f - u_1, &n=1,\\\\
+u_{n-1} - u_n, &n>1,
+\\end{array}
+\\right.
+```
+where ``h(v)`` is an exponential model function parametrized by decay rate ``\\tau``,
+``h(v) = e^{-v/\\tau}``.
+
+The corresponding Jacobian is ``J(\\mathbf{u}) = \\tau^d / e^{-(u_f - u_d) / \\tau}``.
+
+# Fields
+$(TYPEDFIELDS)
+"""
+struct ExpModelFunctionTransform{D} <: AbstractDomainTransform{D}
+    "Upper bound of the transformed domain ``u_f``"
+    u_f::Float64
+    "Decay rate parameter of the exponential model function"
+    τ::Float64
 end
 
 """
-    $(TYPEDSIGNATURES)
+$(TYPEDSIGNATURES)
 
-Make the model function ``p_d(\\mathbf{u}) = \\prod_{i=1}^d h(u_{i-1} - u_i)`` out of an
-exponential function ``h(v) = e^{-v/\\tau}``.
-
-``u_0`` is the distance measured along the time contour `c` to the point `t_f`.
-"""
-function make_exp_model_function(c::kd.AbstractContour,
-                                 t_f::kd.BranchPoint,
-                                 τ::Real,
-                                 d::Int)
-    u_f = kd.get_ref(c, t_f)
-    # Eq. (6)
-    return u::Vector{Float64} -> begin # Transformation u -> v
-        # Simplification: \sum_i exp(-v_i / τ) = exp(-(u_f - u[end]) / τ)
-        exp(-(u_f - u[end]) / τ)
-    end
-end
-
-"""
-    $(TYPEDSIGNATURES)
-
-Make a transformation from the unit hypercube ``\\mathbf{x}\\in[0, 1]^d`` to a
-``d``-dimensional simplex ``u_f > u_1 > u_2 > \\ldots > u_{d-1} > u_d > -\\infty``
-induced by the model function
-``p_d(\\mathbf{u}) = \\prod_{i=1}^d e^{(u_{i-1} - u_i)/\\tau}``.
-
-The target variables `u_i` are reference values of time points measured as distances along
-the contour `c`. ``u_0`` is the distance to the point `t_f`.
-"""
-function make_exp_trans(c::kd.AbstractContour, t_f::kd.BranchPoint, τ::Real)
-    u_f = kd.get_ref(c, t_f)
-    x -> begin
-        u = Vector{Float64}(undef, length(x))
-        u[1] = u_f + τ*log(1 - x[1])
-        for i = 2:length(x)
-            u[i] = u[i-1] + τ*log(1 - x[i])
-        end
-        u
-    end
-end
-
-"""
-    $(TYPEDSIGNATURES)
-
-Norm of the model function ``p_d(\\mathbf{u}) = \\prod_{i=1}^d e^{(u_{i-1} - u_i)/\\tau}``.
-"""
-exp_p_norm(τ::Real, d::Int)::Real = τ^d
-
-"""
-    $(TYPEDSIGNATURES)
-
-Quasi Monte Carlo integration with warping.
+Make an [`ExpModelFunctionTransform`](@ref) object suitable for time contour integration over
+the domain
+```math
+\\{(t_1, \\ldots, t_d) \\in \\mathcal{C}^d:
+    t_f \\succeq t_1 \\succeq t_2 \\succeq \\ldots \\succeq t_d \\succeq
+    \\text{starting point of }\\mathcal{C}\\}
+```
+**N.B.** [`ExpModelFunctionTransform`](@ref) describes an infinite domain where integration
+variables ``u_n`` can approach ``-\\infty``. Negative values of ``u_n`` cannot be mapped
+onto time points on ``\\mathcal{C}`` and will be discarded by [`contour_integral()`](@ref).
 
 # Parameters
-- `f`:      Integrand.
-- `init`:   Initial (zero) value of the integral.
-- `p`:      Positive model function ``p_d(\\mathbf{u})``.
-- `p_norm`: Integral of ``p_d(\\mathbf{u})`` over the ``\\mathbf{u}``-domain.
-- `trans`:  Transformation from ``\\mathbf{x}\\in[0, 1]^d`` onto the ``\\mathbf{u}``-domain.
-- `seq`:    Quasi-random sequence generator.
-- `N`:      The number of points to be taken from the quasi-random sequence.
+- `d`:   Number of dimensions ``d``.
+- `c`:   Time contour ``\\mathcal{C}``.
+- `t_f`: Upper bound ``t_f``.
+- `τ`:   Decay rate parameter ``\\tau``.
+"""
+function ExpModelFunctionTransform(d::Integer,
+                                   c::kd.AbstractContour,
+                                   t_f::kd.BranchPoint,
+                                   τ::Real)
+    return ExpModelFunctionTransform{d}(kd.get_ref(c, t_f), τ)
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Return the function ``\\mathbf{u}(\\mathbf{x})`` corresponding to a given
+[`ExpModelFunctionTransform`](@ref) object `t`.
+"""
+function make_trans_f(t::ExpModelFunctionTransform)::Function
+    d = ndims(t)
+    u = Vector{Float64}(undef, d)
+    return x -> begin
+        u[1] = t.u_f + t.τ*log(1 - x[1])
+        for i = 2:length(x)
+            u[i] = u[i-1] + t.τ*log(1 - x[i])
+        end
+        return u
+    end
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Return the Jacobian ``J(\\mathbf{u}) =
+\\left|\\frac{\\partial\\mathbf{u}}{\\partial\\mathbf{x}}\\right|`` corresponding to a given
+[`ExpModelFunctionTransform`](@ref) object `t`.
+"""
+function make_jacobian_f(t::ExpModelFunctionTransform)::Function
+    d = ndims(t)
+    norm = t.τ^d
+    return u -> begin
+        # Simplification: \sum_i exp(-v_i / τ) = exp(-(u_f - u[end]) / τ)
+        return norm / exp(-(t.u_f - u[end]) / t.τ)
+    end
+end
+
+#
+# RootTransform
+#
+
+"""
+    $(TYPEDEF)
+
+Hypercube-to-simplex domain transformation
+```math
+\\mathbf{x}\\in[0,1]^d \\mapsto
+    \\{\\mathbf{u}: u_f \\geq u_1 \\geq u_2 \\geq \\ldots \\geq u_d \\geq u_i\\}
+```
+induced by the `Root` mapping[^2]
+```math
+\\left\\{
+\\begin{array}{ll}
+\\tilde u_1 &= x_1^{1/d},\\\\
+\\tilde u_2 &= \\tilde u_1 x_2^{1/(d-1)},\\\\
+&\\ldots\\\\
+\\tilde u_d &= \\tilde u_{d-1} x_d,
+\\end{array}\\right.
+```
+```math
+\\mathbf{u} = u_i + (u_f - u_i) \\tilde{\\mathbf{u}}.
+```
+
+The corresponding Jacobian is ``J(\\mathbf{u}) = (u_f - u_i)^d / d!``.
+
+# Fields
+$(TYPEDFIELDS)
+"""
+struct RootTransform{D} <: AbstractDomainTransform{D}
+    "Lower bound of the transformed domain ``u_i``"
+    u_i::Float64
+    "Difference ``u_f - u_i``"
+    u_diff::Float64
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Make a [`RootTransform`](@ref) object suitable for time contour integration over the domain
+```math
+\\{(t_1, \\ldots, t_d) \\in \\mathcal{C}^d:
+    t_f \\succeq t_1 \\succeq t_2 \\succeq \\ldots \\succeq t_d \\succeq t_i\\}
+```
+
+# Parameters
+- `d`:   Number of dimensions ``d``.
+- `c`:   Time contour ``\\mathcal{C}``.
+- `t_i`: Lower bound ``t_i``.
+- `t_f`: Upper bound ``t_f``.
+"""
+function RootTransform(d::Integer,
+                       c::kd.AbstractContour,
+                       t_i::kd.BranchPoint,
+                       t_f::kd.BranchPoint)
+    @boundscheck kd.heaviside(c, t_f, t_i)
+    u_i = kd.get_ref(c, t_i)
+    return RootTransform{d}(u_i, kd.get_ref(c, t_f) - u_i)
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Return the function ``\\mathbf{u}(\\mathbf{x})`` corresponding to a given
+[`RootTransform`](@ref) object `t`.
+"""
+function make_trans_f(t::RootTransform)::Function
+    d = ndims(t)
+    u = Vector{Float64}(undef, d)
+    return x -> begin
+        u[1] = x[1] ^ (1.0 / d)
+        for i = 2:d
+            u[i] = u[i - 1] * (x[i] ^ (1.0 / (d - i + 1)))
+        end
+        return t.u_i .+ u * t.u_diff
+    end
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Return the Jacobian ``J(\\mathbf{u}) =
+\\left|\\frac{\\partial\\mathbf{u}}{\\partial\\mathbf{x}}\\right|`` corresponding to a given
+[`RootTransform`](@ref) object `t`.
+"""
+function make_jacobian_f(t::RootTransform)::Function
+    d = ndims(t)
+    simplex_volume = (t.u_diff ^ d) / factorial(d)
+    return u -> simplex_volume
+end
+
+#
+# SortTransform
+#
+
+"""
+    $(TYPEDEF)
+
+Hypercube-to-simplex domain transformation
+```math
+\\mathbf{x}\\in[0,1]^d \\mapsto
+    \\{\\mathbf{u}: u_f \\geq u_1 \\geq u_2 \\geq \\ldots \\geq u_d \\geq u_i\\}
+```
+induced by the `Sort` mapping[^2]
+```math
+\\mathbf{u} = u_i + (u_f - u_i) \\mathrm{sort}(x_1, \\ldots, x_d).
+```
+
+The corresponding Jacobian is ``J(\\mathbf{u}) = (u_f - u_i)^d / d!``.
+
+# Fields
+$(TYPEDFIELDS)
+"""
+struct SortTransform{D} <: AbstractDomainTransform{D}
+    "Lower bound of the transformed domain ``u_i``"
+    u_i::Float64
+    "Difference ``u_f - u_i``"
+    u_diff::Float64
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Make a [`SortTransform`](@ref) object suitable for time contour integration over the domain
+```math
+\\{(t_1, \\ldots, t_d) \\in \\mathcal{C}^d:
+    t_f \\succeq t_1 \\succeq t_2 \\succeq \\ldots \\succeq t_d \\succeq t_i\\}
+```
+
+# Parameters
+- `d`:   Number of dimensions ``d``.
+- `c`:   Time contour ``\\mathcal{C}``.
+- `t_i`: Lower bound ``t_i``.
+- `t_f`: Upper bound ``t_f``.
+"""
+function SortTransform(d::Integer,
+                       c::kd.AbstractContour,
+                       t_i::kd.BranchPoint,
+                       t_f::kd.BranchPoint)
+    @boundscheck kd.heaviside(c, t_f, t_i)
+    u_i = kd.get_ref(c, t_i)
+    return SortTransform{d}(u_i, kd.get_ref(c, t_f) - u_i)
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Return the function ``\\mathbf{u}(\\mathbf{x})`` corresponding to a given
+[`SortTransform`](@ref) object `t`.
+"""
+function make_trans_f(t::SortTransform)::Function
+    return x -> t.u_i .+ sort(x, rev=true) * t.u_diff
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Return the Jacobian ``J(\\mathbf{u}) =
+\\left|\\frac{\\partial\\mathbf{u}}{\\partial\\mathbf{x}}\\right|`` corresponding to a given
+[`SortTransform`](@ref) object `t`.
+"""
+function make_jacobian_f(t::SortTransform)::Function
+    d = ndims(t)
+    simplex_volume = (t.u_diff ^ d) / factorial(d)
+    return u -> simplex_volume
+end
+
+#
+# DoubleSimplexRootTransform
+#
+
+"""
+    $(TYPEDEF)
+Hypercube-to-double-simplex domain transformation
+
+```math
+\\mathbf{x}\\in[0,1]^d \\mapsto
+    \\{\\mathbf{u}: u_f \\geq u_1 \\geq u_2 \\geq \\ldots \\geq u_{d^>} \\geq u_w \\geq
+                    u_{d^>+1} \\geq \\ldots \\geq u_d \\geq u_i\\}
+```
+induced by the `Root` mapping[^2] applied independently to two sets of variables
+``\\{x_1, \\ldots, x_{d^>} \\}`` and ``\\{x_{d^>+1}, \\ldots, x_d \\}``
+(cf. [`RootTransform`](@ref)).
+
+The corresponding Jacobian is
+``J(\\mathbf{u}) = \\frac{(u_w - u_i)^{d^<}}{d^<!} \\frac{(u_f - u_w)^{d^>}}{d^>!}``.
+
+Here, ``d^<`` and ``d^>`` denote numbers of variables in the 'lesser' and 'greater' simplex
+respectively, and ``d = d^< + d^>``. The two simplices are separated by a fixed boundary
+located at ``u_w``.
+
+# Fields
+$(TYPEDFIELDS)
+"""
+struct DoubleSimplexRootTransform{D} <: AbstractDomainTransform{D}
+    "Number of variables in the 'lesser' simplex, ``d^<``"
+    d_lesser::Int
+    "Number of variables in the 'greater' simplex, ``d^>``"
+    d_greater::Int
+    "Lower bound of the transformed domain ``u_i``"
+    u_i::Float64
+    "Boundary ``u_w`` separating the 'lesser' and the 'greater' simplices"
+    u_w::Float64
+    "Difference ``u_w - u_i``"
+    u_diff_wi::Float64
+    "Difference ``u_f - u_w``"
+    u_diff_fw::Float64
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Make a [`DoubleSimplexRootTransform`](@ref) object suitable for time contour integration
+over the domain
+```math
+\\{(t_1, \\ldots, t_d) \\in \\mathcal{C}^d:
+    t_f \\succeq t_1 \\succeq t_2 \\succeq \\ldots \\succeq t_{d_\\text{after}} \\succeq t_w
+    \\succeq t_{d_\\text{after}+1} \\succeq \\ldots \\succeq t_d \\succeq t_i\\},
+```
+where ``d = d_\\text{before} + d_\\text{after}``.
+
+# Parameters
+- `d_before`: Number of time variables in the 'before' region, ``d_\\text{before}``.
+- `d_after`:  Number of time variables in the 'after' region, ``d_\\text{after}``.
+- `c`:        Time contour ``\\mathcal{C}``.
+- `t_i`:      Lower bound ``t_i``.
+- `t_w`:      Boundary point ``t_w``.
+- `t_f`:      Upper bound ``t_f``.
+"""
+function DoubleSimplexRootTransform(d_before::Int,
+                                    d_after::Int,
+                                    c::kd.AbstractContour,
+                                    t_i::kd.BranchPoint,
+                                    t_w::kd.BranchPoint,
+                                    t_f::kd.BranchPoint)
+    @boundscheck kd.heaviside(c, t_w, t_i)
+    @boundscheck kd.heaviside(c, t_f, t_w)
+    @boundscheck d_before >= 0
+    @boundscheck d_after >= 1
+
+    d = d_before + d_after
+
+    u_i = kd.get_ref(c, t_i)
+    u_w = kd.get_ref(c, t_w)
+    u_diff_wi = u_w - u_i
+    u_diff_fw = kd.get_ref(c, t_f) - u_w
+
+    return DoubleSimplexRootTransform{d}(d_before, d_after, u_i, u_w, u_diff_wi, u_diff_fw)
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Return the function ``\\mathbf{u}(\\mathbf{x})`` corresponding to a given
+[`DoubleSimplexRootTransform`](@ref) object `t`.
+"""
+function make_trans_f(t::DoubleSimplexRootTransform)::Function
+    d = ndims(t)
+    u = Vector{Float64}(undef, d)
+    return x -> begin
+        # Points in the 'greater' region
+        u[1] = x[1] ^ (1.0 / t.d_greater)
+        for i = 2:t.d_greater
+            u[i] = u[i - 1] * (x[i] ^ (1.0 / (t.d_greater - i + 1)))
+        end
+        u[1:t.d_greater] *= t.u_diff_fw
+        u[1:t.d_greater] .+= t.u_w
+
+        t.d_lesser == 0 && return u
+
+        # Points in the 'lesser' region
+        u[t.d_greater + 1] = x[t.d_greater + 1] ^ (1.0 / t.d_lesser)
+        for i = (t.d_greater + 2):d
+            u[i] = u[i - 1] * (x[i] ^ (1.0 / (d - i + 1)))
+        end
+        u[t.d_greater+1:d] *= t.u_diff_wi
+        u[t.d_greater+1:d] .+= t.u_i
+
+        return u
+    end
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Return the Jacobian ``J(\\mathbf{u}) =
+\\left|\\frac{\\partial\\mathbf{u}}{\\partial\\mathbf{x}}\\right|`` corresponding to a given
+[`DoubleSimplexRootTransform`](@ref) object `t`.
+"""
+function make_jacobian_f(t::DoubleSimplexRootTransform)::Function
+    before_simplex_volume = (t.u_diff_wi ^ t.d_lesser) / factorial(t.d_lesser)
+    after_simplex_volume = (t.u_diff_fw ^ t.d_greater) / factorial(t.d_greater)
+    volume = before_simplex_volume * after_simplex_volume
+    return u -> volume
+end
+
+#
+# Integration
+#
+
+"""
+    $(TYPEDSIGNATURES)
+
+Compute a quasi Monte Carlo estimate of a ``d``-dimensional integral
+```math
+F = \\int_\\mathscr{D} d^d \\mathbf{u}\\ f(\\mathbf{u}).
+```
+The domain ``\\mathscr{D}`` is defined by a variable change ``\\mathbf{u} =
+\\mathbf{u}(\\mathbf{x}): [0,1]^d \\mapsto \\mathscr{D}``,
+```math
+F = \\int_{[0,1]^d} d^d\\mathbf{x}\\ f(\\mathbf{u}(\\mathbf{x}))
+    \\left|\\frac{\\partial\\mathbf{u}}{\\partial\\mathbf{x}}\\right|
+\\approx \\frac{1}{N} \\sum_{i=1}^N
+    f(\\mathbf{u}(\\mathbf{x}_i)) J(\\mathbf{u}(\\mathbf{x}_i)).
+```
+
+# Parameters
+- `f`:          Integrand ``f(\\mathbf{u})``.
+- `init`:       Initial (zero) value used in qMC summation.
+- `trans_f`:    Domain transformation function ``\\mathbf{u}(\\mathbf{x})``.
+- `jacobian_f`: Jacobian ``J(\\mathbf{u}) =
+                \\left|\\frac{\\partial\\mathbf{u}}{\\partial\\mathbf{x}}\\right|``.
+- `seq`:        Quasi-random sequence generator.
+- `N`:          Number of points to be taken from the quasi-random sequence.
 
 # Returns
-Value of the integral.
+Estimated value of the integral.
 """
-function qmc_integral(f, init = zero(typeof(f(trans(0))));
-                      p, p_norm, trans, seq, N::Int)
-    # Eq. (5)
+function qmc_integral(f, init = zero(f(trans_f(.0))); trans_f, jacobian_f, seq, N::Int)
     res = init
     for i = 1:N
         x = next!(seq)
-        u = trans(x)
+        u = trans_f(x)
         f_val = f(u)
         isnothing(f_val) && continue
-        res += f_val * (1.0 / p(u))
+        res += f_val * jacobian_f(u)
     end
-    (p_norm / N) * res
+    return (1 / N) * res
 end
 
 """
     $(TYPEDSIGNATURES)
 
-Quasi Monte Carlo integration with warping.
+Compute a quasi Monte Carlo estimate of a ``d``-dimensional integral
+```math
+F = \\int_\\mathscr{D} d^d \\mathbf{u}\\ f(\\mathbf{u}).
+```
+The domain ``\\mathscr{D}`` is defined by a variable change ``\\mathbf{u} =
+\\mathbf{u}(\\mathbf{x}): [0,1]^d \\mapsto \\mathscr{D}``,
+```math
+F = \\int_{[0,1]^d} d^d\\mathbf{x}\\ f(\\mathbf{u}(\\mathbf{x}))
+    \\left|\\frac{\\partial\\mathbf{u}}{\\partial\\mathbf{x}}\\right|
+\\approx \\frac{1}{N} \\sum_{i=1}^N
+    f(\\mathbf{u}(\\mathbf{x}_i)) J(\\mathbf{u}(\\mathbf{x}_i)).
+```
 
-This function takes a specified number of valid (non-`nothing`) samples of the integrand.
+Unlike [`qmc_integral()`](@ref), this function performs qMC summation until a given number
+of valid (non-`nothing`) samples of ``f(\\mathbf{u})`` are taken.
 
 # Parameters
-- `f`:         Integrand.
-- `init`:      Initial (zero) value of the integral.
-- `p`:         Positive model function ``p_d(\\mathbf{u})``.
-- `p_norm`:    Integral of ``p_d(\\mathbf{u})`` over the ``\\mathbf{u}``-domain.
-- `trans`:     Transformation from ``\\mathbf{x}\\in[0, 1]^d`` onto the
-               ``\\mathbf{u}``-domain.
-- `seq`:       Quasi-random sequence generator.
-- `N_samples`: The number of samples to be taken.
+- `f`:          Integrand ``f(\\mathbf{u})``.
+- `init`:       Initial (zero) value used in qMC summation.
+- `trans_f`:    Domain transformation function ``\\mathbf{u}(\\mathbf{x})``.
+- `jacobian_f`: Jacobian ``J(\\mathbf{u}) =
+                \\left|\\frac{\\partial\\mathbf{u}}{\\partial\\mathbf{x}}\\right|``.
+- `seq`:        Quasi-random sequence generator.
+- `N_samples`:  Number of valid samples of ``f(\\mathbf{u})`` to be taken.
 
 # Returns
-Value of the integral.
+Estimated value of the integral.
 """
-function qmc_integral_n_samples(f, init = zero(typeof(f(trans(0))));
-                                p, p_norm, trans, seq, N_samples::Int)
-    # Eq. (5)
+function qmc_integral_n_samples(f,
+                                init = zero(f(trans_f(.0)));
+                                trans_f,
+                                jacobian_f,
+                                seq,
+                                N_samples::Int)
     res = init
     i = 1
     N = 0
     while i <= N_samples
         N += 1
         x = next!(seq)
-        u = trans(x)
+        u = trans_f(x)
         f_val = f(u)
         isnothing(f_val) && continue
-        res += f_val * (1.0 / p(u))
+        res += f_val * jacobian_f(u)
         i += 1
     end
-    (p_norm / N) * res
+    return (1 / N) * res
 end
 
 """
@@ -207,325 +574,75 @@ end
 """
     $(TYPEDSIGNATURES)
 
-Evaluate a ``d``-dimensional contour-ordered integral of a function ``f(\\mathbf{t})``,
-```math
-    \\int_{t_i}^{t_f} dt_1 \\int_{t_i}^{t_1} dt_2 \\ldots \\int_{t_i}^{t_{d-1}} dt_d
-    \\ f(t_1, t_2, \\ldots, t_d)
-```
-using the Sobol sequence for quasi-random sampling and the exponential model function
-``p_d(\\mathbf{t}) = \\prod_{i=1}^d e^{(t_{i-1} - t_i)/\\tau}``.
+Compute a quasi Monte Carlo estimate of a contour integral over
+a ``d``-dimensional domain ``\\mathscr{D}``.
 
 # Parameters
 - `f`:    Integrand.
-- `d`:    Dimensionality of the integral.
 - `c`:    Time contour to integrate over.
-- `t_i`:  Starting time point on the contour.
-- `t_f`:  Final time point on the contour.
+- `dt`:   Domain transformation ``[0, 1]^d \\mapsto \\mathscr{D}``.
 - `init`: Initial (zero) value of the integral.
 - `seq`:  Quasi-random sequence generator.
-- `τ`:    Decay parameter of the exponential model function.
 - `N`:    The number of points to be taken from the quasi-random sequence.
 
 # Returns
-Value of the integral.
+Estimated value of the contour integral.
 """
-function qmc_time_ordered_integral(f,
-                                   d::Int,
-                                   c::kd.AbstractContour,
-                                   t_i::kd.BranchPoint,
-                                   t_f::kd.BranchPoint;
-                                   init = zero(contour_function_return_type(f)),
-                                   seq = SobolSeqWith0(d),
-                                   τ::Real,
-                                   N::Int)
-    @boundscheck kd.heaviside(c, t_f, t_i)
-
-    # Model function, its norm and the x -> u transformation
-    p_d = make_exp_model_function(c, t_f, τ, d)
-    p_d_norm = exp_p_norm(τ, d)
-    trans = make_exp_trans(c, t_f, τ)
-
-    u_i = kd.get_ref(c, t_i)
-
-    N_samples::Int = 0
-
-    return (qmc_integral(init,
-                         p = p_d,
-                         p_norm = p_d_norm,
-                         trans = trans,
-                         seq = seq,
-                         N = N) do refs
-        refs[end] < u_i && return nothing # Discard irrelevant reference values
-        N_samples += 1
-        t_points = [c(r) for r in refs]
+function contour_integral(f,
+                          c::kd.AbstractContour,
+                          dt::AbstractDomainTransform;
+                          init = zero(contour_function_return_type(f)),
+                          seq = SobolSeqWith0(ndims(dt)),
+                          N::Int)
+    return qmc_integral(init,
+                        trans_f=make_trans_f(dt),
+                        jacobian_f=make_jacobian_f(dt),
+                        seq=seq,
+                        N=N) do refs
+        all(refs .>= 0.0) || return nothing # Discard irrelevant reference values
+        t_points = c.(refs)
         return prod(t -> branch_direction[t.domain], t_points) * f(t_points)
-    end, N_samples)
+    end
 end
 
 """
     $(TYPEDSIGNATURES)
 
-Evaluate a ``d``-dimensional contour-ordered integral of a function ``f(\\mathbf{t})``,
-```math
-    \\int_{t_i}^{t_f} dt_1 \\int_{t_i}^{t_1} dt_2 \\ldots \\int_{t_i}^{t_{d-1}} dt_d
-    \\ f(t_1, t_2, \\ldots, t_d)
-```
-using the Sobol sequence for quasi-random sampling and the exponential model function
-``p_d(\\mathbf{t}) = \\prod_{i=1}^d e^{(t_{i-1} - t_i)/\\tau}``.
+Compute a quasi Monte Carlo estimate of a contour integral over
+a ``d``-dimensional domain ``\\mathscr{D}``.
 
-This function evaluates the integrand a specified number of times while discarding any
-transformed sequence points that fall outside the integration domain.
+Unlike [`contour_integral()`](@ref), this function performs qMC summation until a given
+number of valid (non-`nothing`) samples of the integrand are taken.
 
 # Parameters
 - `f`:         Integrand.
-- `d`:         Dimensionality of the integral.
 - `c`:         Time contour to integrate over.
-- `t_i`:       Starting time point on the contour.
-- `t_f`:       Final time point on the contour.
+- `dt`:        Domain transformation ``[0, 1]^d \\mapsto \\mathscr{D}``.
 - `init`:      Initial (zero) value of the integral.
 - `seq`:       Quasi-random sequence generator.
-- `τ`:         Decay parameter of the exponential model function.
-- `N_samples`: The number of samples to be taken.
+- `N_samplex`: Number of valid samples of the integrand to be taken.
 
 # Returns
-Value of the integral.
+- Estimated value of the contour integral.
+- The total number of points taken from the quasi-random sequence.
 """
-function qmc_time_ordered_integral_n_samples(
-    f,
-    d::Int,
-    c::kd.AbstractContour,
-    t_i::kd.BranchPoint,
-    t_f::kd.BranchPoint;
-    init = zero(contour_function_return_type(f)),
-    seq = SobolSeqWith0(d),
-    τ::Real,
-    N_samples::Int)
-    @boundscheck kd.heaviside(c, t_f, t_i)
-
-    # Model function, its norm and the x -> u transformation
-    p_d = make_exp_model_function(c, t_f, τ, d)
-    p_d_norm = exp_p_norm(τ, d)
-    trans = make_exp_trans(c, t_f, τ)
-
-    u_i = kd.get_ref(c, t_i)
-
-    N::Int = 0
-
+function contour_integral_n_samples(f,
+                                    c::kd.AbstractContour,
+                                    dt::AbstractDomainTransform;
+                                    init = zero(contour_function_return_type(f)),
+                                    seq = SobolSeqWith0(ndims(dt)),
+                                    N_samples::Int)
+    N::Int = 1
     return (qmc_integral_n_samples(init,
-                                   p = p_d,
-                                   p_norm = p_d_norm,
-                                   trans = trans,
-                                   seq = seq,
-                                   N_samples = N_samples) do refs
+                                   trans_f=make_trans_f(dt),
+                                   jacobian_f=make_jacobian_f(dt),
+                                   seq=seq,
+                                   N_samples=N_samples) do refs
         N += 1
-        refs[end] < u_i && return nothing # Discard irrelevant reference values
-        t_points = [c(r) for r in refs]
+        all(refs .>= 0.0) || return nothing # Discard irrelevant reference values
+        t_points = c.(refs)
         return prod(t -> branch_direction[t.domain], t_points) * f(t_points)
     end, N)
-end
-
-"""
-    $(TYPEDSIGNATURES)
-
-Evaluate a ``d``-dimensional contour-ordered integral of a function ``f(\\mathbf{t})``,
-```math
-    \\int_{t_i}^{t_f} dt_1 \\int_{t_i}^{t_1} dt_2 \\ldots \\int_{t_i}^{t_{d-1}} dt_d
-    \\ f(t_1, t_2, \\ldots, t_d)
-```
-using the Sobol sequence for quasi-random sampling and the 'Sort' transform.
-
-# Parameters
-- `f`:    Integrand.
-- `d`:    Dimensionality of the integral.
-- `c`:    Time contour to integrate over.
-- `t_i`:  Starting time point on the contour.
-- `t_f`:  Final time point on the contour.
-- `init`: Initial (zero) value of the integral.
-- `seq`:  Quasi-random sequence generator.
-- `N`:    The number of points to be taken from the quasi-random sequence.
-
-# Returns
-Value of the integral.
-"""
-function qmc_time_ordered_integral_sort(f,
-                                        d::Int,
-                                        c::kd.AbstractContour,
-                                        t_i::kd.BranchPoint,
-                                        t_f::kd.BranchPoint;
-                                        init = zero(contour_function_return_type(f)),
-                                        seq = SobolSeqWith0(d),
-                                        N::Int)
-    @boundscheck kd.heaviside(c, t_f, t_i)
-
-    # x -> u transformation
-    u_i = kd.get_ref(c, t_i)
-    u_f = kd.get_ref(c, t_f)
-    ref_diff = u_f - u_i
-    trans = x -> u_i .+ sort(x, rev=true) * ref_diff
-
-    return qmc_integral(init,
-                        p = u -> 1.0,
-                        p_norm = (ref_diff ^ d) / factorial(d),
-                        trans = trans,
-                        seq = seq,
-                        N = N) do refs
-        t_points = [c(r) for r in refs]
-        return prod(t -> branch_direction[t.domain], t_points) * f(t_points)
-    end
-end
-
-"""
-    $(TYPEDSIGNATURES)
-
-Evaluate a ``d``-dimensional contour-ordered integral of a function ``f(\\mathbf{t})``,
-```math
-    \\int_{t_i}^{t_f} dt_1 \\int_{t_i}^{t_1} dt_2 \\ldots \\int_{t_i}^{t_{d-1}} dt_d
-    \\ f(t_1, t_2, \\ldots, t_d)
-```
-using the Sobol sequence for quasi-random sampling and the 'Root' transform.
-
-# Parameters
-- `f`:    Integrand.
-- `d`:    Dimensionality of the integral.
-- `c`:    Time contour to integrate over.
-- `t_i`:  Starting time point on the contour.
-- `t_f`:  Final time point on the contour.
-- `init`: Initial (zero) value of the integral.
-- `seq`:  Quasi-random sequence generator.
-- `N`:    The number of points to be taken from the quasi-random sequence.
-
-# Returns
-Value of the integral.
-"""
-function qmc_time_ordered_integral_root(f,
-                                        d::Int,
-                                        c::kd.AbstractContour,
-                                        t_i::kd.BranchPoint,
-                                        t_f::kd.BranchPoint;
-                                        init = zero(contour_function_return_type(f)),
-                                        seq = SobolSeqWith0(d),
-                                        N::Int)
-    @boundscheck kd.heaviside(c, t_f, t_i)
-
-    # x -> u transformation
-    u_i = kd.get_ref(c, t_i)
-    u_f = kd.get_ref(c, t_f)
-    ref_diff = u_f - u_i
-
-    trans = x -> begin
-        u = Vector{Float64}(undef, d)
-        u[1] = x[1] ^ (1.0 / d)
-        for s = 2:d
-            u[s] = u[s - 1] * (x[s] ^ (1.0 / (d - s + 1)))
-        end
-        return u_i .+ u * ref_diff
-    end
-
-    return qmc_integral(init,
-                        p = u -> 1.0,
-                        p_norm = (ref_diff ^ d) / factorial(d),
-                        trans = trans,
-                        seq = seq,
-                        N = N) do refs
-        t_points = [c(r) for r in refs]
-        return prod(t -> branch_direction[t.domain], t_points) * f(t_points)
-    end
-end
-
-"""
-    $(TYPEDSIGNATURES)
-
-Evaluate an inchworm-type contour-ordered integral of a function ``f(\\mathbf{t})``,
-```math
-\\int_{t_w}^{t_f} dt_1
-\\int_{t_w}^{t_1} dt_2 \\ldots
-\\int_{t_w}^{t_{d_{after}-1}} dt_{d_{after}}
-\\int_{t_i}^{t_w} dt_{d_{after}+1} \\ldots
-\\int_{t_i}^{t_{d-2}} dt_{d-1}
-\\int_{t_i}^{t_{d-1}} dt_d\\
-    f(t_1, t_2, \\ldots, t_d)
-```
-
-using the Sobol sequence for quasi-random sampling and a two-piece 'Root' transform.
-The total dimension of the domain `d` is the sum of the amounts of integration
-variables in the 'before' (``d_\\text{before}``) and the after (``d_\\text{after}``)
-components.
-
-# Parameters
-- `f`:        Integrand.
-- `d_before`: Dimensionality of the before-``t_w`` component of the integration domain.
-- `d_after`:  Dimensionality of the after-``t_w`` component of the integration domain.
-- `c`:        Time contour to integrate over.
-- `t_i`:      Starting time point on the contour.
-- `t_w`:      'Worm' time point on the contour separating the 'before' and 'after' parts.
-- `t_f`:      Final time point on the contour.
-- `init`:     Initial (zero) value of the integral.
-- `seq`:      Quasi-random sequence generator.
-- `N`:        The number of samples to be taken.
-
-# Returns
-Value of the integral.
-"""
-function qmc_inchworm_integral_root(f,
-                                    d_before::Int,
-                                    d_after::Int,
-                                    c::kd.AbstractContour,
-                                    t_i::kd.BranchPoint,
-                                    t_w::kd.BranchPoint,
-                                    t_f::kd.BranchPoint;
-                                    init = zero(contour_function_return_type(f)),
-                                    seq = SobolSeqWith0(d_before + d_after),
-                                    N::Int)
-    @boundscheck kd.heaviside(c, t_w, t_i)
-    @boundscheck kd.heaviside(c, t_f, t_w)
-    @boundscheck d_before >= 0
-    @boundscheck d_after >= 1
-
-    u_i = kd.get_ref(c, t_i)
-    u_w = kd.get_ref(c, t_w)
-    u_f = kd.get_ref(c, t_f)
-
-    ref_diff_wi = u_w - u_i
-    ref_diff_fw = u_f - u_w
-
-    d = d_before + d_after
-
-    u = Vector{Float64}(undef, d)
-    # x -> u transformation
-    trans = x -> begin
-        # Points in the bare region
-        u[1] = x[1] ^ (1.0 / d_after)
-        for s = 2:d_after
-            u[s] = u[s - 1] * (x[s] ^ (1.0 / (d_after - s + 1)))
-        end
-        u[1:d_after] *= ref_diff_fw
-        u[1:d_after] .+= u_w
-
-        d_before == 0 && return u
-
-        # Points in the bold region
-        u[d_after + 1] = x[d_after + 1] ^ (1.0 / d_before)
-        for s = (d_after + 2):d
-            u[s] = u[s - 1] * (x[s] ^ (1.0 / (d - s + 1)))
-        end
-        u[d_after+1:d] *= ref_diff_wi
-        u[d_after+1:d] .+= u_i
-
-        return u
-    end
-
-    p_norm = (ref_diff_fw ^ d_after) / factorial(d_after) *
-             (ref_diff_wi ^ d_before) / factorial(d_before)
-
-    return qmc_integral(init,
-                        p = u -> 1.0,
-                        p_norm = p_norm,
-                        trans = trans,
-                        seq = seq,
-                        N = N) do refs
-        t_points = [c(r) for r in refs]
-        return prod(t -> branch_direction[t.domain], t_points) * f(t_points)
-    end
 end
 
 end # module qmc_integrate

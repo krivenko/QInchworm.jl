@@ -29,7 +29,7 @@ using QInchworm.expansion: Expansion, InteractionPair
 using QInchworm.configuration: Configuration, get_diagrams_at_order
 using QInchworm.diagrammatics: generate_topologies
 using QInchworm; cfg = QInchworm.configuration
-using QInchworm.qmc_integrate: qmc_time_ordered_integral_root
+using QInchworm.qmc_integrate: RootTransform, contour_integral
 
 import QInchworm.ppgf
 
@@ -207,14 +207,10 @@ end
             cfg.set_inchworm_node_time!.(confs_1, Ref(τ_w.bpoint))
             cfg.set_final_node_time!.(confs_1, Ref(τ_f.bpoint))
 
+            td = RootTransform(1, contour, τ_0.bpoint, τ_w.bpoint)
+
             # The 'im' prefactor accounts for the direction of the imaginary branch
-            val -= im * qmc_time_ordered_integral_root(
-                1,
-                contour,
-                τ_0.bpoint,
-                τ_w.bpoint,
-                init = zero(val),
-                N = N) do τ_1
+            val -= im * contour_integral(contour, td, init = zero(val), N = N) do τ_1
                     pair_node_times = [τ_f.bpoint, τ_1[1]]
                     cfg.update_pair_node_times!.(confs_1, diags_1, Ref(pair_node_times))
                     cfg.eval(ppsc_exp, confs_1[1]) + cfg.eval(ppsc_exp, confs_1[2])

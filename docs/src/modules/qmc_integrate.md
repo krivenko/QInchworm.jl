@@ -7,30 +7,40 @@ CurrentModule = QInchworm.qmc_integrate
 qmc_integrate
 ```
 
-## Model functions and domain transformations
-
-```@docs
-make_model_function
-make_exp_model_function
-make_exp_trans
-exp_p_norm
-```
-
-## Quasi Monte Carlo integration
+## Basic quasi Monte Carlo integration routines
 
 ```@docs
 qmc_integral
 qmc_integral_n_samples
-qmc_time_ordered_integral
-qmc_time_ordered_integral_n_samples
-qmc_time_ordered_integral_sort
-qmc_time_ordered_integral_root
-qmc_inchworm_integral_root
 ```
 
-## Miscellaneous
+## Integration domain transformations
 
 ```@docs
+AbstractDomainTransform
+Base.ndims(::AbstractDomainTransform)
+ExpModelFunctionTransform
+ExpModelFunctionTransform(::Integer, ::kd.AbstractContour, ::kd.BranchPoint, ::Real)
+RootTransform
+RootTransform(::Integer, ::kd.AbstractContour, ::kd.BranchPoint, ::kd.BranchPoint)
+SortTransform
+SortTransform(::Integer, ::kd.AbstractContour, ::kd.BranchPoint, ::kd.BranchPoint)
+DoubleSimplexRootTransform
+DoubleSimplexRootTransform(::Int,
+                           ::Int,
+                           ::kd.AbstractContour,
+                           ::kd.BranchPoint,
+                           ::kd.BranchPoint,
+                           ::kd.BranchPoint)
+make_trans_f
+make_jacobian_f
+```
+
+## Contour integration routines
+
+```@docs
+contour_integral
+contour_integral_n_samples
 branch_direction
 contour_function_return_type
 ```
