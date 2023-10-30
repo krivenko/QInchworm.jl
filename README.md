@@ -1,4 +1,4 @@
-[![Documentation](https://img.shields.io/badge/docs-stable-blue)](
+[![Documentation](https://img.shields.io/badge/docs-latest-blue)](
 https://krivenko.github.io/QInchworm.jl)
 [![CI](https://github.com/krivenko/QInchworm.jl/actions/workflows/CI.yml/badge.svg)](
 https://github.com/krivenko/QInchworm.jl/actions/workflows/CI.yml)
