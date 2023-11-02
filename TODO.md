@@ -24,13 +24,6 @@ TODO list for QInchworm
   boundaries. This is going to become a problem once we generalize the solver to
   the full Keldysh contour.
 
-* Reduce code duplication in `QInchworm.qmc_integrate` and rectify its API.
-  The idea is to define an abstract base type `AbstractDomainTransform` and a number
-  of derived types, `ExpModelTransform`, `SortTransform`, `RootTransform`,
-  `TwoPieceRootTransform`. One can then remove most of the `qmc_*_integral_*()`
-  functions and add multiple methods of `make_model()`, `make_trans()` and `model_norm()`
-  instead.
-
 * The name of `QInchworm.utility.ph_conj()` is appropriate for the imaginary time GFs,
   but shouldn't we change it to describe the time argument swapping of a general GF on
   a contour. That would make more sense as part of the full-contour generalization of
