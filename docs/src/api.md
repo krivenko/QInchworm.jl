@@ -53,6 +53,7 @@ randomization
 ```
 ```@docs
 RandomizationParams
+RequestStdDev
 ```
 
 ## [`QInchworm.ppgf`](@id api:QInchworm.ppgf)

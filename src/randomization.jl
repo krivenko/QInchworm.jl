@@ -33,7 +33,7 @@ using LinearAlgebra: norm
 
 using QInchworm.scrambled_sobol: ScrambledSobolSeq
 
-export RandomizationParams
+export RandomizationParams, RequestStdDev
 
 """
     $(TYPEDEF)
@@ -60,6 +60,14 @@ function Base.show(io::IO, rp::RandomizationParams)
     print(io,
     "RandomizationParams(rng=$(rp.rng), N_seqs=$(rp.N_seqs), target_std=$(rp.target_std))")
 end
+
+"""
+    $(TYPEDEF)
+
+Singleton type used to select methods that return an estimate of the standard deviation in
+addition to the mean.
+"""
+struct RequestStdDev end
 
 """
     $(TYPEDSIGNATURES)

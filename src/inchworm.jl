@@ -59,6 +59,7 @@ using QInchworm.qmc_integrate: contour_integral,
                                RootTransform,
                                DoubleSimplexRootTransform
 using QInchworm.randomization: RandomizationParams,
+                               RequestStdDev,
                                mean_std_from_randomization
 
 export inchworm!, correlator_2p
@@ -580,6 +581,9 @@ time segment. Accumulation is performed for each pair of operators ``(A, B)`` in
 `expansion.corr_operators`. Only the operators that are a single monomial in
 ``c/c^\\dagger`` are supported.
 
+This method is selected by the flag argument of type [`RequestStdDev`](@ref) and returns
+randomized qMC estimates of both mean and standard deviation of the correlators.
+
 # Parameters
 - `expansion`:   Strong coupling expansion problem. `expansion.P` must contain precomputed
                  bold propagators.
@@ -598,13 +602,11 @@ time segment. Accumulation is performed for each pair of operators ``(A, B)`` in
 function correlator_2p(expansion::Expansion,
                        grid::kd.ImaginaryTimeGrid,
                        orders,
-                       N_samples::Int64;
-                       rand_params::RandomizationParams = RandomizationParams(),
-                       return_stddev=false
-                       )::Union{
-                           Tuple{Vector{kd.ImaginaryTimeGF{ComplexF64, true}},
-                                 Vector{kd.ImaginaryTimeGF{ComplexF64, true}}},
-                           Vector{kd.ImaginaryTimeGF{ComplexF64, true}}}
+                       N_samples::Int64,
+                       ::RequestStdDev;
+                       rand_params::RandomizationParams = RandomizationParams()
+                       )::Tuple{Vector{kd.ImaginaryTimeGF{ComplexF64, true}},
+                                Vector{kd.ImaginaryTimeGF{ComplexF64, true}}}
 
     tmr = TimerOutput()
 
@@ -729,11 +731,37 @@ function correlator_2p(expansion::Expansion,
 
     ismaster() && @debug string("Timed sections in correlator_2p()\n", tmr)
 
-    if return_stddev
-        return (corr_list, corr_std_list)
-    else
-        return corr_list
-    end
+    return (corr_list, corr_std_list)
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Calculate a two-point correlator ``\\langle A(\\tau) B(0)\\rangle`` on the imaginary
+time segment. Accumulation is performed for each pair of operators ``(A, B)`` in
+`expansion.corr_operators`. Only the operators that are a single monomial in
+``c/c^\\dagger`` are supported.
+
+# Parameters
+- `expansion`:   Strong coupling expansion problem. `expansion.P` must contain precomputed
+                 bold propagators.
+- `grid`:        Imaginary time grid of the correlator to be computed.
+- `orders`:      List of expansion orders to be accounted for.
+- `N_samples`:   Number of samples to be used in qMC integration. Must be a power of 2.
+- `rand_params`: Parameters of the randomized qMC integration.
+
+# Returns
+- `corr`: A list of scalar-valued GF objects containing the computed correlators,
+          one element per a pair in `expansion.corr_operators`.
+"""
+function correlator_2p(expansion::Expansion,
+    grid::kd.ImaginaryTimeGrid,
+    orders,
+    N_samples::Int64;
+    rand_params::RandomizationParams = RandomizationParams()
+    )::Vector{kd.ImaginaryTimeGF{ComplexF64, true}}
+    return correlator_2p(expansion, grid, orders, N_samples, RequestStdDev();
+                         rand_params=rand_params)[1]
 end
 
 end # module inchworm

@@ -31,7 +31,7 @@ using QInchworm.utility: ph_conj
 using QInchworm.ppgf: normalize!
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.inchworm: inchworm!, correlator_2p
-using QInchworm.randomization: RandomizationParams
+using QInchworm.randomization: RandomizationParams, RequestStdDev
 using QInchworm.mpi: ismaster
 
 function run_bethe(nτ, orders, orders_bare, orders_gf, N_samples, N_seqs, n_pts_after_max)
@@ -79,8 +79,8 @@ function run_bethe(nτ, orders, orders_bare, orders_gf, N_samples, N_seqs, n_pts
     end
 
     add_corr_operators!(expansion, (op.c(1), op.c_dag(1)))
-    g, g_std = correlator_2p(expansion, grid, orders_gf, N_samples;
-                             rand_params=rand_params, return_stddev=true)
+    g, g_std = correlator_2p(expansion, grid, orders_gf, N_samples, RequestStdDev();
+                             rand_params=rand_params)
 
     if ismaster()
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, vcat(g[1].mat.data...))))
