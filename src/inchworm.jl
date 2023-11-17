@@ -599,9 +599,12 @@ function correlator_2p(expansion::Expansion,
                        grid::kd.ImaginaryTimeGrid,
                        orders,
                        N_samples::Int64;
-                       rand_params::RandomizationParams = RandomizationParams()
-                       )::Tuple{Vector{kd.ImaginaryTimeGF{ComplexF64, true}},
-                                Vector{kd.ImaginaryTimeGF{ComplexF64, true}}}
+                       rand_params::RandomizationParams = RandomizationParams(),
+                       return_stddev=false
+                       )::Union{
+                           Tuple{Vector{kd.ImaginaryTimeGF{ComplexF64, true}},
+                                 Vector{kd.ImaginaryTimeGF{ComplexF64, true}}},
+                           Vector{kd.ImaginaryTimeGF{ComplexF64, true}}}
 
     tmr = TimerOutput()
 
@@ -726,7 +729,11 @@ function correlator_2p(expansion::Expansion,
 
     ismaster() && @debug string("Timed sections in correlator_2p()\n", tmr)
 
-    return (corr_list, corr_std_list)
+    if return_stddev
+        return (corr_list, corr_std_list)
+    else
+        return corr_list
+    end
 end
 
 end # module inchworm

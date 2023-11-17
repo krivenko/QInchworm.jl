@@ -100,7 +100,7 @@ using QInchworm.inchworm: inchworm!, correlator_2p
         diff_exa = maximum(abs.(ρ_wrm - ρ_exa))
 
         add_corr_operators!(expansion, (op.c(1), op.c_dag(1)))
-        g = -correlator_2p(expansion, grid, orders_gf, N_samples)[1]
+        g = -correlator_2p(expansion, grid, orders_gf, N_samples)
 
         diff_g_nca = maximum(abs.(g_nca - g[1].mat.data[1, 1, :]))
         diff_g_oca = maximum(abs.(g_oca - g[1].mat.data[1, 1, :]))

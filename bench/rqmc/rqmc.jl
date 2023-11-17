@@ -80,7 +80,7 @@ function run_bethe(nτ, orders, orders_bare, orders_gf, N_samples, N_seqs, n_pts
 
     add_corr_operators!(expansion, (op.c(1), op.c_dag(1)))
     g, g_std = correlator_2p(expansion, grid, orders_gf, N_samples;
-                             rand_params=rand_params)
+                             rand_params=rand_params, return_stddev=true)
 
     if ismaster()
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, vcat(g[1].mat.data...))))
@@ -121,12 +121,15 @@ s = ArgParseSettings()
     "order"
         arg_type = Int
         help = "Maximal expansion order in the PPGF calculations"
+        required = true
     "ntau"
         arg_type = Int
         help = "Number of imaginary time slices in GF meshes"
+        required = true
     "N_samples"
         arg_type = Int
         help = "Number of qMC samples per Sobol sequence"
+        required = true
     "N_seqs"
         arg_type = Int
         default = 1
@@ -151,7 +154,7 @@ if ismaster()
 end
 
 order = parsed_args["order"]
-order_gf = order - 1
+order_gf = max(order - 1, 0)
 
 orders = 0:order
 orders_gf = 0:order_gf

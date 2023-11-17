@@ -204,7 +204,7 @@ end
     # Single-particle GF
 
     add_corr_operators!(expansion, (op.c("0"), op.c_dag("0")))
-    g = -correlator_2p(expansion, grid, orders, N_samples)[1]
+    g = -correlator_2p(expansion, grid, orders, N_samples)
 
     HDF5.h5open((@__DIR__) * "/inchworm.h5", write_h5 ? "cw" : "r") do fid
         for s = 1:2
