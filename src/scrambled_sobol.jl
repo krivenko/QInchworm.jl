@@ -33,12 +33,11 @@ module scrambled_sobol
 
 using DocStringExtensions
 
+using Sobol
 using Random
 using LinearAlgebra: dot, LowerTriangular
 
 export ScrambledSobolSeq, next!
-
-include("soboldata.jl") # Loads `sobol_a` and `sobol_minit`
 
 """
     $(TYPEDEF)
@@ -65,7 +64,7 @@ Create a scrambled Sobol sequence of dimension `D` using the Random Number Gener
 is provided.
 """
 function ScrambledSobolSeq(D::Int; scramble_rng::Union{AbstractRNG, Nothing} = nothing)
-    (D < 0 || D > (length(sobol_a) + 1)) && error("Invalid Sobol dimension $(D)")
+    (D < 0 || D > (length(Sobol.sobol_a) + 1)) && error("Invalid Sobol dimension $(D)")
 
     m = ones(UInt32, (D, 32))
 
@@ -77,11 +76,11 @@ function ScrambledSobolSeq(D::Int; scramble_rng::Union{AbstractRNG, Nothing} = n
     #
 
     for d in 2:D
-        a = sobol_a[d - 1]
+        a = Sobol.sobol_a[d - 1]
         deg = floor(Int, log2(a)) # Degree of polynomial
 
         # Set initial values of m from table
-        m[d, 1:deg] = sobol_minit[1:deg, d - 1]
+        m[d, 1:deg] = Sobol.sobol_minit[1:deg, d - 1]
         # Fill in remaining values using recurrence
         for j = (deg + 1):32
             ac = a
