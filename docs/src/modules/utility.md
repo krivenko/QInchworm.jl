@@ -22,14 +22,6 @@ IncrementalSpline
 extend!
 ```
 
-## Sobol sequence including the initial point ``(0, 0, \ldots)``
-
-```@docs
-SobolSeqWith0
-next!
-arbitrary_skip!
-```
-
 ## Lazy matrix product
 
 ```@docs

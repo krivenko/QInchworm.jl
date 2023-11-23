@@ -27,6 +27,7 @@ using DocStringExtensions
 
 using LinearAlgebra: norm
 import LinearAlgebra
+import Statistics
 
 using KeldyshED: EDCore, OperatorExpr, operator_blocks
 
@@ -36,8 +37,8 @@ Complex block matrix stored as a dictionary of non-vanishing blocks.
 Each element of the dictionary has the form
 `right block index => (left block index, block)`.
 
-Objects of this type support addition/subtraction, matrix multiplication and multiplication
-by a scalar.
+Objects of this type support addition/subtraction, matrix multiplication and
+multiplication/division by a scalar.
 """
 const SectorBlockMatrix = Dict{Int64, Tuple{Int64, Matrix{ComplexF64}}}
 
@@ -113,6 +114,7 @@ function Base.:*(A::Number, B::SectorBlockMatrix)::SectorBlockMatrix
 end
 
 Base.:*(A::SectorBlockMatrix, B::Number) = B * A
+Base.:/(A::SectorBlockMatrix, B::Number) = A * (one(B) / B)
 
 function Base.:+(A::SectorBlockMatrix, B::SectorBlockMatrix)::SectorBlockMatrix
     return merge(A, B) do a, b
@@ -136,6 +138,25 @@ end
 """
     $(TYPEDSIGNATURES)
 
+`p`-norm of a [`SectorBlockMatrix`](@ref) `A`.
+"""
+function LinearAlgebra.norm(A::SectorBlockMatrix, p::Real=2)
+    isempty(A) && return float(norm(zero(eltype(A))))
+
+    if p == 0
+        return sum(a -> norm(a[2], 0), values(A))
+    elseif p == Inf
+        return maximum(a -> norm(a[2], Inf), values(A))
+    elseif p == -Inf
+        return minimum(a -> norm(a[2], -Inf), values(A))
+    else
+        return sum(a -> norm(a[2], p)^p, values(A)) ^ (1/p)
+    end
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
 Inexact equality comparison of two [`SectorBlockMatrix`](@ref) objects `A` and `B`.
 Block structures of the objects must agree. `atol` specifies the absolute tolerance for
 the single element comparison (zero by default).
@@ -147,6 +168,49 @@ function Base.isapprox(A::SectorBlockMatrix, B::SectorBlockMatrix; atol::Real=0)
         !isapprox(A[k][2], B[k][2], norm=mat -> norm(mat, Inf), atol=atol) && return false
     end
     return true
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Compute the sample variance of collection of [`SectorBlockMatrix`](@ref) `itr`.
+
+If `corrected` is `true`, then the sum is scaled with `n-1`, whereas the sum is scaled
+with `n` if `corrected` is `false` where `n` is the number of elements in `itr`.
+A pre-computed `mean` may be provided.
+"""
+function Statistics.var(itr::AbstractArray{SectorBlockMatrix};
+                        corrected::Bool=true,
+                        mean=nothing)
+    @assert !isempty(itr)
+    v = zero(first(itr))
+    for k in keys(first(itr))
+        mat_itr = [sbm[k][2] for sbm in itr]
+        if mean !== nothing
+            @assert mean[k][1] == first(itr)[k][1]
+            v[k] = (v[k][1], v[k][2] + Statistics.var(mat_itr, corrected=corrected,
+                                                      mean=mean[k][2]))
+        else
+            v[k] = (v[k][1], v[k][2] + Statistics.var(mat_itr, corrected=corrected))
+        end
+    end
+    return v
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Compute the sample standard deviation of collection `itr`.
+
+If `corrected` is `true`, then the sum is scaled with `n-1`, whereas the sum is scaled
+with `n` if `corrected` is `false` where `n` is the number of elements in `itr`.
+A pre-computed `mean` may be provided.
+"""
+function Statistics.std(itr::AbstractArray{SectorBlockMatrix};
+                        corrected::Bool=true,
+                        mean=nothing)
+    return Dict(s_i => (s_f, sqrt.(mat)) for (s_i, (s_f, mat)) in
+                Statistics.var(itr, corrected=corrected, mean=mean))
 end
 
 end # module sector_block_matrix

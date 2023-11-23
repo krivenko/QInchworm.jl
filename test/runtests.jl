@@ -18,6 +18,7 @@
 #
 # Authors: Igor Krivenko, Hugo U. R. Strand, Joseph Kleinhenz
 
+include("scrambled_sobol.jl")
 include("utility.jl")
 include("spline_gf.jl")
 include("ppgf.jl")

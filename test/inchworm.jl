@@ -19,6 +19,7 @@
 
 using Test
 
+using Random: MersenneTwister
 using MPI; MPI.Init()
 using HDF5
 
@@ -29,6 +30,7 @@ using QInchworm.spline_gf: SplineInterpolatedGF
 
 using QInchworm.diagrammatics: get_topologies_at_order
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
+using QInchworm.randomization: RandomizationParams
 
 using QInchworm.inchworm: TopologiesInputData,
                           inchworm_step,
@@ -91,10 +93,13 @@ ed = ked.EDCore(H, soi)
     orders = 0:3
     N_samples = 2^8
 
-    # Extend expansion.P_orders to max of orders
+    # Extend expansion.P_orders and expansion.P_orders_std to max of orders
     for o in 1:(maximum(orders)+1)
         push!(expansion.P_orders, kd.zero(expansion.P0))
+        push!(expansion.P_orders_std, kd.zero(expansion.P0))
     end
+
+    rand_params = RandomizationParams()
 
     order_data = TopologiesInputData[]
     for order in 0:3
@@ -103,7 +108,11 @@ ed = ked.EDCore(H, soi)
             topologies = get_topologies_at_order(order, n_pts_after)
             if !isempty(topologies)
                 push!(order_data,
-                    TopologiesInputData(order, n_pts_after, topologies, N_samples)
+                      TopologiesInputData(order,
+                                          n_pts_after,
+                                          topologies,
+                                          N_samples,
+                                          rand_params)
                 )
             end
         end
@@ -147,12 +156,19 @@ end
     # Extend expansion.P_orders to max of orders
     for o in 1:(maximum(orders)+1)
         push!(expansion.P_orders, kd.zero(expansion.P0))
+        push!(expansion.P_orders_std, kd.zero(expansion.P0))
     end
+
+    rand_params = RandomizationParams()
 
     order_data = TopologiesInputData[]
     for order in 0:3
         topologies = get_topologies_at_order(order)
-        push!(order_data, TopologiesInputData(order, 1, topologies, N_samples))
+        push!(order_data, TopologiesInputData(order,
+                                              1,
+                                              topologies,
+                                              N_samples,
+                                              rand_params))
     end
 
     value = inchworm_step_bare(expansion, contour, τ_i, τ_f, order_data)
