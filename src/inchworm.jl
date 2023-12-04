@@ -364,10 +364,6 @@ function inchworm!(expansion::Expansion,
 
         topologies = get_topologies_at_order(order)
 
-        if ismaster()
-            println("Bare order $(order), N_topo $(length(topologies))")
-        end
-
         push!(top_data,
               TopologiesInputData(order,
                                   2 * order,
