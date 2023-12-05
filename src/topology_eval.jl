@@ -83,6 +83,15 @@ end
 """
     $(TYPEDSIGNATURES)
 
+Return a node that serves as an end of a pair interaction arc fixed at time `time`.
+"""
+function PairNode(time::kd.BranchPoint)::FixedNode
+    return FixedNode(Node(pair_flag, -1, -1), time)
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
 Return a fixed node at time `time` with an associated identity operator.
 """
 function IdentityNode(time::kd.BranchPoint)::FixedNode
@@ -136,6 +145,9 @@ struct TopologyEvaluator
     "Correspondence of node positions within a topology and a configuration"
     top_to_conf_pos::Vector{Int64}
 
+    "Positions of variable time (non-fixed) nodes within a configuration"
+    var_time_pos::Vector{Int64}
+
     "Must the bold PPGFs be used?"
     use_bold_prop::Bool
 
@@ -173,38 +185,39 @@ struct TopologyEvaluator
         $(TYPEDSIGNATURES)
 
     # Parameters
-    - `exp`: Strong-coupling expansion problem.
-    - `order`: Expansion order of the diagrams.
-    - `fixed_nodes`: List of fixed nodes in a configuration along with their positions.
-    - `tmr`: Internal performance timer.
+    - `exp`:           Strong-coupling expansion problem.
+    - `order`:         Expansion order of the diagrams (the number of interaction arcs).
+    - `use_bold_prop`: Must the bold PPGFs be used in the diagrams?
+    - `fixed_nodes`:   List of fixed nodes in a configuration along with their positions.
+    - `tmr`:           Internal performance timer.
     """
     function TopologyEvaluator(exp::Expansion,
                                order::Int,
+                               use_bold_prop::Bool,
                                fixed_nodes::Dict{Int, FixedNode};
                                tmr::TimerOutput = TimerOutput())
-        n_nodes = 2 * order + length(fixed_nodes)
+        n_nodes = 2 * order + count(n -> n.second.node.kind != pair_flag, fixed_nodes)
         @assert maximum(keys(fixed_nodes)) <= n_nodes
 
         # Prepare a skeleton of the configuration by placing only the fixed nodes
         conf = Vector{Node}(undef, n_nodes)
         times = Vector{kd.BranchPoint}(undef, n_nodes)
 
-        use_bold_prop = false
         for (pos, fn) in fixed_nodes
             conf[pos] = fn.node
-
-            if fn.node.kind == inch_flag || fn.node.kind == operator_flag
-                use_bold_prop = true
-            end
-
-            # Copy time of fixed nodes to `times`
-            times[pos] = fixed_nodes[pos].time
+            times[pos] = fn.time
         end
 
         # Build the `top_to_conf_pos` map.
         # We need the reverse() here because the orders of nodes in a topology and in a
-        # configurations are reversed.
-        top_to_conf_pos = [pos for pos in reverse(1:n_nodes) if !haskey(fixed_nodes, pos)]
+        # configurations are reversed. Fixed pair nodes still belong to a topology.
+        top_to_conf_pos = [
+            pos for pos in reverse(1:n_nodes) if
+            !(haskey(fixed_nodes, pos) && fixed_nodes[pos].node.kind != pair_flag)
+        ]
+
+        # Build the `var_time_pos` map.
+        var_time_pos = [pos for pos in reverse(1:n_nodes) if !haskey(fixed_nodes, pos)]
 
         ppgf_mats = [Matrix{ComplexF64}(undef, norbitals(p), norbitals(p))
                      for _ in 1:(n_nodes-1), p in exp.P]
@@ -217,6 +230,7 @@ struct TopologyEvaluator
                    conf,
                    times,
                    top_to_conf_pos,
+                   var_time_pos,
                    use_bold_prop,
                    ppgf_mats,
                    pair_ints,
@@ -247,10 +261,8 @@ assuming that non-fixed nodes are located at contour time points `times`.
 function (eval::TopologyEvaluator)(topologies::Vector{Topology},
                                    times::Vector{kd.BranchPoint})::SectorBlockMatrix
 
-    # Update eval.times
-    for (pos, t) in zip(eval.top_to_conf_pos, times)
-        eval.times[pos] = t
-    end
+    # Update non-fixed elements of eval.times
+    eval.times[eval.var_time_pos] = times
 
     # Pre-compute eval.ppgf_mats
     for i in axes(eval.ppgf_mats, 1)
@@ -276,7 +288,7 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
 
     for top in topologies # TODO: Parallelization opportunity I
 
-        @assert length(times) == 2 * length(top.pairs)
+        @assert length(top.pairs) == length(eval.selected_pair_ints)
 
         # Pre-compute eval.pair_ints and place pair interaction nodes into the configuration
         for (a, arc) in enumerate(top.pairs)

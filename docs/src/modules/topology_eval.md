@@ -8,11 +8,12 @@ topology_eval
 NodeKind
 Node
 FixedNode
+PairNode
 IdentityNode
 InchNode
 OperatorNode
 TopologyEvaluator
-TopologyEvaluator(::Expansion, ::Int, ::Dict{Int, FixedNode}; ::TimerOutput)
+TopologyEvaluator(::Expansion, ::Int, ::Bool, ::Dict{Int, FixedNode}; ::TimerOutput)
 eval(::Topology, ::Vector{kd.BranchPoint})
 eval(::Vector{Topology}, ::Vector{kd.BranchPoint})
 _traverse_configuration_tree!

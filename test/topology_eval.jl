@@ -103,7 +103,7 @@ const write_h5 = false
         end
     end
 
-    tev = TopologyEvaluator(expansion, order, Dict(1 => n_0, 7 => n_w, 9 => n_f))
+    tev = TopologyEvaluator(expansion, order, true, Dict(1 => n_0, 7 => n_w, 9 => n_f))
 
     for sample in 1:n_samples
 

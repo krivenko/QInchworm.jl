@@ -145,7 +145,7 @@ function inchworm_step(expansion::Expansion,
         if td.order == 0
             @timeit tmr "Setup" begin
             fixed_nodes = Dict(1 => n_i, 2 => n_w, 3 => n_f)
-            eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
+            eval = teval.TopologyEvaluator(expansion, 0, true, fixed_nodes, tmr=tmr)
             end # tmr
             @timeit tmr "Evaluation" begin
             # This evaluation result is exact, so no need to update P_order_contribs_std
@@ -159,7 +159,7 @@ function inchworm_step(expansion::Expansion,
             d_before = 2 * td.order - td.n_pts_after
 
             fixed_nodes = Dict(1 => n_i, d_before + 2 => n_w, 2 * td.order + 3 => n_f)
-            eval = teval.TopologyEvaluator(expansion, td.order, fixed_nodes, tmr=tmr)
+            eval = teval.TopologyEvaluator(expansion, td.order, true, fixed_nodes, tmr=tmr)
             trans = DoubleSimplexRootTransform(d_before, d_after, c, t_i, t_w, t_f)
 
             N_range = rank_sub_range(td.N_samples)
@@ -243,7 +243,7 @@ function inchworm_step_bare(expansion::Expansion,
         if td.order == 0
             @timeit tmr "Setup" begin
             fixed_nodes = Dict(1 => n_i, 2 => n_f)
-            eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
+            eval = teval.TopologyEvaluator(expansion, 0, false, fixed_nodes, tmr=tmr)
             end # tmr
             @timeit tmr "Evaluation" begin
             P_order_contribs[td.order] = eval(td.topologies, kd.BranchPoint[])
@@ -256,7 +256,7 @@ function inchworm_step_bare(expansion::Expansion,
             d = 2 * td.order
 
             fixed_nodes = Dict(1 => n_i, 2 * td.order + 2 => n_f)
-            eval = teval.TopologyEvaluator(expansion, td.order, fixed_nodes, tmr=tmr)
+            eval = teval.TopologyEvaluator(expansion, td.order, false, fixed_nodes, tmr=tmr)
             trans = RootTransform(d, c, t_i, t_f)
 
             N_range = rank_sub_range(td.N_samples)
@@ -526,7 +526,7 @@ function correlator_2p(expansion::Expansion,
         if td.order == 0
             @timeit tmr "Setup" begin
             fixed_nodes = Dict(1 => n_B, 2 => n_A, 3 => n_f)
-            eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
+            eval = teval.TopologyEvaluator(expansion, 0, true, fixed_nodes, tmr=tmr)
             end # tmr
             @timeit tmr "Evaluation" begin
             order_contrib = tr(eval(td.topologies, kd.BranchPoint[]))
@@ -540,7 +540,7 @@ function correlator_2p(expansion::Expansion,
             d_before = 2 * td.order - td.n_pts_after
 
             fixed_nodes = Dict(1 => n_B, d_before + 2 => n_A, 2 * td.order + 3 => n_f)
-            eval = teval.TopologyEvaluator(expansion, td.order, fixed_nodes, tmr=tmr)
+            eval = teval.TopologyEvaluator(expansion, td.order, true, fixed_nodes, tmr=tmr)
             trans = DoubleSimplexRootTransform(d_before,
                                                d_after,
                                                grid.contour,
