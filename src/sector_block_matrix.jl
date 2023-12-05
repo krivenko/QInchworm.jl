@@ -124,6 +124,7 @@ function Base.:+(A::SectorBlockMatrix, B::SectorBlockMatrix)::SectorBlockMatrix
 end
 
 Base.:-(A::SectorBlockMatrix, B::SectorBlockMatrix) = A + (-1) * B
+Base.:-(A::SectorBlockMatrix) = (-1) * A
 
 """
     $(TYPEDSIGNATURES)
