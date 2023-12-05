@@ -26,7 +26,7 @@ using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm.diagrammatics: Topology, get_topologies_at_order
-teval = QInchworm.topology_eval
+using QInchworm.topology_eval: TopologyEvaluator, IdentityNode, InchNode
 using QInchworm.sector_block_matrix: SectorBlockMatrix
 
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
@@ -73,9 +73,9 @@ const write_h5 = false
     fidx = 8
     widx = fidx - 1
 
-    n_0 = teval.IdentityNode(τ_grid[1].bpoint)
-    n_w = teval.InchNode(τ_grid[widx].bpoint)
-    n_f = teval.IdentityNode(τ_grid[fidx].bpoint)
+    n_0 = IdentityNode(τ_grid[1].bpoint)
+    n_w = InchNode(τ_grid[widx].bpoint)
+    n_f = IdentityNode(τ_grid[fidx].bpoint)
 
     worm_nodes = [n_0, n_w, n_f]
 
@@ -103,7 +103,7 @@ const write_h5 = false
         end
     end
 
-    tev = teval.TopologyEvaluator(expansion, order, Dict(1 => n_0, 7 => n_w, 9 => n_f))
+    tev = TopologyEvaluator(expansion, order, Dict(1 => n_0, 7 => n_w, 9 => n_f))
 
     for sample in 1:n_samples
 
