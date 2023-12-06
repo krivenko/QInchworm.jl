@@ -36,6 +36,7 @@ using QInchworm.inchworm: TopologiesInputData,
                           inchworm_step,
                           inchworm_step_bare,
                           inchworm!,
+                          diff_inchworm!,
                           correlator_2p
 
 # If true, write calculation results into inchworm.h5
@@ -207,5 +208,32 @@ end
             test_or_write(fid, "/inchworm/P/$(s)", expansion.P[s].GF.mat.data)
         end
         test_or_write(fid, "/inchworm/g", g[1].mat.data)
+    end
+end
+
+@testset "diff_inchworm" begin
+    contour = kd.ImaginaryContour(β=β);
+    grid = kd.ImaginaryTimeGrid(contour, nτ);
+
+    # Hybridization propagator
+
+    Δ = V^2 * kd.ImaginaryTimeGF(kd.DeltaDOS(ϵ), grid)
+    Δ_rev = kd.ImaginaryTimeGF((t1, t2) -> -Δ[t2, t1, false], grid, 1, kd.fermionic, true)
+
+    # Pseudo Particle Strong Coupling Expansion
+
+    ip_fwd = InteractionPair(op.c_dag("0"), op.c("0"), SplineInterpolatedGF(Δ))
+    ip_bwd = InteractionPair(op.c("0"), op.c_dag("0"), SplineInterpolatedGF(Δ_rev))
+    expansion = Expansion(ed, grid, [ip_fwd, ip_bwd], interpolate_ppgf = true)
+
+    orders = 0:3
+    N_samples = 2^8
+
+    diff_inchworm!(expansion, grid, orders, N_samples)
+
+    HDF5.h5open((@__DIR__) * "/inchworm.h5", write_h5 ? "cw" : "r") do fid
+        for s = 1:2
+            test_or_write(fid, "/diff_inchworm/P/$(s)", expansion.P[s].GF.mat.data)
+        end
     end
 end

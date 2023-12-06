@@ -32,9 +32,10 @@ using ProgressBars: ProgressBar
 using Logging
 
 using MPI: MPI
-using LinearAlgebra: tr
+using LinearAlgebra: tr, diagm
 
 using Keldysh; kd = Keldysh
+using KeldyshED; ked = KeldyshED
 
 using QInchworm.sector_block_matrix: SectorBlockMatrix
 using QInchworm.ppgf: partition_function, set_ppgf!
@@ -46,7 +47,7 @@ using QInchworm.scrambled_sobol: ScrambledSobolSeq, next!, skip!
 using QInchworm.utility: split_count
 using QInchworm.mpi: ismaster, rank_sub_range, all_reduce!
 
-using QInchworm.expansion: Expansion
+using QInchworm.expansion: Expansion, AllPPGFTypes
 using QInchworm.configuration: Configuration,
                                set_initial_node_time!,
                                set_final_node_time!,
@@ -62,7 +63,7 @@ using QInchworm.randomization: RandomizationParams,
                                RequestStdDev,
                                mean_std_from_randomization
 
-export inchworm!, correlator_2p
+export inchworm!, diff_inchworm!, correlator_2p
 
 """
 $(TYPEDEF)
@@ -288,6 +289,7 @@ function inchworm_step_bare(expansion::Expansion,
         end; end; end # tmr
 
     end
+
     return sum(values(P_order_contribs)), P_order_contribs, P_order_contribs_std
 end
 
@@ -356,7 +358,6 @@ function inchworm!(expansion::Expansion,
     P_orders_std = Dict(order => kd.zero(expansion.P0) for order in orders_all)
 
     # First inchworm step
-
     top_data = TopologiesInputData[]
     for order in orders_bare
 
@@ -474,6 +475,276 @@ function inchworm!(expansion::Expansion,
 end
 
 #
+# Differential inchworm / bold propagator accumulation functions
+#
+
+"""
+    $(TYPEDSIGNATURES)
+
+Perform one step of the differential qMC inchworm accumulation of the bold propagators.
+
+# Parameters
+- `expansion`:   Strong coupling expansion problem.
+- `c`:           Imaginary time contour for integration.
+- `τ_i`:         Initial time of the bold propagator to be computed.
+- `τ_f_prev`:    Final time of the bold propagator computed at the previous step.
+- `τ_f`:         Final time of the bold propagator to be computed.
+- `Σ`:           Container to store the pseudo-particle self-energy.
+- `hamiltonian`: Atomic Hamiltonian.
+- `top_data`:    Inchworm algorithm input data.
+- `tmr`:         A `TimerOutput` object used for profiling.
+
+# Returns
+- Accumulated value of the bold propagator.
+- Order-resolved contributions to pseudo-particle self-energy as a dictionary
+  `Dict{Int, SectorBlockMatrix}`.
+- Estimated standard deviations of the order-resolved contributions as a dictionary
+  `Dict{Int, SectorBlockMatrix}`.
+"""
+function diff_inchworm_step!(expansion::Expansion,
+                             c::kd.ImaginaryContour,
+                             τ_i::kd.TimeGridPoint,
+                             τ_f_prev::kd.TimeGridPoint,
+                             τ_f::kd.TimeGridPoint,
+                             Σ::PPGF,
+                             hamiltonian::SectorBlockMatrix,
+                             top_data::Vector{TopologiesInputData};
+                             tmr::TimerOutput = TimerOutput()) where {PPGF <: AllPPGFTypes}
+
+    t_i, t_f_prev, t_f = τ_i.bpoint, τ_f_prev.bpoint, τ_f.bpoint
+    @assert t_f.ref >= t_f_prev.ref >= t_i.ref
+
+    zero_sector_block_matrix = zeros(SectorBlockMatrix, expansion.ed)
+
+    orders = unique(map(td -> td.order, top_data))
+    Σ_order_contribs = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
+    Σ_order_contribs_std = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
+
+    # Value of the bold propagator at the previous time slice
+    P_prev = Dict(s => (s, p[τ_f_prev, τ_i]) for (s, p) in enumerate(expansion.P))
+
+    for td in top_data
+
+        @assert td.order > 0 "Pseudo-particle self-energy has no 0-th order contribution"
+
+        @timeit tmr "Order $(td.order)" begin
+        @timeit tmr "Integration" begin
+
+        if td.order == 1
+            @timeit tmr "Evaluation" begin
+            fixed_nodes = Dict(1 => teval.PairNode(t_i), 2 => teval.PairNode(t_f_prev))
+            eval = teval.TopologyEvaluator(expansion, 1, true, fixed_nodes, tmr=tmr)
+            Σ_order_contribs[td.order] = eval(td.topologies, BranchPoint[])
+            end # tmr
+        else
+
+            td.N_samples <= 0 && continue
+
+            @timeit tmr "Setup" begin
+            d = 2 * td.order - 2
+
+            fixed_nodes = Dict(1 => teval.PairNode(t_i), d + 2 => teval.PairNode(t_f_prev))
+            eval = teval.TopologyEvaluator(expansion, td.order, true, fixed_nodes, tmr=tmr)
+            trans = RootTransform(d, c, t_i, t_f_prev)
+
+            N_range = rank_sub_range(td.N_samples)
+            rank_weight = length(N_range) / td.N_samples
+            end # tmr
+
+            @timeit tmr "Evaluation" begin
+            contrib_mean, contrib_std =
+            mean_std_from_randomization(2 * td.order, td.rand_params) do seq
+                skip!(seq, first(N_range) - 1, exact=true)
+                res::SectorBlockMatrix = rank_weight * contour_integral(
+                    t -> eval(td.topologies, t),
+                    c,
+                    trans,
+                    init = deepcopy(zero_sector_block_matrix),
+                    seq = seq,
+                    N = length(N_range)
+                )
+                @timeit tmr "MPI all_reduce" begin
+                all_reduce!(res, +)
+                end # tmr
+                res
+            end
+            Σ_order_contribs[td.order] += contrib_mean
+            Σ_order_contribs_std[td.order] += contrib_std
+            end # tmr
+        end
+
+        end; end # tmr
+
+    end
+
+    grid = first(expansion.P).grid
+
+    # Update Σ at time τ_f_prev
+    Σ_prev = sum(values(Σ_order_contribs))
+    set_ppgf!(Σ, τ_i, τ_f_prev, Σ_prev)
+
+    # Convolution Σ * P
+    rhs = SectorBlockMatrix()
+    for s in eachindex(expansion.P)
+        size = kd.norbitals(expansion.P[s])
+        # Keldysh.integrate() uses the trapezoid rule
+        conv = kd.integrate(τ -> Σ[s][τ_f_prev, τ] * expansion.P[s][τ, τ_i],
+                            grid,
+                            τ_f_prev,
+                            τ_i,
+                            zeros(ComplexF64, size, size))
+        rhs[s] = (s, conv)
+    end
+
+    # Term governing PPGF evolution in absence of interaction
+    rhs += -hamiltonian * P_prev
+
+    # Solve the ODE for the bold propagator using the simple Euler method
+    Δτ = 1im * step(grid, kd.imaginary_branch)
+    P = P_prev + Δτ * rhs
+    return P, Σ_order_contribs, Σ_order_contribs_std
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Perform a complete qMC inchworm calculation of the bold propagators on the imaginary
+time segment using the differential formulation of the method described in
+
+```
+"Inchworm Monte Carlo Method for Open Quantum Systems"
+Z. Cai, J. Lu and S. Yang
+Comm. Pure Appl. Math., 73: 2430-2472 (2020)
+```
+
+Results of the calculation are written into `expansion.P`.
+
+# Parameters
+- `expansion`:   Strong coupling expansion problem.
+- `grid`:        Imaginary time grid of the bold propagators.
+- `orders`:      List of expansion orders to be accounted for.
+- `N_samples`:   Number of samples to be used in qMC integration. Must be a power of 2.
+- `rand_params`: Parameters of the randomized qMC integration.
+
+# Returns
+- Order-resolved contributions to the pseudo-particle self-energy as a dictionary
+  `Dict{Int, PPGF}`.
+- Estimated standard deviations of the order-resolved contributions as a dictionary
+  `Dict{Int, PPGF}`.
+"""
+function diff_inchworm!(expansion::Expansion,
+                        grid::kd.ImaginaryTimeGrid,
+                        orders,
+                        N_samples::Int64;
+                        rand_params::RandomizationParams = RandomizationParams())
+
+    tmr = TimerOutput()
+
+    @assert N_samples == 0 || ispow2(N_samples)
+    @assert rand_params.N_seqs > 0
+
+    if ismaster()
+        comm = MPI.COMM_WORLD
+        comm_size = MPI.Comm_size(comm)
+        N_split = split_count(N_samples, comm_size)
+
+        @info """
+
+        $(logo)
+
+        n_τ = $(length(grid))
+        orders = $(orders)
+        # qMC samples = $(N_samples)
+        # MPI ranks = $(comm_size)
+        # qMC samples (per rank, min:max) = $(minimum(N_split)):$(maximum(N_split))
+        $(rand_params)
+        """
+    end
+
+    # Prepare containers for order-resolved contributions to the self-energy
+    Σ_orders = Dict(order => kd.zero(expansion.P0) for order in orders)
+    Σ_orders_std = Dict(order => kd.zero(expansion.P0) for order in orders)
+
+    # Differential inching
+    top_data = TopologiesInputData[]
+    for order in orders
+
+        # There is no 0-th order contribution to the pseudo-particle self-energy
+        order == 0 && continue
+
+        @timeit tmr "Order $(order)" begin
+        @timeit tmr "Topologies" begin
+
+        topologies = get_topologies_at_order(order, 1)
+
+        if !isempty(topologies)
+            push!(top_data,
+                  TopologiesInputData(order, 1, topologies, N_samples, rand_params)
+            )
+        end
+
+        end; end # tmr "Order" "Topologies"
+
+    end
+
+    if ismaster()
+        msg = prod(["Order $(d.order), " *
+                    "# topologies = $(length(d.topologies))\n"
+                    for d in top_data])
+        @info "Diagrams\n$(msg)"
+    end
+
+    if ismaster()
+        @info "Evaluating diagrams"
+    end
+
+    iter = 1:length(grid)-1
+    if ismaster()
+        logger = Logging.current_logger()
+        if isa(logger, Logging.ConsoleLogger) && logger.min_level <= Logging.Info
+            iter = ProgressBar(iter)
+        end
+    end
+
+    # Prepare the Hamiltonian block matrix
+    β = first(expansion.P).grid.contour.β
+    Z = ked.partition_function(expansion.ed, β)
+    λ = log(Z) / β
+    hamiltonian = Dict(s => (s, diagm(convert.(ComplexF64, eig.eigenvalues .+ λ)))
+                       for (s, eig) in enumerate(expansion.ed.eigensystems))
+
+    # Prepare self-energy container
+    Σ = zero(expansion.P)
+
+    τ_i = grid[1]
+    for n in iter
+        τ_f_prev = grid[n]
+        τ_f = grid[n + 1]
+
+        result, Σ_order_contribs, Σ_order_contribs_std =
+            diff_inchworm_step!(expansion,
+                                grid.contour,
+                                τ_i,
+                                τ_f_prev,
+                                τ_f,
+                                Σ,
+                                hamiltonian,
+                                top_data,
+                                tmr=tmr)
+
+        set_ppgf!(expansion.P, τ_i, τ_f, result)
+        for order in keys(Σ_order_contribs)
+            set_ppgf!(Σ_orders[order], τ_i, τ_f, Σ_order_contribs[order])
+            set_ppgf!(Σ_orders_std[order], τ_i, τ_f, Σ_order_contribs_std[order])
+        end
+    end
+
+    ismaster() && @debug string("Timed sections in diff_inchworm!()\n", tmr)
+
+    return Σ_orders, Σ_orders_std
+end
+
+#
 # Calculation of two-point correlators on the Matsubara branch
 #
 
@@ -494,8 +765,8 @@ the calculation is taken from `expansion.corr_operators[A_B_pair_idx]`.
 - `tmr`:          A `TimerOutput` object used for profiling.
 
 # Returns
-- `corr`    : Accumulated value of the two-point correlator.
-- `corr_std`: Estimated standard deviations of the computed correlator.
+- Accumulated value of the two-point correlator.
+- Estimated standard deviations of the computed correlator.
 """
 function correlator_2p(expansion::Expansion,
                        grid::kd.ImaginaryTimeGrid,
@@ -598,11 +869,10 @@ randomized qMC estimates of both mean and standard deviation of the correlators.
 - `rand_params`: Parameters of the randomized qMC integration.
 
 # Returns
-- `corr`: A list of scalar-valued GF objects containing the computed correlators,
-          one element per a pair in `expansion.corr_operators`.
-- `corr_std`: A list of scalar-valued GF objects containing estimated standard deviations of
-              the computed correlators, one element per a pair in
-              `expansion.corr_operators`.
+- A list of scalar-valued GF objects containing the computed correlators, one element per
+  a pair in `expansion.corr_operators`.
+- A list of scalar-valued GF objects containing estimated standard deviations of
+  the computed correlators, one element per a pair in `expansion.corr_operators`.
 """
 function correlator_2p(expansion::Expansion,
                        grid::kd.ImaginaryTimeGrid,
@@ -756,8 +1026,8 @@ time segment. Accumulation is performed for each pair of operators ``(A, B)`` in
 - `rand_params`: Parameters of the randomized qMC integration.
 
 # Returns
-- `corr`: A list of scalar-valued GF objects containing the computed correlators,
-          one element per a pair in `expansion.corr_operators`.
+A list of scalar-valued GF objects containing the computed correlators, one element per
+a pair in `expansion.corr_operators`.
 """
 function correlator_2p(expansion::Expansion,
     grid::kd.ImaginaryTimeGrid,

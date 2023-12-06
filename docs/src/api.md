@@ -40,6 +40,7 @@ inchworm
 ```
 ```@docs
 inchworm!
+diff_inchworm!
 correlator_2p
 ```
 

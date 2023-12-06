@@ -7,4 +7,5 @@ CurrentModule = QInchworm.inchworm
 TopologiesInputData
 inchworm_step
 inchworm_step_bare
+diff_inchworm_step!
 ```
