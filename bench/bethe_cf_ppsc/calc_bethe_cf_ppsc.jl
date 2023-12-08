@@ -33,7 +33,7 @@ using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.inchworm: inchworm!, correlator_2p
 using QInchworm.mpi: ismaster
 
-include("data_gf.jl")
+include("ppsc_reference_data.jl")
 
 # Solve non-interacting two fermion AIM coupled to
 # semi-circular (Bethe lattice) hybridization functions.
@@ -84,7 +84,7 @@ function run_dimer(nτ, orders, orders_bare, orders_gf, N_samples)
     ip_2_bwd = InteractionPair(op.c(2), op.c_dag(2), ph_conj(Δ))
     expansion = Expansion(ed, grid, [ip_1_fwd, ip_1_bwd, ip_2_fwd, ip_2_bwd])
 
-    inchworm!(expansion, grid, orders, orders_bare, N_samples)
+    inchworm!(expansion, grid, orders, orders_bare, N_samples; n_pts_after_max=1)
 
     normalize!(expansion.P, β)
 
@@ -96,7 +96,7 @@ function run_dimer(nτ, orders, orders_bare, orders_gf, N_samples)
         τ_ref = collect(LinRange(0, β, 128))
 
         plt.figure(figsize=(3.25*4, 12))
-        subp = [5, 3, 1]
+        subp = [5, 2, 1]
 
         for s in 1:length(expansion.P)
             plt.subplot(subp...); subp[end] += 1;
@@ -121,16 +121,6 @@ function run_dimer(nτ, orders, orders_bare, orders_gf, N_samples)
             plt.plot(τ_ref, P - get_P_tca()[s], "k-.", label="TCA $s ref", alpha=0.25)
             plt.ylabel(raw"$\Delta P_\Gamma(\tau)$")
             plt.xlabel(raw"$\tau$")
-
-            plt.subplot(subp...); subp[end] += 1;
-            for (o, P) in enumerate(expansion.P_orders)
-                p = imag(P[s].mat.data[1, 1, :])
-                plt.semilogy(τ, -p, label="order $(o-1) ref", alpha=0.25)
-            end
-            plt.ylim([1e-9, 1e2])
-            plt.ylabel(raw"$P_\Gamma(\tau)$")
-            plt.xlabel(raw"$\tau$")
-            plt.legend(loc="best")
         end
 
         x = collect(τ)
