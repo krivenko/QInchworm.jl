@@ -53,7 +53,8 @@ using LinearAlgebra: Diagonal, tr, I, diagm
 using Keldysh; kd = Keldysh;
 using KeldyshED; ked = KeldyshED;
 
-using QInchworm.spline_gf: SplineInterpolatedGF
+using QInchworm.sector_block_matrix: SectorBlockMatrix
+using QInchworm.spline_gf: SplineInterpolatedGF, IncSplineImaginaryTimeGF, extend!
 
 export FullTimePPGF, ImaginaryTimePPGF
 export atomic_ppgf
@@ -452,6 +453,51 @@ function check_ppgf_real_time_symmetries(P::FullTimePPGF, ed::ked.EDCore)::Bool
         end
     end
     return true
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Set the value of `P` corresponding to a given pair of imaginary time points
+``(\\tau_f, \\tau_i)``. This method is defined for the spline-interpolated imaginary-time
+propagators.
+
+# Parameters
+- `P`:   Pseudo-particle Green's function.
+- `τ_i`: Initial imaginary time ``\\tau_i``.
+- `τ_f`: Final imaginary time ``\\tau_f``.
+- `val`: Block matrix to set ``P(\\tau_f, \\tau_i)`` to. Expected to be block-diagonal.
+"""
+function set_ppgf!(P::Vector{IncSplineImaginaryTimeGF{ComplexF64, false}},
+                   τ_i::kd.TimeGridPoint,
+                   τ_f::kd.TimeGridPoint,
+                   val::SectorBlockMatrix)
+    for (s_i, (s_f, mat)) in val
+        @assert s_i == s_f
+        extend!(P[s_i], mat)
+    end
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Set the value of `P` corresponding to a given pair of contour time points ``(t_f, t_i)``.
+
+# Parameters
+- `P`:   Pseudo-particle Green's function.
+- `t_i`: Initial contour time ``t_i``.
+- `t_f`: Final contour time ``t_f``.
+- `val`: Block matrix to set ``P(t_f, t_i)`` to. Expected to be block-diagonal.
+"""
+function set_ppgf!(P::Union{FullTimePPGF, ImaginaryTimePPGF},
+                   t_i::kd.TimeGridPoint,
+                   t_f::kd.TimeGridPoint,
+                   val::SectorBlockMatrix)
+    for (s_i, (s_f, mat)) in val
+        # Boldification must preserve the block structure
+        @assert s_i == s_f
+        P[s_i][t_f, t_i] = mat
+    end
 end
 
 """

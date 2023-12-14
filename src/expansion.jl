@@ -308,53 +308,6 @@ end
 """
     $(TYPEDSIGNATURES)
 
-Set the value of `expansion.P` corresponding to a given pair of imaginary time points
-``(\\tau_f, \\tau_i)``. This method is defined for the spline-interpolated imaginary-time
-propagators.
-
-# Parameters
-- `expansion`: Pseudo-particle expansion.
-- `τ_i`:       Initial imaginary time ``\\tau_i``.
-- `τ_f`:       Final imaginary time ``\\tau_f``.
-- `val`:       Block matrix to set ``P(\\tau_f, \\tau_i)`` to.
-"""
-function set_bold_ppgf!(
-        expansion::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},
-        τ_i::kd.TimeGridPoint,
-        τ_f::kd.TimeGridPoint,
-        val::SectorBlockMatrix) where ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}
-    for (s_i, (s_f, mat)) in val
-        @assert s_i == s_f # Boldification must preserve the block structure
-        extend!(expansion.P[s_i], mat)
-    end
-end
-
-"""
-    $(TYPEDSIGNATURES)
-
-Set the value of `expansion.P` corresponding to a given pair of contour time points
-``(t_f, t_i)``.
-
-# Parameters
-- `expansion`: Pseudo-particle expansion.
-- `t_i`:       Initial imaginary time ``t_i``.
-- `t_f`:       Final imaginary time ``t_f``.
-- `val`:       Block matrix to set ``P(t_f, t_i)`` to.
-"""
-function set_bold_ppgf!(expansion::Expansion,
-                        t_i::kd.TimeGridPoint,
-                        t_f::kd.TimeGridPoint,
-                        val::SectorBlockMatrix)
-    for (s_i, (s_f, mat)) in val
-        # Boldification must preserve the block structure
-        @assert s_i == s_f
-        expansion.P[s_i][t_f, t_i] = mat
-    end
-end
-
-"""
-    $(TYPEDSIGNATURES)
-
 Set the value of `expansion.P_orders` corresponding to a given expansion order and to a pair
 of imaginary time points ``(\\tau_f, \\tau_i)``. This method is defined for the
 spline-interpolated imaginary-time propagators.

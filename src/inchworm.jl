@@ -37,7 +37,7 @@ using LinearAlgebra: tr
 using Keldysh; kd = Keldysh
 
 using QInchworm.sector_block_matrix: SectorBlockMatrix
-using QInchworm.ppgf: partition_function
+using QInchworm.ppgf: partition_function, set_ppgf!
 
 using QInchworm; teval = QInchworm.topology_eval
 using QInchworm.diagrammatics: get_topologies_at_order
@@ -46,7 +46,7 @@ using QInchworm.scrambled_sobol: ScrambledSobolSeq, next!, skip!
 using QInchworm.utility: split_count
 using QInchworm.mpi: ismaster, rank_sub_range, all_reduce!
 
-using QInchworm.expansion: Expansion, set_bold_ppgf!, set_bold_ppgf_at_order!
+using QInchworm.expansion: Expansion, set_bold_ppgf_at_order!
 using QInchworm.configuration: Configuration,
                                set_initial_node_time!,
                                set_final_node_time!,
@@ -392,7 +392,7 @@ function inchworm!(expansion::Expansion,
                                 grid[2],
                                 top_data,
                                 tmr=tmr)
-    set_bold_ppgf!(expansion, grid[1], grid[2], result)
+    set_ppgf!(expansion.P, grid[1], grid[2], result)
 
     # The rest of inching
 
@@ -456,7 +456,7 @@ function inchworm!(expansion::Expansion,
         τ_f = grid[n + 1]
 
         result = inchworm_step(expansion, grid.contour, τ_i, τ_w, τ_f, top_data, tmr=tmr)
-        set_bold_ppgf!(expansion, τ_i, τ_f, result)
+        set_ppgf!(expansion.P, τ_i, τ_f, result)
     end
 
     ismaster() && @debug string("Timed sections in inchworm!()\n", tmr)
