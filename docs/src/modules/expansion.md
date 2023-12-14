@@ -6,5 +6,4 @@ CurrentModule = QInchworm.expansion
 ```@docs
 AllPPGFSectorTypes
 AllPPGFTypes
-set_bold_ppgf_at_order!
 ```

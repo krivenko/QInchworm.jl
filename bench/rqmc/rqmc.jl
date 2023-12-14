@@ -66,13 +66,13 @@ function run_bethe(nτ, orders, orders_bare, orders_gf, N_samples, N_seqs, n_pts
 
     rand_params = RandomizationParams(MersenneTwister(12345678), N_seqs, .0)
 
-    inchworm!(expansion, grid, orders, orders_bare, N_samples;
-              n_pts_after_max=n_pts_after_max,
-              rand_params=rand_params)
+    P_orders, P_orders_std = inchworm!(expansion, grid, orders, orders_bare, N_samples;
+                                       n_pts_after_max=n_pts_after_max,
+                                       rand_params=rand_params)
 
     λ = normalize!(expansion.P, β)
 
-    P_std = sum(expansion.P_orders_std)
+    P_std = sum(values(P_orders_std))
     # Normalize P_std using the same λ as for P
     for p in P_std
         normalize!(p, λ)

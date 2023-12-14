@@ -93,16 +93,10 @@ ed = ked.EDCore(H, soi)
     orders = 0:3
     N_samples = 2^8
 
-    # Extend expansion.P_orders and expansion.P_orders_std to max of orders
-    for o in 1:(maximum(orders)+1)
-        push!(expansion.P_orders, kd.zero(expansion.P0))
-        push!(expansion.P_orders_std, kd.zero(expansion.P0))
-    end
-
     rand_params = RandomizationParams()
 
     order_data = TopologiesInputData[]
-    for order in 0:3
+    for order in orders
         n_pts_after_range = (order == 0) ? (0:0) : (1:(2 * order - 1))
         for n_pts_after in n_pts_after_range
             topologies = get_topologies_at_order(order, n_pts_after)
@@ -118,7 +112,11 @@ ed = ked.EDCore(H, soi)
         end
     end
 
-    value = inchworm_step(expansion, contour, τ_i, τ_w, τ_f, order_data)
+    value, order_contribs, order_contribs_std =
+        inchworm_step(expansion, contour, τ_i, τ_w, τ_f, order_data)
+
+    @test sort(collect(keys(order_contribs))) == collect(orders)
+    @test sum(values(order_contribs)) ≈ value
 
     HDF5.h5open((@__DIR__) * "/inchworm.h5", write_h5 ? "cw" : "r") do fid
         for s = 1:2
@@ -153,16 +151,10 @@ end
     orders = 0:3
     N_samples = 2^8
 
-    # Extend expansion.P_orders to max of orders
-    for o in 1:(maximum(orders)+1)
-        push!(expansion.P_orders, kd.zero(expansion.P0))
-        push!(expansion.P_orders_std, kd.zero(expansion.P0))
-    end
-
     rand_params = RandomizationParams()
 
     order_data = TopologiesInputData[]
-    for order in 0:3
+    for order in orders
         topologies = get_topologies_at_order(order)
         push!(order_data, TopologiesInputData(order,
                                               1,
@@ -171,7 +163,11 @@ end
                                               rand_params))
     end
 
-    value = inchworm_step_bare(expansion, contour, τ_i, τ_f, order_data)
+    value, order_contribs, order_contribs_std =
+        inchworm_step_bare(expansion, contour, τ_i, τ_f, order_data)
+
+    @test sort(collect(keys(order_contribs))) == collect(orders)
+    @test sum(values(order_contribs)) ≈ value
 
     HDF5.h5open((@__DIR__) * "/inchworm.h5", write_h5 ? "cw" : "r") do fid
         for s = 1:2

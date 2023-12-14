@@ -71,11 +71,11 @@ function run_bethe(nτ, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     ρ_0 = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P0), ed), ed)
 
-    inchworm!(expansion,
-              grid,
-              orders,
-              orders_bare,
-              N_samples; n_pts_after_max=1)
+    P_orders, P_orders_std = inchworm!(expansion,
+                                       grid,
+                                       orders,
+                                       orders_bare,
+                                       N_samples; n_pts_after_max=1)
 
     if interpolate_gfs
         P = [p.GF for p in expansion.P]
@@ -85,8 +85,10 @@ function run_bethe(nτ, orders, orders_bare, N_samples; interpolate_gfs=false)
         ppgf.normalize!(expansion.P, β)
         ρ_wrm = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P), ed), ed)
 
-        ρ_wrm_orders = [full_hs_matrix(tofockbasis(ppgf.density_matrix(p), ed), ed)
-                        for p in expansion.P_orders]
+        ρ_wrm_orders = [
+            full_hs_matrix(tofockbasis(ppgf.density_matrix(P_orders[o]), ed), ed)
+            for o in sort(collect(keys(P_orders)))
+        ]
         ρ_wrm_orders = [real(diag(r)) for r in ρ_wrm_orders]
         norm = sum(sum(ρ_wrm_orders))
         ρ_wrm_orders /= norm

@@ -46,7 +46,7 @@ using QInchworm.scrambled_sobol: ScrambledSobolSeq, next!, skip!
 using QInchworm.utility: split_count
 using QInchworm.mpi: ismaster, rank_sub_range, all_reduce!
 
-using QInchworm.expansion: Expansion, set_bold_ppgf_at_order!
+using QInchworm.expansion: Expansion
 using QInchworm.configuration: Configuration,
                                set_initial_node_time!,
                                set_final_node_time!,
@@ -112,7 +112,11 @@ Perform one regular step of qMC inchworm accumulation of the bold propagators.
 - `tmr`:       A `TimerOutput` object used for profiling.
 
 # Returns
-Accumulated value of the bold propagator.
+- Accumulated value of the bold propagator.
+- Order-resolved contributions to the bold propagator as a dictionary
+  `Dict{Int, SectorBlockMatrix}`.
+- Estimated standard deviations of the order-resolved contributions as a dictionary
+  `Dict{Int, SectorBlockMatrix}`.
 """
 function inchworm_step(expansion::Expansion,
                        c::kd.AbstractContour,
@@ -129,8 +133,8 @@ function inchworm_step(expansion::Expansion,
     zero_sector_block_matrix = zeros(SectorBlockMatrix, expansion.ed)
 
     orders = unique(map(td -> td.order, top_data))
-    order_contribs = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
-    order_contribs_std = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
+    P_order_contribs = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
+    P_order_contribs_std = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
 
     for td in top_data
 
@@ -144,8 +148,8 @@ function inchworm_step(expansion::Expansion,
             eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
             end # tmr
             @timeit tmr "Evaluation" begin
-            # This evaluation result is exact, so no need to update order_contribs_std
-            order_contribs[td.order] += eval(td.topologies, kd.BranchPoint[])
+            # This evaluation result is exact, so no need to update P_order_contribs_std
+            P_order_contribs[td.order] += eval(td.topologies, kd.BranchPoint[])
             end # tmr
         else
             td.N_samples <= 0 && continue
@@ -163,7 +167,7 @@ function inchworm_step(expansion::Expansion,
             end # tmr
 
             @timeit tmr "Evaluation" begin
-            order_contrib_mean, order_contrib_std =
+            contrib_mean, contrib_std =
             mean_std_from_randomization(2 * td.order, td.rand_params) do seq
                 skip!(seq, first(N_range) - 1, exact=true)
                 res::SectorBlockMatrix = rank_weight * contour_integral(
@@ -179,8 +183,8 @@ function inchworm_step(expansion::Expansion,
                 end # tmr
                 res
             end
-            order_contribs[td.order] += order_contrib_mean
-            order_contribs_std[td.order] += order_contrib_std
+            P_order_contribs[td.order] += contrib_mean
+            P_order_contribs_std[td.order] += contrib_std
             end # tmr
         end
 
@@ -188,15 +192,7 @@ function inchworm_step(expansion::Expansion,
 
     end
 
-    for order in orders
-        set_bold_ppgf_at_order!(expansion,
-                                order,
-                                τ_i, τ_f,
-                                order_contribs[order],
-                                order_contribs_std[order])
-    end
-
-    return sum(values(order_contribs))
+    return sum(values(P_order_contribs)), P_order_contribs, P_order_contribs_std
 end
 
 """
@@ -215,7 +211,11 @@ bare propagators.
 - `tmr`:       A `TimerOutput` object used for profiling.
 
 # Returns
-Accumulated value of the bold propagator.
+- Accumulated value of the bold propagator.
+- Order-resolved contributions to the bold propagator as a dictionary
+  `Dict{Int, SectorBlockMatrix}`.
+- Estimated standard deviations of the order-resolved contributions as a dictionary
+  `Dict{Int, SectorBlockMatrix}`.
 """
 function inchworm_step_bare(expansion::Expansion,
                             c::kd.AbstractContour,
@@ -229,7 +229,10 @@ function inchworm_step_bare(expansion::Expansion,
     @assert n_f.time.ref >= n_i.time.ref
 
     zero_sector_block_matrix = zeros(SectorBlockMatrix, expansion.ed)
-    result = deepcopy(zero_sector_block_matrix)
+
+    orders = unique(map(td -> td.order, top_data))
+    P_order_contribs = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
+    P_order_contribs_std = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
 
     for td in top_data
 
@@ -243,8 +246,8 @@ function inchworm_step_bare(expansion::Expansion,
             eval = teval.TopologyEvaluator(expansion, 0, fixed_nodes, tmr=tmr)
             end # tmr
             @timeit tmr "Evaluation" begin
-            order_contrib = eval(td.topologies, kd.BranchPoint[])
-            order_contrib_std = deepcopy(zero_sector_block_matrix)
+            P_order_contribs[td.order] = eval(td.topologies, kd.BranchPoint[])
+            # This evaluation result is exact, so no need to update P_order_contribs_std
             end # tmr
         else
             td.N_samples <= 0 && continue
@@ -261,7 +264,7 @@ function inchworm_step_bare(expansion::Expansion,
             end # tmr
 
             @timeit tmr "Evaluation" begin
-            order_contrib, order_contrib_std =
+            contrib_mean, contrib_std =
             mean_std_from_randomization(d, td.rand_params) do seq
                 skip!(seq, first(N_range) - 1, exact=true)
                 res::SectorBlockMatrix = rank_weight * contour_integral(
@@ -277,20 +280,15 @@ function inchworm_step_bare(expansion::Expansion,
                 end # tmr
                 res
             end
+            P_order_contribs[td.order] += contrib_mean
+            P_order_contribs_std[td.order] += contrib_std
             end # tmr
         end
-
-        set_bold_ppgf_at_order!(expansion,
-                                td.order,
-                                τ_i, τ_f,
-                                order_contrib,
-                                order_contrib_std)
-        result += order_contrib
 
         end; end; end # tmr
 
     end
-    return result
+    return sum(values(P_order_contribs)), P_order_contribs, P_order_contribs_std
 end
 
 """
@@ -311,6 +309,12 @@ time segment. Results of the calculation are written into `expansion.P`.
                      taken into account. By default, diagrams with all valid numbers of
                      the after-``\\tau_w`` points are considered.
 - `rand_params`:     Parameters of the randomized qMC integration.
+
+# Returns
+- Order-resolved contributions to the bold propagator as a dictionary
+  `Dict{Int, PPGF}`.
+- Estimated standard deviations of the order-resolved contributions as a dictionary
+  `Dict{Int, PPGF}`.
 """
 function inchworm!(expansion::Expansion,
                    grid::kd.ImaginaryTimeGrid,
@@ -346,12 +350,10 @@ function inchworm!(expansion::Expansion,
         """
     end
 
-    # Extend expansion.P_orders and expansion.P_orders_std to max of orders, orders_bare
-    max_order = maximum([maximum(orders), maximum(orders_bare)])
-    for o in 1:(max_order+1)
-        push!(expansion.P_orders, kd.zero(expansion.P0))
-        push!(expansion.P_orders_std, kd.zero(expansion.P0))
-    end
+    # Prepare containers for order-resolved contributions to the bold propagator
+    orders_all = union(orders, orders_bare)
+    P_orders = Dict(order => kd.zero(expansion.P0) for order in orders_all)
+    P_orders_std = Dict(order => kd.zero(expansion.P0) for order in orders_all)
 
     # First inchworm step
 
@@ -386,13 +388,14 @@ function inchworm!(expansion::Expansion,
         @info "Initial inchworm step: Evaluating diagrams with bare propagators"
     end
 
-    result = inchworm_step_bare(expansion,
-                                grid.contour,
-                                grid[1],
-                                grid[2],
-                                top_data,
-                                tmr=tmr)
+    result, P_order_contribs, P_order_contribs_std =
+        inchworm_step_bare(expansion, grid.contour, grid[1], grid[2], top_data, tmr=tmr)
+
     set_ppgf!(expansion.P, grid[1], grid[2], result)
+    for order in keys(P_order_contribs)
+        set_ppgf!(P_orders[order], grid[1], grid[2], P_order_contribs[order])
+        set_ppgf!(P_orders_std[order], grid[1], grid[2], P_order_contribs_std[order])
+    end
 
     # The rest of inching
 
@@ -455,13 +458,19 @@ function inchworm!(expansion::Expansion,
         τ_w = grid[n]
         τ_f = grid[n + 1]
 
-        result = inchworm_step(expansion, grid.contour, τ_i, τ_w, τ_f, top_data, tmr=tmr)
+        result, P_order_contribs, P_order_contribs_std =
+            inchworm_step(expansion, grid.contour, τ_i, τ_w, τ_f, top_data, tmr=tmr)
+
         set_ppgf!(expansion.P, τ_i, τ_f, result)
+        for order in keys(P_order_contribs)
+            set_ppgf!(P_orders[order], τ_i, τ_f, P_order_contribs[order])
+            set_ppgf!(P_orders_std[order], τ_i, τ_f, P_order_contribs_std[order])
+        end
     end
 
     ismaster() && @debug string("Timed sections in inchworm!()\n", tmr)
 
-    return
+    return P_orders, P_orders_std
 end
 
 #

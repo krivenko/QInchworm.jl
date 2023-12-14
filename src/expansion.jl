@@ -108,10 +108,6 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
     P0::PPGF
     "Interacting propagator (pseudo-particle Green's function)"
     P::PPGF
-    "Contributions to interacting propagators, per expansion diagram order"
-    P_orders::Vector{PPGF}
-    "Estimated standard deviations of `P_orders`"
-    P_orders_std::Vector{PPGF}
     "List of pseudo-particle interactions"
     pairs::Vector{InteractionPair{ScalarGF}}
     "List of hybridization function determinants (not implemented yet)"
@@ -154,8 +150,6 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
         P0 = ppgf.atomic_ppgf(grid, ed)
         dP0 = ppgf.initial_ppgf_derivative(ed, grid.contour.β)
         P = deepcopy(P0)
-        P_orders = Vector{typeof(P)}()
-        P_orders_std = Vector{typeof(P)}()
 
         if interpolate_ppgf
 
@@ -199,8 +193,6 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
             ed,
             P0,
             P,
-            P_orders,
-            P_orders_std,
             interaction_pairs,
             [],
             corr_operators,
@@ -303,60 +295,6 @@ function Expansion(
         corr_operators=corr_operators,
         interpolate_ppgf=interpolate_ppgf
     )
-end
-
-"""
-    $(TYPEDSIGNATURES)
-
-Set the value of `expansion.P_orders` corresponding to a given expansion order and to a pair
-of imaginary time points ``(\\tau_f, \\tau_i)``. This method is defined for the
-spline-interpolated imaginary-time propagators.
-
-# Parameters
-- `expansion`: Pseudo-particle expansion.
-- `order`:     Expansion order.
-- `τ_i`:       Initial imaginary time ``\\tau_i``.
-- `τ_f`:       Final imaginary time ``\\tau_f``.
-- `val`:       Block matrix to set ``P(\\tau_f, \\tau_i)`` to.
-"""
-function set_bold_ppgf_at_order!(
-        expansion::Expansion{ScalarGF, Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}},
-        order::Integer,
-        τ_i::kd.TimeGridPoint,
-        τ_f::kd.TimeGridPoint,
-        result::SectorBlockMatrix,
-        result_std::SectorBlockMatrix) where ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}
-    for (s_i, (s_f, mat)) in result
-        @assert s_i == s_f # Boldification must preserve the block structure
-        extend!(expansion.P_orders[order+1][s_i], mat)
-        extend!(expansion.P_orders_std[order+1][s_i], result_std[s_i][2])
-    end
-end
-
-"""
-    $(TYPEDSIGNATURES)
-
-Set the value of `expansion.P_orders` corresponding to a given expansion order and to a pair
-of contour time points ``(t_f, t_i)``.
-
-# Parameters
-- `expansion`: Pseudo-particle expansion.
-- `order`:     Expansion order.
-- `t_i`:       Initial imaginary time ``t_i``.
-- `t_f`:       Final imaginary time ``t_f``.
-- `val`:       Block matrix to set ``P(t_f, t_i)`` to.
-"""
-function set_bold_ppgf_at_order!(expansion::Expansion,
-                                 order::Integer,
-                                 t_i::kd.TimeGridPoint,
-                                 t_f::kd.TimeGridPoint,
-                                 result::SectorBlockMatrix,
-                                 result_std::SectorBlockMatrix)
-    for (s_i, (s_f, mat)) in result
-        @assert s_i == s_f # Boldification must preserve the block structure
-        expansion.P_orders[order+1][s_i][t_f, t_i] = mat
-        expansion.P_orders_std[order+1][s_i][t_f, t_i] = result_std[s_i][2]
-    end
 end
 
 """
