@@ -478,6 +478,77 @@ end
 # Differential inchworm / bold propagator accumulation functions
 #
 
+# TODO
+"""
+"""
+function _accumulate_Σ(expansion::Expansion,
+                       c::kd.ImaginaryContour,
+                       τ_i::kd.TimeGridPoint,
+                       τ_f::kd.TimeGridPoint,
+                       top_data::Vector{TopologiesInputData};
+                       tmr::TimerOutput = TimerOutput())
+    t_i, t_f = τ_i.bpoint, τ_f.bpoint
+    @assert t_f.ref >= t_i.ref
+
+    zero_sector_block_matrix = zeros(SectorBlockMatrix, expansion.ed)
+    result = deepcopy(zero_sector_block_matrix)
+
+    for td in top_data
+
+        @assert td.order > 0 "Pseudo-particle self-energy has no 0-th order contribution"
+
+        @timeit tmr "Order $(td.order)" begin
+        @timeit tmr "Integration" begin
+
+        if td.order == 1
+            @timeit tmr "Evaluation" begin
+            fixed_nodes = Dict(1 => teval.PairNode(t_i), 2 => teval.PairNode(t_f))
+            eval = teval.TopologyEvaluator(expansion, 1, true, fixed_nodes, tmr=tmr)
+            result += eval(td.topologies, BranchPoint[])
+            end # tmr
+        else
+
+            td.N_samples <= 0 && continue
+
+            @timeit tmr "Setup" begin
+            d = 2 * td.order - 2
+
+            fixed_nodes = Dict(1 => teval.PairNode(t_i), d + 2 => teval.PairNode(t_f))
+            eval = teval.TopologyEvaluator(expansion, td.order, true, fixed_nodes, tmr=tmr)
+            trans = RootTransform(d, c, t_i, t_f)
+
+            N_range = rank_sub_range(td.N_samples)
+            rank_weight = length(N_range) / td.N_samples
+            end # tmr
+
+            @timeit tmr "Evaluation" begin
+            contrib_mean, contrib_std =
+            mean_std_from_randomization(2 * td.order, td.rand_params) do seq
+                skip!(seq, first(N_range) - 1, exact=true)
+                res::SectorBlockMatrix = rank_weight * contour_integral(
+                    t -> eval(td.topologies, t),
+                    c,
+                    trans,
+                    init = deepcopy(zero_sector_block_matrix),
+                    seq = seq,
+                    N = length(N_range)
+                )
+                @timeit tmr "MPI all_reduce" begin
+                all_reduce!(res, +)
+                end # tmr
+                res
+            end
+            result += contrib_mean
+            end # tmr
+        end
+
+        end; end # tmr
+
+    end
+
+    return result
+end
+
 """
     $(TYPEDSIGNATURES)
 
@@ -514,77 +585,28 @@ function diff_inchworm_step!(expansion::Expansion,
     t_i, t_f_prev, t_f = τ_i.bpoint, τ_f_prev.bpoint, τ_f.bpoint
     @assert t_f.ref >= t_f_prev.ref >= t_i.ref
 
+    grid = first(expansion.P).grid
+    Δτ = 1im * step(grid, kd.imaginary_branch)
+
     zero_sector_block_matrix = zeros(SectorBlockMatrix, expansion.ed)
 
+    # FIXME: Unused
     orders = unique(map(td -> td.order, top_data))
     Σ_order_contribs = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
     Σ_order_contribs_std = Dict(o => deepcopy(zero_sector_block_matrix) for o in orders)
 
-    # Value of the bold propagator at the previous time slice
-    P_prev = Dict(s => (s, p[τ_f_prev, τ_i]) for (s, p) in enumerate(expansion.P))
+    #
+    # Heun's method: Stage I
+    #
 
-    for td in top_data
-
-        @assert td.order > 0 "Pseudo-particle self-energy has no 0-th order contribution"
-
-        @timeit tmr "Order $(td.order)" begin
-        @timeit tmr "Integration" begin
-
-        if td.order == 1
-            @timeit tmr "Evaluation" begin
-            fixed_nodes = Dict(1 => teval.PairNode(t_i), 2 => teval.PairNode(t_f_prev))
-            eval = teval.TopologyEvaluator(expansion, 1, true, fixed_nodes, tmr=tmr)
-            Σ_order_contribs[td.order] = eval(td.topologies, BranchPoint[])
-            end # tmr
-        else
-
-            td.N_samples <= 0 && continue
-
-            @timeit tmr "Setup" begin
-            d = 2 * td.order - 2
-
-            fixed_nodes = Dict(1 => teval.PairNode(t_i), d + 2 => teval.PairNode(t_f_prev))
-            eval = teval.TopologyEvaluator(expansion, td.order, true, fixed_nodes, tmr=tmr)
-            trans = RootTransform(d, c, t_i, t_f_prev)
-
-            N_range = rank_sub_range(td.N_samples)
-            rank_weight = length(N_range) / td.N_samples
-            end # tmr
-
-            @timeit tmr "Evaluation" begin
-            contrib_mean, contrib_std =
-            mean_std_from_randomization(2 * td.order, td.rand_params) do seq
-                skip!(seq, first(N_range) - 1, exact=true)
-                res::SectorBlockMatrix = rank_weight * contour_integral(
-                    t -> eval(td.topologies, t),
-                    c,
-                    trans,
-                    init = deepcopy(zero_sector_block_matrix),
-                    seq = seq,
-                    N = length(N_range)
-                )
-                @timeit tmr "MPI all_reduce" begin
-                all_reduce!(res, +)
-                end # tmr
-                res
-            end
-            Σ_order_contribs[td.order] += contrib_mean
-            Σ_order_contribs_std[td.order] += contrib_std
-            end # tmr
-        end
-
-        end; end # tmr
-
-    end
-
-    grid = first(expansion.P).grid
+    P_at_τ_f_prev = Dict(s => (s, p[τ_f_prev, τ_i]) for (s, p) in enumerate(expansion.P))
+    Σ_at_τ_f_prev = _accumulate_Σ(expansion, c, τ_i, τ_f_prev, top_data, tmr=tmr)
 
     # Update Σ at time τ_f_prev
-    Σ_prev = sum(values(Σ_order_contribs))
-    set_ppgf!(Σ, τ_i, τ_f_prev, Σ_prev)
+    set_ppgf!(Σ, τ_i, τ_f_prev, Σ_at_τ_f_prev)
 
-    # Convolution Σ * P
-    rhs = SectorBlockMatrix()
+    # Convolution (Σ * P)(τ_f_prev)
+    rhs_at_τ_f_prev = SectorBlockMatrix()
     for s in eachindex(expansion.P)
         size = kd.norbitals(expansion.P[s])
         # Keldysh.integrate() uses the trapezoid rule
@@ -593,16 +615,43 @@ function diff_inchworm_step!(expansion::Expansion,
                             τ_f_prev,
                             τ_i,
                             zeros(ComplexF64, size, size))
-        rhs[s] = (s, conv)
+        rhs_at_τ_f_prev[s] = (s, conv)
     end
 
     # Term governing PPGF evolution in absence of interaction
-    rhs += -hamiltonian * P_prev
+    rhs_at_τ_f_prev += -hamiltonian * P_at_τ_f_prev
 
-    # Solve the ODE for the bold propagator using the simple Euler method
-    Δτ = 1im * step(grid, kd.imaginary_branch)
-    P = P_prev + Δτ * rhs
-    return P, Σ_order_contribs, Σ_order_contribs_std
+    P_at_τ_f_aux = P_at_τ_f_prev + Δτ * rhs_at_τ_f_prev
+
+    #
+    # Heun's method: Stage II
+    #
+
+    set_ppgf!(expansion.P, τ_i, τ_f, P_at_τ_f_aux)
+    Σ_at_τ_f = _accumulate_Σ(expansion, c, τ_i, τ_f, top_data, tmr=tmr)
+
+    # Update Σ at time τ_f
+    set_ppgf!(Σ, τ_i, τ_f, Σ_at_τ_f)
+
+    # Convolution (Σ * P)(τ_f)
+    rhs_at_τ_f = SectorBlockMatrix()
+    for s in eachindex(expansion.P)
+        size = kd.norbitals(expansion.P[s])
+        # Keldysh.integrate() uses the trapezoid rule
+        conv = kd.integrate(τ -> Σ[s][τ_f, τ] * expansion.P[s][τ, τ_i],
+                            grid,
+                            τ_f,
+                            τ_i,
+                            zeros(ComplexF64, size, size))
+        rhs_at_τ_f[s] = (s, conv)
+    end
+
+    # Term governing PPGF evolution in absence of interaction
+    rhs_at_τ_f += -hamiltonian * P_at_τ_f_aux
+
+    P_at_τ_f = P_at_τ_f_prev + (Δτ / 2) * (rhs_at_τ_f_prev + rhs_at_τ_f)
+
+    return P_at_τ_f, Σ_order_contribs, Σ_order_contribs_std
 end
 
 """
