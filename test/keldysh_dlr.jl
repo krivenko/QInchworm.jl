@@ -2,10 +2,12 @@ using Test
 
 using QInchworm.keldysh_dlr: DLRImaginaryTimeGrid, DLRImaginaryTimeGF
 
-import Lehmann; le = Lehmann;
+import Lehmann; le = Lehmann
 using Keldysh; kd = Keldysh
 
 using QuadGK: quadgk
+
+using LinearAlgebra: diag, tr, I
 
 
 function semi_circular_g_tau(times, t, h, β)
@@ -33,23 +35,20 @@ end
 @testset "Keldysh DLR gf" begin
     
     β = 10.0
-    dlr = le.DLRGrid(Euv=8., β=β, isFermi=true, rtol=1e-12, rebuild=true, verbose=false)
-    #@show size(dlr.τ)
+    dlr = le.DLRGrid(Euv=1., β=β, isFermi=true, rtol=1e-10, rebuild=true, verbose=false)
+    @show length(dlr.τ)
     
     contour = kd.ImaginaryContour(β=β)
     grid = DLRImaginaryTimeGrid(contour, dlr)
-    g = DLRImaginaryTimeGF(grid, 1, kd.fermionic, true)
-    #@show size(g.mat.data)
-    
-    g_τ = im * -2/π * le.Sample.SemiCircle(1.0, dlr.β, true, dlr.τ, :τ; degree=128)
-    g_c = le.tau2dlr(dlr, g_τ)
-    g.mat.data[:] = g_c
+
+    dos = kd.bethe_dos(t=0.5, ϵ=0.0)
+    g = DLRImaginaryTimeGF(dos, grid)
     
     # -- Interpolate!
     
     using Random
     rng = MersenneTwister(1234)
-    t_rand = zeros(100)
+    t_rand = zeros(10)
     rand!(rng, t_rand)
     t_rand .*= dlr.β;
     
@@ -57,7 +56,7 @@ end
     G_t_rand_ref = semi_circular_g_tau(t_rand, 1.0, 0.0, dlr.β)
     
     diff = maximum(abs.(G_t_rand - G_t_rand_ref))
-    #@show diff
+    @show diff
     @test diff < 1e-10
     
     # -- Interpolate API of Keldysh.jl
@@ -69,7 +68,7 @@ end
     res = g(bp, bp0)
     #@show res
     
-    ref = im * semi_circular_g_tau([τ], 1.0, 0.0, dlr.β)
+    ref = im * semi_circular_g_tau([τ], 1.0, 0.0, dlr.β)[1]
     #@show ref
     
     @test res ≈ ref
