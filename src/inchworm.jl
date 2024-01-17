@@ -366,8 +366,8 @@ function inchworm!(expansion::Expansion,
 
     # Prepare containers for order-resolved contributions to the bold propagator
     orders_all = union(orders, orders_bare)
-    P_orders = Dict(order => kd.zero(expansion.P0) for order in orders_all)
-    P_orders_std = Dict(order => kd.zero(expansion.P0) for order in orders_all)
+    P_orders = Dict(order => kd.zero(expansion.P) for order in orders_all)
+    P_orders_std = Dict(order => kd.zero(expansion.P) for order in orders_all)
 
     # First inchworm step
     top_data = TopologiesInputData[]
@@ -694,8 +694,8 @@ function diff_inchworm!(expansion::Expansion,
     end
 
     # Prepare containers for order-resolved contributions to the self-energy
-    Σ_orders = Dict(order => kd.zero(expansion.P0) for order in orders)
-    Σ_orders_std = Dict(order => kd.zero(expansion.P0) for order in orders)
+    Σ_orders = Dict(order => kd.zero(expansion.P) for order in orders)
+    Σ_orders_std = Dict(order => kd.zero(expansion.P) for order in orders)
 
     # Differential inching
     top_data = TopologiesInputData[]
