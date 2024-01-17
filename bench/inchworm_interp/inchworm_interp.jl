@@ -1,6 +1,6 @@
 # QInchworm.jl
 #
-# Copyright (C) 2021-2023 I. Krivenko, H. U. R. Strand and J. Kleinhenz
+# Copyright (C) 2021-2024 I. Krivenko, H. U. R. Strand and J. Kleinhenz
 #
 # QInchworm.jl is free software: you can redistribute it and/or modify it under the
 # terms of the GNU General Public License as published by the Free Software
