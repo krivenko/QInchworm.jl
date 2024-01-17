@@ -56,6 +56,8 @@ using KeldyshED; ked = KeldyshED;
 using QInchworm.sector_block_matrix: SectorBlockMatrix
 using QInchworm.spline_gf: SplineInterpolatedGF, IncSplineImaginaryTimeGF, extend!
 
+import KeldyshED: partition_function
+
 export FullTimePPGF, ImaginaryTimePPGF
 export atomic_ppgf
 export partition_function, density_matrix

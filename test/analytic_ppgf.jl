@@ -7,10 +7,10 @@ using QInchworm.ppgf: atomic_ppgf, partition_function
 
 using LinearAlgebra: Diagonal
 
-using Keldysh; kd = Keldysh;
-using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
+using Keldysh; kd = Keldysh
+using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators
 
-using QInchworm.atomic_ppgf: analytic_atomic_ppgf, analytic_partition_function
+using QInchworm.analytic_ppgf: atomic_ppgf, partition_function
 
 @testset "atomic_ppgf" begin
     
@@ -22,8 +22,8 @@ using QInchworm.atomic_ppgf: analytic_atomic_ppgf, analytic_partition_function
     soi = ked.Hilbert.SetOfIndices([[1]])
     ed = ked.EDCore(H, soi)
 
-    P = analytic_atomic_ppgf(ed, β)
-    Z = analytic_partition_function(P, β)
+    P = atomic_ppgf(β, ed)
+    Z = partition_function(P)
     @test Z ≈ 1.0
     
     contour = kd.ImaginaryContour(β=β)
