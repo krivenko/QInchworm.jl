@@ -2,11 +2,15 @@ module keldysh_dlr
 
 using LinearAlgebra: I
 
-import Lehmann; le = Lehmann;
+using Lehmann; le = Lehmann
 
 using Keldysh; kd = Keldysh
+using Keldysh: AbstractTimeGrid, ImaginaryContour, TimeGridPoint, PeriodicStorage, GFSignEnum, BranchPoint
 
-import Keldysh: AbstractTimeGrid, ImaginaryContour, TimeGridPoint, PeriodicStorage, GFSignEnum, BranchPoint
+import QInchworm.utility: ph_conj
+
+export DLRImaginaryTimeGrid, DLRImaginaryTimeGF
+export ph_conj
 
 struct DLRImaginaryTimeGrid <: AbstractTimeGrid
     contour::ImaginaryContour
