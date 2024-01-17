@@ -21,6 +21,7 @@ jobs:
           - '1.7'
           - '1.8'
           - '1.9'
+          - '1.10'
 
     steps:
       - uses: actions/checkout@v3
@@ -31,13 +32,13 @@ jobs:
       - uses: julia-actions/julia-runtest@v1
 
       - name: Build documentation
-        if: github.ref == 'refs/heads/main' && matrix.version == '1.9'
+        if: github.ref == 'refs/heads/main' && matrix.version == '1.10'
         run: |
              julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
              julia --project=docs/ docs/make.jl
 
       - name: Deploy documentation
-        if: github.ref == 'refs/heads/main' && matrix.version == '1.9'
+        if: github.ref == 'refs/heads/main' && matrix.version == '1.10'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
