@@ -53,3 +53,8 @@ makedocs(;
         "About" => "about.md"
     ]
 )
+
+deploydocs(
+    repo = "github.com/krivenko/QInchworm.jl.git",
+    versions = nothing
+)
