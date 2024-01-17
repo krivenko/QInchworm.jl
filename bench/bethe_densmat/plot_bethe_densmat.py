@@ -13,7 +13,7 @@
 # details.
 #
 # You should have received a copy of the GNU General Public License along with
-# QInchworm.jl. If not, see <http://www.gnu.org/licenses/.
+# QInchworm.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 # Authors: Hugo U. R. Strand, Igor Krivenko
 
@@ -43,7 +43,7 @@ plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 
 if __name__ == "__main__":
-    
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--qinchworm_filenames',
                         nargs='+',
@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
     args.qinchworm_filenames = sum(list(map(
         glob.glob, args.qinchworm_filenames)), start=[])
-    
+
     diffs, N_sampless = [], []
     for filename in args.qinchworm_filenames:
         print(f'--> Loading: {filename}')
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     diffs, N_sampless = np.array(diffs), np.array(N_sampless)
     sidx = np.argsort(N_sampless)
     diffs, N_sampless = diffs[sidx], N_sampless[sidx]
-    
+
     print(f'--> Loading: {args.cthyb_filename}')
     with HDFArchive(args.cthyb_filename, 'r') as a:
         ps = a['ps']
