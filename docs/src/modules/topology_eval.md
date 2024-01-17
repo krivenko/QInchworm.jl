@@ -14,7 +14,7 @@ InchNode
 OperatorNode
 TopologyEvaluator
 TopologyEvaluator(::Expansion, ::Int, ::Bool, ::Dict{Int, FixedNode}; ::TimerOutput)
-eval(::Topology, ::Vector{kd.BranchPoint})
-eval(::Vector{Topology}, ::Vector{kd.BranchPoint})
+TopologyEvaluator(::Topology, ::Vector{kd.BranchPoint})
+TopologyEvaluator(::Vector{Topology}, ::Vector{kd.BranchPoint})
 _traverse_configuration_tree!
 ```
