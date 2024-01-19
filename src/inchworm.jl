@@ -337,12 +337,16 @@ function inchworm!(expansion::Expansion,
                    n_pts_after_max::Int64 = typemax(Int64),
                    rand_params::RandomizationParams = RandomizationParams(),
                    seq_type::Type{SeqType} = ScrambledSobolSeq,
-                   n_bare_steps::Int64 = 1) where SeqType
+                   n_bare_steps::Int64 = -1) where SeqType
 
     tmr = TimerOutput()
 
     @assert N_samples == 0 || ispow2(N_samples)
     @assert rand_params.N_seqs > 0
+
+    if n_bare_steps < 1
+        n_bare_steps = expansion.interpolation_order
+    end
 
     if ismaster()
         comm = MPI.COMM_WORLD

@@ -3,28 +3,28 @@ module barycentric_interp
 using LinearAlgebra: ldiv!, mul!
 using Keldysh: TimeGridPoint, BranchPoint, AbstractTimeGF, imaginary_branch, interpolate!
 using QInchworm.ppgf: FullTimePPGFSector, ImaginaryTimePPGFSector
+using QInchworm.expansion: AllPPGFSectorTypes
 
 export barycentric_interpolate!
 
-function barycentric_interpolate!(x::Matrix{ComplexF64}, order::Int64, P::FullTimePPGFSector, t1::BranchPoint, t2::BranchPoint)
+function barycentric_interpolate!(x::Matrix{ComplexF64}, order::Int64, P::AllPPGFSectorTypes, t1::BranchPoint, t2::BranchPoint)
     interpolate!(x, P, t1, t2)
 end
 
-barycentric_interpolate!(x::Matrix{ComplexF64}, order::Int64, P::FullTimePPGFSector, t1::TimeGridPoint, t2::TimeGridPoint) = barycentric_interpolate!(x, P, order, t1.bpoint, t2.bpoint)
+barycentric_interpolate!(x::Matrix{ComplexF64}, order::Int64, P::AllPPGFSectorTypes, t1::TimeGridPoint, t2::TimeGridPoint) = barycentric_interpolate!(x, P, order, t1.bpoint, t2.bpoint)
 
 function barycentric_interpolate!(x::Matrix{ComplexF64}, order::Int64, P::ImaginaryTimePPGFSector, t1::BranchPoint, t2::BranchPoint)
     @assert t1.domain == imaginary_branch
     @assert t2.domain == imaginary_branch
     
     Δt = t1.val - t2.val
-    return barycentric_interpolate!(x, order, P, Δt)
+    order = order < P.grid.ntau ? order : P.grid.ntau
+    barycentric_interpolate!(x, order, P, Δt)
 end
 
 barycentric_interpolate!(x::Matrix{ComplexF64}, order::Int64, P::ImaginaryTimePPGFSector, t1::TimeGridPoint, t2::TimeGridPoint) = barycentric_interpolate!(x, P, order, t1.bpoint, t2.bpoint)
 
-function barycentric_interpolate!(x::Matrix{ComplexF64}, order::Int64, P::ImaginaryTimePPGFSector, t::ComplexF64)
-
-    n = order # interpolation order
+function barycentric_interpolate!(x::Matrix{ComplexF64}, order::Int64, P::ImaginaryTimePPGFSector, t::ComplexF64; verbose::Bool = false)
 
     β = P.grid.contour.β
     nτ = P.grid.ntau
@@ -34,13 +34,10 @@ function barycentric_interpolate!(x::Matrix{ComplexF64}, order::Int64, P::Imagin
     idx_l, idx_h = floor(Int64, idx), ceil(Int64, idx)
 
     if idx_l != idx_h
-        i = idx >= n ? (idx_h-n+1:idx_h) : (1:n)
-        @assert length(i) == n
-        #i = idx >= n ? (1:idx_h) : (1:n)
-        
-        #@show length(i), i
+        n = order # interpolation order
+        i = idx >= n + 1 ? (idx_h-n:idx_h) : (1:n+1)
+        @assert length(i) == n + 1
         τ_i = [-imag(p.bpoint.val) for p in P.grid.points[i]]
-        #@show τ_i
         barycentric_interpolate!(x, τ, τ_i, P.mat.data[:, :, i])
     else
         x[:] .= P.mat.data[:, :, idx_l]
