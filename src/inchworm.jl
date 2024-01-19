@@ -325,13 +325,17 @@ function inchworm!(expansion::Expansion,
                    N_samples::Int64;
                    n_pts_after_max::Int64 = typemax(Int64),
                    rand_params::RandomizationParams = RandomizationParams(),
-                   n_bare_steps::Int64 = 1)
+                   n_bare_steps::Int64 = -1)
 
     tmr = TimerOutput()
 
     @assert N_samples == 0 || ispow2(N_samples)
     @assert rand_params.N_seqs > 0
 
+    if n_bare_steps < 1
+        n_bare_steps = expansion.interpolation_order
+    end
+    
     if ismaster()
         comm = MPI.COMM_WORLD
         comm_size = MPI.Comm_size(comm)
