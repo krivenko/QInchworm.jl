@@ -1,10 +1,16 @@
 module barycentric_interp
 
 using LinearAlgebra: ldiv!, mul!
-using Keldysh: TimeGridPoint, BranchPoint, AbstractTimeGF, imaginary_branch
-using QInchworm.ppgf: ImaginaryTimePPGFSector
+using Keldysh: TimeGridPoint, BranchPoint, AbstractTimeGF, imaginary_branch, interpolate!
+using QInchworm.ppgf: FullTimePPGFSector, ImaginaryTimePPGFSector
 
 export barycentric_interpolate!
+
+function barycentric_interpolate!(x::Matrix{ComplexF64}, order::Int64, P::FullTimePPGFSector, t1::BranchPoint, t2::BranchPoint)
+    interpolate!(x, P, t1, t2)
+end
+
+barycentric_interpolate!(x::Matrix{ComplexF64}, order::Int64, P::FullTimePPGFSector, t1::TimeGridPoint, t2::TimeGridPoint) = barycentric_interpolate!(x, P, order, t1.bpoint, t2.bpoint)
 
 function barycentric_interpolate!(x::Matrix{ComplexF64}, order::Int64, P::ImaginaryTimePPGFSector, t1::BranchPoint, t2::BranchPoint)
     @assert t1.domain == imaginary_branch
