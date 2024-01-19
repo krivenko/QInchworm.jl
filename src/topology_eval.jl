@@ -36,6 +36,8 @@ using QInchworm.diagrammatics: Topology,
 
 using QInchworm.utility: LazyMatrixProduct, eval!
 
+using QInchworm.barycentric_interp: barycentric_interpolate!
+
 Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint) = !kd.heaviside(t1, t2)
 
 """
@@ -276,7 +278,8 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
 
         for s in axes(eval.ppgf_mats, 2)
             if eval.use_bold_prop
-                kd.interpolate!(eval.ppgf_mats[i, s], eval.exp.P[s], time_f, time_i)
+                #kd.interpolate!(eval.ppgf_mats[i, s], eval.exp.P[s], time_f, time_i)
+                barycentric_interpolate!(eval.ppgf_mats[i, s], 4, eval.exp.P[s], time_f, time_i)
             else
                 kd.interpolate!(eval.ppgf_mats[i, s], eval.exp.P0[s], time_f, time_i)
             end
