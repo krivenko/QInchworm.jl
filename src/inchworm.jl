@@ -344,6 +344,7 @@ function inchworm!(expansion::Expansion,
         n_τ = $(length(grid))
         orders_bare = $(orders_bare)
         orders = $(orders)
+        n_bare_steps = $(n_bare_steps)
         n_pts_after_max = $(n_pts_after_max == typemax(Int64) ? "unrestricted" :
                                                                 n_pts_after_max)
         # qMC samples = $(N_samples)
@@ -459,7 +460,7 @@ function inchworm!(expansion::Expansion,
         @info "Evaluating diagrams with bold propagators"
     end
 
-    iter = 2:length(grid)-1
+    iter = n_bare_steps+1:length(grid)-1
     if ismaster()
         logger = Logging.current_logger()
         if isa(logger, Logging.ConsoleLogger) && logger.min_level <= Logging.Info
