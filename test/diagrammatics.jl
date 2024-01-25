@@ -38,6 +38,7 @@ using QInchworm.diagrammatics
     for top in topologies
       @test isvalid(top)
     end
+    @test length(topologies) == doublefactorial(2n - 1)
   end
 
   for n = 1:7
@@ -49,6 +50,15 @@ using QInchworm.diagrammatics
     end
   end
 
+  for n = 1:7
+    topologies = diagrammatics.get_topologies_at_order(n, 1)
+    for top in topologies
+      @test isvalid(top)
+    end
+    # Number of irreducible chord diagrams with 2n nodes. [https://oeis.org/A000699]
+    @test length(topologies) == [1, 1, 4, 27, 248, 2830, 38232, 593859, 10401712, 202601898][n]
+  end
+    
   top = diagrammatics.Topology([1 => 2, 3 => 4])
   @test isvalid(top)
 
