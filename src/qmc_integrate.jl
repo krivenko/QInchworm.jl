@@ -40,6 +40,12 @@ using Keldysh; kd = Keldysh
 using QInchworm.scrambled_sobol: ScrambledSobolSeq, next!
 
 #
+# Utility functions
+#
+
+_simplex_volume(d::Int, edge) = d > 0 ? prod(edge / i for i=1:d) : 1.0
+
+#
 # AbstractDomainTransform
 #
 
@@ -247,7 +253,7 @@ Return the Jacobian ``J(\\mathbf{u}) =
 """
 function make_jacobian_f(t::RootTransform)::Function
     d = ndims(t)
-    simplex_volume = (t.u_diff ^ d) / factorial(d)
+    simplex_volume = _simplex_volume(d, t.u_diff)
     return u -> simplex_volume
 end
 
@@ -323,7 +329,7 @@ Return the Jacobian ``J(\\mathbf{u}) =
 """
 function make_jacobian_f(t::SortTransform)::Function
     d = ndims(t)
-    simplex_volume = (t.u_diff ^ d) / factorial(d)
+    simplex_volume = _simplex_volume(d, t.u_diff)
     return u -> simplex_volume
 end
 
@@ -450,8 +456,8 @@ Return the Jacobian ``J(\\mathbf{u}) =
 [`DoubleSimplexRootTransform`](@ref) object `t`.
 """
 function make_jacobian_f(t::DoubleSimplexRootTransform)::Function
-    before_simplex_volume = (t.u_diff_wi ^ t.d_lesser) / factorial(t.d_lesser)
-    after_simplex_volume = (t.u_diff_fw ^ t.d_greater) / factorial(t.d_greater)
+    before_simplex_volume = _simplex_volume(t.d_lesser, t.u_diff_wi)
+    after_simplex_volume = _simplex_volume(t.d_greater, t.u_diff_fw)
     volume = before_simplex_volume * after_simplex_volume
     return u -> volume
 end
