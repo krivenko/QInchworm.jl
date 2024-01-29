@@ -78,12 +78,20 @@ This function initializes a number of `D`-dimensional
 [scrambled Sobol sequences](@ref ScrambledSobolSeq) using the
 [set of parameters](@ref RandomizationParams) `params` and passes each of them to
 the function `f`. It returns the mean and the standard deviation of `f`'s return values.
+
+A different sequence type can be specified using the `seq_type` argument, provided its
+constructor has the same signature as
+[ScrambledSobolSeq](@ref ScrambledSobolSeq(::Int; ::Union{AbstractRNG, Nothing})).
 """
-function mean_std_from_randomization(f::Function, D::Int, params::RandomizationParams)
+function mean_std_from_randomization(f::Function,
+                                     D::Int,
+                                     params::RandomizationParams;
+                                     seq_type::Type{SeqType} = ScrambledSobolSeq
+    ) where SeqType
     @assert params.N_seqs > 0
-    samples = Vector{first(Base.return_types(f, (ScrambledSobolSeq,)))}()
+    samples = Vector{first(Base.return_types(f, (seq_type,)))}()
     for s = 1:params.N_seqs
-        let seq = ScrambledSobolSeq(D, scramble_rng = params.rng)
+        let seq = seq_type(D, scramble_rng = params.rng)
             push!(samples, f(seq))
             s > 1 && norm(std(samples), Inf) <= params.target_std && break
         end
