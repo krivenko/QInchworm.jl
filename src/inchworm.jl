@@ -110,6 +110,7 @@ Perform one regular step of qMC inchworm accumulation of the bold propagators.
 - `τ_w`:       Inchworm splitting time ``\\tau_w``.
 - `τ_f`:       Final time of the bold propagator to be computed.
 - `top_data`:  Inchworm algorithm input data.
+- `seq_type`:  Type of the (quasi-)random sequence to be used for integration.
 - `tmr`:       A `TimerOutput` object used for profiling.
 
 # Returns
@@ -125,7 +126,8 @@ function inchworm_step(expansion::Expansion,
                        τ_w::kd.TimeGridPoint,
                        τ_f::kd.TimeGridPoint,
                        top_data::Vector{TopologiesInputData};
-                       tmr::TimerOutput = TimerOutput())
+                       seq_type::Type{SeqType} = ScrambledSobolSeq,
+                       tmr::TimerOutput = TimerOutput()) where SeqType
 
     t_i, t_w, t_f = τ_i.bpoint, τ_w.bpoint, τ_f.bpoint
     n_i, n_w, n_f = teval.IdentityNode(t_i), teval.InchNode(t_w), teval.IdentityNode(t_f)
@@ -169,7 +171,9 @@ function inchworm_step(expansion::Expansion,
 
             @timeit tmr "Evaluation" begin
             contrib_mean, contrib_std =
-            mean_std_from_randomization(2 * td.order, td.rand_params) do seq
+            mean_std_from_randomization(2 * td.order,
+                                        td.rand_params,
+                                        seq_type=seq_type) do seq
                 skip!(seq, first(N_range) - 1, exact=true)
                 res::SectorBlockMatrix = rank_weight * contour_integral(
                     t -> eval(td.topologies, t),
@@ -209,6 +213,7 @@ bare propagators.
 - `τ_i`:       Initial time of the bold propagator to be computed.
 - `τ_f`:       Final time of the bold propagator to be computed.
 - `top_data`:  Inchworm algorithm input data.
+- `seq_type`:  Type of the (quasi-)random sequence to be used for integration.
 - `tmr`:       A `TimerOutput` object used for profiling.
 
 # Returns
@@ -223,7 +228,8 @@ function inchworm_step_bare(expansion::Expansion,
                             τ_i::kd.TimeGridPoint,
                             τ_f::kd.TimeGridPoint,
                             top_data::Vector{TopologiesInputData};
-                            tmr::TimerOutput = TimerOutput())
+                            seq_type::Type{SeqType} = ScrambledSobolSeq,
+                            tmr::TimerOutput = TimerOutput()) where SeqType
 
     t_i, t_f = τ_i.bpoint, τ_f.bpoint
     n_i, n_f = teval.IdentityNode(t_i), teval.IdentityNode(t_f)
@@ -266,7 +272,7 @@ function inchworm_step_bare(expansion::Expansion,
 
             @timeit tmr "Evaluation" begin
             contrib_mean, contrib_std =
-            mean_std_from_randomization(d, td.rand_params) do seq
+            mean_std_from_randomization(d, td.rand_params, seq_type=seq_type) do seq
                 skip!(seq, first(N_range) - 1, exact=true)
                 res::SectorBlockMatrix = rank_weight * contour_integral(
                     t -> eval(td.topologies, t),
@@ -311,6 +317,7 @@ time segment. Results of the calculation are written into `expansion.P`.
                      taken into account. By default, diagrams with all valid numbers of
                      the after-``\\tau_w`` points are considered.
 - `rand_params`:     Parameters of the randomized qMC integration.
+- `seq_type`:        Type of the (quasi-)random sequence to be used for integration.
 
 # Returns
 - Order-resolved contributions to the bold propagator as a dictionary
@@ -324,7 +331,8 @@ function inchworm!(expansion::Expansion,
                    orders_bare,
                    N_samples::Int64;
                    n_pts_after_max::Int64 = typemax(Int64),
-                   rand_params::RandomizationParams = RandomizationParams())
+                   rand_params::RandomizationParams = RandomizationParams(),
+                   seq_type::Type{SeqType} = ScrambledSobolSeq) where SeqType
 
     tmr = TimerOutput()
 
@@ -390,7 +398,12 @@ function inchworm!(expansion::Expansion,
     end
 
     result, P_order_contribs, P_order_contribs_std =
-        inchworm_step_bare(expansion, grid.contour, grid[1], grid[2], top_data, tmr=tmr)
+        inchworm_step_bare(expansion,
+                           grid.contour,
+                           grid[1], grid[2],
+                           top_data,
+                           seq_type=seq_type,
+                           tmr=tmr)
 
     set_ppgf!(expansion.P, grid[1], grid[2], result)
     for order in keys(P_order_contribs)
@@ -460,7 +473,12 @@ function inchworm!(expansion::Expansion,
         τ_f = grid[n + 1]
 
         result, P_order_contribs, P_order_contribs_std =
-            inchworm_step(expansion, grid.contour, τ_i, τ_w, τ_f, top_data, tmr=tmr)
+            inchworm_step(expansion,
+                          grid.contour,
+                          τ_i, τ_w, τ_f,
+                          top_data,
+                          seq_type=seq_type,
+                          tmr=tmr)
 
         set_ppgf!(expansion.P, τ_i, τ_f, result)
         for order in keys(P_order_contribs)
@@ -492,6 +510,7 @@ Perform one step of the differential qMC inchworm accumulation of the bold propa
 - `Σ`:           Container to store the pseudo-particle self-energy.
 - `hamiltonian`: Atomic Hamiltonian.
 - `top_data`:    Inchworm algorithm input data.
+- `seq_type`:    Type of the (quasi-)random sequence to be used for integration.
 - `tmr`:         A `TimerOutput` object used for profiling.
 
 # Returns
@@ -509,7 +528,9 @@ function diff_inchworm_step!(expansion::Expansion,
                              Σ::PPGF,
                              hamiltonian::SectorBlockMatrix,
                              top_data::Vector{TopologiesInputData};
-                             tmr::TimerOutput = TimerOutput()) where {PPGF <: AllPPGFTypes}
+                             seq_type::Type{SeqType} = ScrambledSobolSeq,
+                             tmr::TimerOutput = TimerOutput()
+                             ) where {PPGF <: AllPPGFTypes, SeqType}
 
     t_i, t_f_prev, t_f = τ_i.bpoint, τ_f_prev.bpoint, τ_f.bpoint
     @assert t_f.ref >= t_f_prev.ref >= t_i.ref
@@ -553,7 +574,9 @@ function diff_inchworm_step!(expansion::Expansion,
 
             @timeit tmr "Evaluation" begin
             contrib_mean, contrib_std =
-            mean_std_from_randomization(2 * td.order, td.rand_params) do seq
+            mean_std_from_randomization(2 * td.order,
+                                        td.rand_params,
+                                        seq_type=seq_type) do seq
                 skip!(seq, first(N_range) - 1, exact=true)
                 res::SectorBlockMatrix = rank_weight * contour_integral(
                     t -> eval(td.topologies, t),
@@ -625,6 +648,7 @@ Results of the calculation are written into `expansion.P`.
 - `orders`:      List of expansion orders to be accounted for.
 - `N_samples`:   Number of samples to be used in qMC integration. Must be a power of 2.
 - `rand_params`: Parameters of the randomized qMC integration.
+- `seq_type`:    Type of the (quasi-)random sequence to be used for integration.
 
 # Returns
 - Order-resolved contributions to the pseudo-particle self-energy as a dictionary
@@ -636,7 +660,9 @@ function diff_inchworm!(expansion::Expansion,
                         grid::kd.ImaginaryTimeGrid,
                         orders,
                         N_samples::Int64;
-                        rand_params::RandomizationParams = RandomizationParams())
+                        rand_params::RandomizationParams = RandomizationParams(),
+                        seq_type::Type{SeqType} = ScrambledSobolSeq
+                        ) where SeqType
 
     tmr = TimerOutput()
 
@@ -762,6 +788,7 @@ the calculation is taken from `expansion.corr_operators[A_B_pair_idx]`.
 - `A_B_pair_idx`: Index of the ``(A, B)`` pair within `expansion.corr_operators`.
 - `τ`:            The imaginary time argument ``\\tau``.
 - `top_data`:     Accumulation input data.
+- `seq_type`:     Type of the (quasi-)random sequence to be used for integration.
 - `tmr`:          A `TimerOutput` object used for profiling.
 
 # Returns
@@ -773,7 +800,9 @@ function correlator_2p(expansion::Expansion,
                        A_B_pair_idx::Int64,
                        τ::kd.TimeGridPoint,
                        top_data::Vector{TopologiesInputData};
-                       tmr::TimerOutput = TimerOutput())::Tuple{ComplexF64, ComplexF64}
+                       seq_type::Type{SeqType} = ScrambledSobolSeq,
+                       tmr::TimerOutput = TimerOutput()
+                       )::Tuple{ComplexF64, ComplexF64} where SeqType
     t_B = grid[1].bpoint # B is always placed at τ=0
     t_A = τ.bpoint
     t_f = grid[end].bpoint
@@ -823,7 +852,9 @@ function correlator_2p(expansion::Expansion,
 
             @timeit tmr "Evaluation" begin
             order_contrib, order_contrib_std =
-            mean_std_from_randomization((2 * td.order), td.rand_params) do seq
+            mean_std_from_randomization((2 * td.order),
+                                        td.rand_params,
+                                        seq_type=seq_type) do seq
                 skip!(seq, first(N_range) - 1, exact=true)
                 res::ComplexF64 = rank_weight * contour_integral(
                     t -> tr(eval(td.topologies, t)),
@@ -867,6 +898,7 @@ randomized qMC estimates of both mean and standard deviation of the correlators.
 - `orders`:      List of expansion orders to be accounted for.
 - `N_samples`:   Number of samples to be used in qMC integration. Must be a power of 2.
 - `rand_params`: Parameters of the randomized qMC integration.
+- `seq_type`:    Type of the (quasi-)random sequence to be used for integration.
 
 # Returns
 - A list of scalar-valued GF objects containing the computed correlators, one element per
@@ -879,9 +911,10 @@ function correlator_2p(expansion::Expansion,
                        orders,
                        N_samples::Int64,
                        ::RequestStdDev;
-                       rand_params::RandomizationParams = RandomizationParams()
+                       rand_params::RandomizationParams = RandomizationParams(),
+                       seq_type::Type{SeqType} = ScrambledSobolSeq
                        )::Tuple{Vector{kd.ImaginaryTimeGF{ComplexF64, true}},
-                                Vector{kd.ImaginaryTimeGF{ComplexF64, true}}}
+                                Vector{kd.ImaginaryTimeGF{ComplexF64, true}}} where SeqType
 
     tmr = TimerOutput()
 
@@ -1024,6 +1057,7 @@ time segment. Accumulation is performed for each pair of operators ``(A, B)`` in
 - `orders`:      List of expansion orders to be accounted for.
 - `N_samples`:   Number of samples to be used in qMC integration. Must be a power of 2.
 - `rand_params`: Parameters of the randomized qMC integration.
+- `seq_type`:    Type of the (quasi-)random sequence to be used for integration.
 
 # Returns
 A list of scalar-valued GF objects containing the computed correlators, one element per
@@ -1033,8 +1067,9 @@ function correlator_2p(expansion::Expansion,
     grid::kd.ImaginaryTimeGrid,
     orders,
     N_samples::Int64;
-    rand_params::RandomizationParams = RandomizationParams()
-    )::Vector{kd.ImaginaryTimeGF{ComplexF64, true}}
+    rand_params::RandomizationParams = RandomizationParams(),
+    seq_type::Type{SeqType} = ScrambledSobolSeq
+    )::Vector{kd.ImaginaryTimeGF{ComplexF64, true}} where SeqType
     return correlator_2p(expansion, grid, orders, N_samples, RequestStdDev();
                          rand_params=rand_params)[1]
 end
