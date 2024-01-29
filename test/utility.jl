@@ -23,10 +23,12 @@ using Keldysh; kd = Keldysh
 
 using Interpolations: interpolate, scale, BSpline, Cubic, OnGrid
 using Random: MersenneTwister
+using StableRNGs: StableRNG
 
 using QInchworm.utility: NeumannBC
 using QInchworm.utility: IncrementalSpline, extend!
 using QInchworm.utility: LazyMatrixProduct, eval!
+using QInchworm.utility: RandomSeq
 
 @testset "NeumannBC" begin
     f(x) = exp(2*x)
@@ -91,4 +93,75 @@ end
    popfirst!(lmp, 3)
    @test eval!(lmp) == A[1]
    @test eval!(lmp) == A[1]
+end
+
+@testset "RandomSeq" begin
+
+    @testset "D=0" begin
+        s = RandomSeq{StableRNG}(0)
+        @test ndims(s) == 0
+    end
+
+    @testset "D=1" begin
+        s = RandomSeq{StableRNG}(1)
+        @test ndims(s) == 1
+
+        # Reference sequence from StableRNGs:
+        # rand(StableRNG(0), Float64, 8)
+        ref = [[0.19506488073747286],
+               [0.025779311523037363],
+               [0.9055427466847816],
+               [0.7734523504688744],
+               [0.8843643358740858],
+               [0.07887971712448505],
+               [0.569894630482412],
+               [0.1859290813601362]
+        ]
+
+        @test [next!(s) for _ in 1:8] ≈ ref
+
+        s = RandomSeq{StableRNG}(1)
+        skip!(s, 3, exact=true)
+        @test [next!(s) for _ in 1:5] ≈ ref[4:end]
+
+        s = RandomSeq{StableRNG}(1)
+        skip!(s, 3) # Skips 4 points
+        @test [next!(s) for _ in 1:4] ≈ ref[5:end]
+    end
+
+    @testset "D=5" begin
+        s = RandomSeq{StableRNG}(5)
+        @test ndims(s) == 5
+
+        # Reference sequence from StableRNGs
+        # rng = StableRNG(0)
+        # [rand(rng, Float64, 5) for _ in 1:8]
+        ref = [[0.19506488073747286, 0.025779311523037363, 0.9055427466847816,
+                0.7734523504688744, 0.8843643358740858],
+               [0.07887971712448505, 0.569894630482412, 0.1859290813601362,
+                0.3502633405739193, 0.07892729440270685],
+               [0.31458032385783596, 0.1485569608098214, 0.2545598088968246,
+                0.04835716319427674, 0.007041346527125292],
+               [0.05084835898020357, 0.8724974721884622, 0.16051021802467536,
+                0.5840743840364566, 0.4382718269681136],
+               [0.9528405584114081, 0.23290440928617473, 0.585915354467456,
+                0.8064312206579658, 0.8042024139742923],
+               [0.15152973035530826, 0.126977517436196, 0.269545129918906,
+                0.31763240936542725, 0.6241531180514104],
+               [0.13501424175448973, 0.7762634763959406, 0.7198777098828519,
+                0.016887314264266262, 0.16689840464120498],
+               [0.5297498177820077, 0.7676637636059831, 0.46539490738355216,
+                0.09040271797573474, 0.6757828873970544]
+        ]
+
+        @test [next!(s) for _ in 1:8] ≈ ref
+
+        s = RandomSeq{StableRNG}(5)
+        skip!(s, 3, exact=true)
+        @test [next!(s) for _ in 1:5] ≈ ref[4:end]
+
+        s = RandomSeq{StableRNG}(5)
+        skip!(s, 3) # Skips 4 points
+        @test [next!(s) for _ in 1:4] ≈ ref[5:end]
+    end
 end
