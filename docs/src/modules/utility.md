@@ -31,6 +31,13 @@ Base.popfirst!(::LazyMatrixProduct{T}, ::Int) where {T <: Number}
 eval!(::LazyMatrixProduct{T}) where {T <: Number}
 ```
 
+## Random sequence
+
+```@docs
+RandomSeq
+seed!
+```
+
 ## Serialization using `IOBuffer`
 
 ```@docs

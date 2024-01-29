@@ -30,8 +30,8 @@ using DocStringExtensions
 import Interpolations
 using Octavian: matmul
 
-using Sobol: AbstractSobolSeq, SobolSeq, ndims
-import Sobol: next!
+import QInchworm.scrambled_sobol: next!, skip!
+using Random: AbstractRNG, rand, rand!
 
 using Serialization
 
@@ -303,6 +303,97 @@ function eval!(lmp::LazyMatrixProduct{T}) where {T <: Number}
     lmp.n_prods = lmp.n_mats
 
     return lmp.partial_prods[lmp.n_prods]
+end
+
+#
+# RandomSeq
+#
+
+"""
+    $(TYPEDEF)
+
+This structure wraps a random number generator (a subtype of `AbstractRNG`) and implements
+a subset of [`ScrambledSobolSeq`](@ref QInchworm.scrambled_sobol)'s
+interface.
+"""
+struct RandomSeq{RNG <: AbstractRNG, D}
+    "Random number generator"
+    rng::RNG
+
+    """
+        $(TYPEDSIGNATURES)
+
+    Construct a `d`-dimensional `RandomSeq` structure. The underlying random number
+    generator is seeded using the output of `scramble_rng` in case it is provided.
+    Otherwise the zero seed is used.
+    """
+    function RandomSeq{RNG}(d::Integer;
+                            scramble_rng::Union{AbstractRNG, Nothing} = nothing) where {
+        RNG <: AbstractRNG}
+        rng = RNG(isnothing(scramble_rng) ? 0 : rand(scramble_rng, UInt32))
+        return new{RNG, d}(rng)
+    end
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Seed the underlying random number generator of the sequence `s` with a given integer.
+"""
+seed!(s::RandomSeq, seed) = seed!(s.rng, seed)
+
+"""
+    $(TYPEDSIGNATURES)
+
+Dimension `D` of a random sequence.
+"""
+Base.ndims(s::RandomSeq{RNG, D}) where {RNG, D} = D::Int
+
+"""
+    $(TYPEDSIGNATURES)
+
+Generate the next point ``\\mathbf{x}\\in[0, 1)^D`` of the random sequence `s` and write it
+into the array `x`.
+"""
+function next!(s::RandomSeq, x::AbstractVector{<:AbstractFloat})
+    length(x) != ndims(s) && throw(BoundsError())
+    rand!(s.rng, x)
+    return x
+end
+"""
+    $(TYPEDSIGNATURES)
+
+Generate and return the next point ``\\mathbf{x}\\in[0, 1)^D`` of the sequence `s`.
+"""
+next!(s::RandomSeq) = next!(s, Array{Float64,1}(undef, ndims(s)))
+
+"""
+    $(TYPEDSIGNATURES)
+
+Skip a number of points in the random sequence `s` using a preallocated buffer `x`.
+
+- `skip!(s, n, x)` skips the next ``2^m`` points such that ``2^m < n \\leq 2^{m+1}``.
+- `skip!(s, n, x, exact=true)` skips the next ``n`` points.
+"""
+function skip!(s::RandomSeq, n::Integer, x; exact=false)
+    if n ≤ 0
+        n == 0 && return s
+        throw(ArgumentError("$n is not non-negative"))
+    end
+    nskip = exact ? n : (1 << floor(Int, log2(n + 1)))
+    for _ = 1:nskip; next!(s, x); end
+    return s
+end
+"""
+    $(TYPEDSIGNATURES)
+
+Skip a number of points in the random sequence `s`.
+
+- `skip!(s, n)` skips the next ``2^m`` points such that ``2^m < n \\leq 2^{m+1}``.
+- `skip!(s, n, exact=true)` skips the next ``n`` points.
+"""
+function skip!(s::RandomSeq, n::Integer; exact=false)
+    return skip!(s, n, Array{Float64,1}(undef, ndims(s)); exact=exact)
 end
 
 end # module utility
