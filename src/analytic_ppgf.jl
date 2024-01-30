@@ -48,4 +48,31 @@ function density_matrix(P::Vector{AtomicPPGF})::Vector{Matrix{ComplexF64}}
     return [1im * P_s(-im * P_s.β) for P_s in P]
 end
 
+# --
+
+struct ScalarAnalyticGF{T, scalar} <: AbstractTimeGF{T, scalar}
+    D::Float64
+    E::Float64
+end
+
+function (P::ScalarAnalyticGF)(t::Number)
+    return -im * exp.(-im * t * P.E) * P.D
+end
+
+function (P::ScalarAnalyticGF)(t1::BranchPoint, t2::BranchPoint)
+    Δt = t1.val - t2.val
+    return P(Δt)
+end
+
+function interpolate!(x::Matrix{ComplexF64}, P::ScalarAnalyticGF, t1::BranchPoint, t2::BranchPoint)
+    Δt = t1.val - t2.val
+    x[:] = P(Δt)
+end
+
+function analytic_gf(β::Float64, ϵ::Float64)::ScalarAnalyticGF{ComplexF64, true}
+    D = 1/(1 + exp(-β*ϵ))
+    return ScalarAnalyticGF{ComplexF64, true}(D, ϵ)
+end
+
+
 end # module analytic_ppgf
