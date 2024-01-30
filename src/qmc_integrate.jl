@@ -247,7 +247,7 @@ Return the Jacobian ``J(\\mathbf{u}) =
 """
 function make_jacobian_f(t::RootTransform)::Function
     d = ndims(t)
-    simplex_volume = (t.u_diff ^ d) / factorial(d)
+    simplex_volume = (t.u_diff ^ d) / factorial(big(d))
     return u -> simplex_volume
 end
 
