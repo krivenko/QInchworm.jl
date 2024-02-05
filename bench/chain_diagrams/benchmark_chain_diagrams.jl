@@ -50,26 +50,53 @@ The chain topology of order `n` has the following form,
 with the total number of pair interaction arcs equal to `n`.
 
 For the single band Anderson model, there are exactly 8 contributing configurations stemming
-from the chain topology *regardless of its order*,
+from the chain topology *regardless of its order*.
 
-- ... c^†(dn) c(dn) c^†(up) c(up) c^†(dn) c^†(up)
-- ... c(dn) c^†(dn) c(up) c^†(up) c(dn) c(up)
-- ... c^†(dn) c(dn) c(up) c^†(up) c^†(dn) c(up)
-- ... c(dn) c^†(dn) c^†(up) c(up) c(dn) c^†(up)
+- 2 configurations contributing to ⟨0|P|0⟩ (σ = {↑,↓})
 
-+ 4 spin conjugates of these configurations.
+                      -σ      σ     -σ      σ
+        __←__        __←__  __←__  __←__  __←__
+       /     \ ...  /     \/     \/     \/     \
+      /      /      \     /\     /\     /\      \
+|0⟩ ==*======*= ... =*===*==*===*==*===*==*======*== |0⟩
+
+- 2 configurations contributing to ⟨2|P|2⟩ (σ = {↑,↓})
+
+                      -σ      σ     -σ      σ
+        __→__        __→__  __→__  __→__  __→__
+       /     \ ...  /     \/     \/     \/     \
+      /      /      \     /\     /\     /\      \
+|2⟩ ==*======*= ... =*===*==*===*==*===*==*======*== |2⟩
+
+- 2 configurations contributing to each of ⟨σ|P|σ⟩ for σ = {↑,↓}
+
+                      -σ      σ     -σ      σ
+        _____        __←__  __→__  __←__  __→__
+       /     \ ...  /     \/     \/     \/     \
+      /      /      \     /\     /\     /\      \
+|σ⟩ ==*======*= ... =*===*==*===*==*===*==*======*== |σ⟩
+
+                       σ     -σ      σ     -σ
+        _____        __→__  __←__  __→__  __←__
+       /     \ ...  /     \/     \/     \/     \
+      /      /      \     /\     /\     /\      \
+|σ⟩ ==*======*= ... =*===*==*===*==*===*==*======*== |σ⟩
+
+The arrows ←, → show directions of the hybridization arcs (from c^† to c), and spin
+projection carried by an arc is indicated above it.
+
+Matrix elements of the operators c^†/c in these configurations never introduce a minus sign.
 """
 function compute_chain_diagram(order, nτ, N_samples)
 
     β = 10.0
-    μ = 2.0
-    U = 4.0
     ϵ = 0.2
     V = 1.0
 
     # ED solution
 
-    H_imp = U * op.n("up") * op.n("dn") - μ * (op.n("up") + op.n("dn"))
+    # Make an impurity Hamiltonian with a fully degenerate spectrum
+    H_imp = ked.OperatorExpr{Float64}()
 
     # Impurity problem
 
