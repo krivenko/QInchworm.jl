@@ -133,6 +133,20 @@ function compute_chain_diagram(order, ϵ, V, β, N_samples)
         seq = seq,
         N = length(N_range)
     )
+
+    if rank_weight == 0.0
+        res = zeros(SectorBlockMatrix, expansion.ed)
+    end
+
+    #comm = MPI.COMM_WORLD
+    #for i in range(0, MPI.Comm_size(comm))
+    #    if i == MPI.Comm_rank(comm)
+    #        @show i, rank_weight, res
+    #        flush(stdout)
+    #    end
+    #    MPI.Barrier(comm)
+    #end
+    
     all_reduce!(res, +)
 
     result = (-1)^order * 2 * imag(res[2][2][1, 1])
