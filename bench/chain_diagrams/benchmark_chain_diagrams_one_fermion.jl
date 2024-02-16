@@ -80,8 +80,9 @@ function compute_chain_diagram(order, ϵ, V, β, N_samples)
     #Δ = DLRImaginaryTimeGF(kd.DeltaDOS(ϵ), dlr_grid)
     #Δ.mat.data[:] = Δ.mat.data .* V^2
     #ips = InteractionPair{DLRImaginaryTimeGF{ComplexF64, true}}[]
-    
-    Δ = analytic_gf(β, ϵ)
+
+    δ = 1/(1 + exp(-β*ϵ))
+    Δ = analytic_gf(β, ϵ, V^2 / δ)
     ips = InteractionPair{ScalarAnalyticGF{ComplexF64, true}}[]
 
     push!(ips, InteractionPair(op.n(1), op.n(1), Δ))
@@ -134,9 +135,12 @@ function compute_chain_diagram(order, ϵ, V, β, N_samples)
     )
     all_reduce!(res, +)
 
-    result = (-1)^order * imag(res[2][2][1, 1])
+    result = (-1)^order * 2 * imag(res[2][2][1, 1])
     
     if ismaster()
+        @show β
+        @show ϵ
+        @show V
         @show N_samples
         @show result
     end
@@ -180,7 +184,7 @@ results = [compute_chain_diagram(order, ϵ, V, β, N_samples) for N_samples in N
 
 if ismaster()
     id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, vcat(results...))))
-    filename = "data_chain_diagrams_order_$(order)_eps_$(eps)_V_$(V)_beta_$(β)_md5_$(id).h5"
+    filename = "data_chain_diagrams_order_$(order)_eps_$(ϵ)_V_$(V)_beta_$(β)_md5_$(id).h5"
     @show filename
 
     h5.h5open(filename, "w") do fid

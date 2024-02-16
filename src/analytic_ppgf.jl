@@ -69,8 +69,8 @@ function interpolate!(x::Matrix{ComplexF64}, P::ScalarAnalyticGF, t1::BranchPoin
     x[:] = P(Δt)
 end
 
-function analytic_gf(β::Float64, ϵ::Float64)::ScalarAnalyticGF{ComplexF64, true}
-    D = 1/(1 + exp(-β*ϵ))
+function analytic_gf(β::Float64, ϵ::Float64, C::Float64 = 1)::ScalarAnalyticGF{ComplexF64, true}
+    D = C * 1/(1 + exp(-β*ϵ))
     return ScalarAnalyticGF{ComplexF64, true}(D, ϵ)
 end
 
