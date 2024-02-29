@@ -38,7 +38,11 @@ using QInchworm.mpi: ismaster
 using QInchworm.keldysh_dlr: DLRImaginaryTimeGrid, DLRImaginaryTimeGF, ph_conj
 import Lehmann; le = Lehmann
 
-function run_bethe(nτ, orders, orders_bare, N_samples; interpolate_gfs=false)
+using Random: MersenneTwister
+using QInchworm.randomization: RandomizationParams, RequestStdDev
+
+
+function run_bethe(nτ, orders, orders_bare, N_samples, N_seqs; interpolate_gfs=false)
 
     β = 8.0
     μ = 0.0
@@ -77,14 +81,21 @@ function run_bethe(nτ, orders, orders_bare, N_samples; interpolate_gfs=false)
     end
 
     ρ_0 = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P0), ed), ed)
-
+    
+    if N_seqs > 1
+        rand_params = RandomizationParams(MersenneTwister(12345678), N_seqs, .0)
+    else
+        rand_params = RandomizationParams()
+    end
+    
     P_orders, P_orders_std = inchworm!(expansion,
                                        grid,
                                        orders,
                                        orders_bare,
                                        N_samples; n_pts_after_max=1,
-                                       n_bare_steps=nτ-1)
-                                       #n_bare_steps=4)
+                                       n_bare_steps=nτ-1,
+                                       #n_bare_steps=4,
+                                       rand_params=rand_params)
 
     if interpolate_gfs
         P = [p.GF for p in expansion.P]
@@ -119,15 +130,15 @@ function run_bethe(nτ, orders, orders_bare, N_samples; interpolate_gfs=false)
     return diff, pto_hist
 end
 
-function run_nτ_calc(nτ, orders, N_sampless)
+function run_nτ_calc(nτ, orders, N_sampless, N_seqs)
 
     orders_bare = orders
 
-    diff_0, pto_hist_0 = run_bethe(nτ, orders, orders_bare, 0, interpolate_gfs=false)
+    diff_0, pto_hist_0 = run_bethe(nτ, orders, orders_bare, 0, 1, interpolate_gfs=false)
 
     diffs_pto_hists = [
         run_bethe(nτ, orders, orders_bare,
-                  N_samples, interpolate_gfs=false)
+                  N_samples, N_seqs, interpolate_gfs=false)
               for N_samples in N_sampless]
 
     diffs = [el[1] for el in diffs_pto_hists]
@@ -136,7 +147,7 @@ function run_nτ_calc(nτ, orders, N_sampless)
     if ismaster()
         max_order = maximum(orders)
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, diffs)))
-        filename = "data_bethe_ntau_$(nτ)_maxorder_$(max_order)_bary_md5_$(id).h5"
+        filename = "data_bethe_ntau_$(nτ)_maxorder_$(max_order)_nrqmc_$(N_seqs)_bary_md5_$(id).h5"
         @show filename
 
         h5.h5open(filename, "w") do fid
@@ -148,6 +159,7 @@ function run_nτ_calc(nτ, orders, N_sampless)
             g["orders"] = collect(orders)
             g["orders_bare"] = collect(orders_bare)
             g["N_sampless"] = N_sampless
+            g["N_seqs"] = N_seqs
 
             g["diffs"] = diffs
             g["pto_hists"] = reduce(hcat, pto_hists)
@@ -163,6 +175,7 @@ nτs = [2]
 #N_sampless = 2 .^ (3:15)
 
 N_sampless = 2 .^ (3:18)
+N_seqs = 8
 
 orderss = [0:5]
 #orderss = [0:4]
@@ -176,6 +189,6 @@ end
 
 for orders in orderss
     for nτ in nτs
-        run_nτ_calc(nτ, orders, N_sampless)
+        run_nτ_calc(nτ, orders, N_sampless, N_seqs)
     end
 end
