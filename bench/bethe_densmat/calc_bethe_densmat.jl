@@ -35,6 +35,8 @@ using QInchworm.inchworm: inchworm!
 using QInchworm.spline_gf: SplineInterpolatedGF
 using QInchworm.mpi: ismaster
 
+using QInchworm.keldysh_dlr: DLRImaginaryTimeGrid, DLRImaginaryTimeGF, ph_conj
+import Lehmann; le = Lehmann
 
 function run_bethe(nτ, orders, orders_bare, N_samples; interpolate_gfs=false)
 
@@ -55,8 +57,13 @@ function run_bethe(nτ, orders, orders_bare, N_samples; interpolate_gfs=false)
 
     # Hybridization propagator
 
-    Δ = V^2 * kd.ImaginaryTimeGF(kd.bethe_dos(t=t_bethe/2, ϵ=μ_bethe), grid)
+    #Δ = V^2 * kd.ImaginaryTimeGF(kd.bethe_dos(t=t_bethe/2, ϵ=μ_bethe), grid)
 
+    dlr = le.DLRGrid(Euv=1.25, β=β, isFermi=true, rtol=1e-12, rebuild=true, verbose=false)
+    dlr_grid = DLRImaginaryTimeGrid(contour, dlr)
+    Δ = DLRImaginaryTimeGF(kd.bethe_dos(t=t_bethe/2, ϵ=μ_bethe), dlr_grid)
+    Δ.mat.data[:] = Δ.mat.data .* V^2
+    
     # Pseudo Particle Strong Coupling Expansion
 
     if interpolate_gfs
@@ -75,7 +82,9 @@ function run_bethe(nτ, orders, orders_bare, N_samples; interpolate_gfs=false)
                                        grid,
                                        orders,
                                        orders_bare,
-                                       N_samples; n_pts_after_max=1)
+                                       N_samples; n_pts_after_max=1,
+                                       n_bare_steps=nτ-1)
+                                       #n_bare_steps=4)
 
     if interpolate_gfs
         P = [p.GF for p in expansion.P]
@@ -127,7 +136,7 @@ function run_nτ_calc(nτ, orders, N_sampless)
     if ismaster()
         max_order = maximum(orders)
         id = MD5.bytes2hex(MD5.md5(reinterpret(UInt8, diffs)))
-        filename = "data_bethe_ntau_$(nτ)_maxorder_$(max_order)_md5_$(id).h5"
+        filename = "data_bethe_ntau_$(nτ)_maxorder_$(max_order)_bary_md5_$(id).h5"
         @show filename
 
         h5.h5open(filename, "w") do fid
@@ -147,9 +156,17 @@ function run_nτ_calc(nτ, orders, N_sampless)
 
 end
 
-nτs = [1024 * 8 * 4]
-N_sampless = 2 .^ (3:15)
-orderss = [0:4]
+nτs = [2]
+#nτs = [64]
+#nτs = [1024 * 8 * 4]
+#N_sampless = 2 .^ (3:15)
+#N_sampless = 2 .^ (3:15)
+
+N_sampless = 2 .^ (3:18)
+
+orderss = [0:5]
+#orderss = [0:4]
+#orderss = [0:3]
 
 if ismaster()
     @show nτs
