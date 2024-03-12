@@ -17,6 +17,7 @@
 #
 # Authors: Hugo U. R. Strand, Igor Krivenko
 
+import time
 import numpy as np
 
 from h5 import HDFArchive
@@ -43,6 +44,8 @@ def calc_single_fermion(
         beta=8., e0=0., V=0.25, t_bethe=1., mu_bethe=1.0,
         n_cycles=1e5, seed=1337, delta_tau=None, n_ref=None):
 
+    t1 = time.time()
+    
     gf_struct = [("0", 1)]
 
     S = Solver(
@@ -96,6 +99,8 @@ def calc_single_fermion(
     diff = np.abs(0.5 - S.density_matrix[0][0, 0])
     print(f'N {S.solve_parameters["n_cycles"]:1.1E} err {diff:2.2E}')
 
+    t2 = time.time()
+    S.time = t2 - t1
     return S, delta_tau, n_ref
 
 
@@ -106,16 +111,20 @@ if __name__ == "__main__":
     delta_tau, n_ref = None, None
 
     ps = []
+    times = []
     for n_cycles in 2**np.arange(4, 25):
+    #for n_cycles in 2**np.arange(4, 20):
         for seed in seeds:
             p, delta_tau, n_ref = calc_single_fermion(
                 n_cycles=n_cycles, seed=seed,
                 delta_tau=delta_tau, n_ref=n_ref)
+            times.append(p.time)
             ps.append(p)
 
-    filename = 'data_bethe_cthyb.h5'
+    filename = 'data_bethe_cthyb_new.h5'
     if mpi.is_master_node():
         print(f'n_ref = {n_ref:16.16E}')
         with HDFArchive(filename, 'w') as a:
             a['ps'] = ps
+            a['times'] = times
             a['n_ref'] = n_ref

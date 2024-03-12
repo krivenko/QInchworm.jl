@@ -70,6 +70,8 @@ function run_bethe(nτ, orders, orders_bare, N_samples, N_seqs; interpolate_gfs=
     
     # Pseudo Particle Strong Coupling Expansion
 
+    interpolation_order = 1
+    
     if interpolate_gfs
         ip_fwd = InteractionPair(op.c_dag(1), op.c(1), SplineInterpolatedGF(Δ))
         ip_bwd = InteractionPair(op.c(1), op.c_dag(1), SplineInterpolatedGF(ph_conj(Δ)))
@@ -77,9 +79,9 @@ function run_bethe(nτ, orders, orders_bare, N_samples, N_seqs; interpolate_gfs=
     else
         ip_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
         ip_bwd = InteractionPair(op.c(1), op.c_dag(1), ph_conj(Δ))
-        expansion = Expansion(ed, grid, [ip_fwd, ip_bwd])
+        expansion = Expansion(ed, grid, [ip_fwd, ip_bwd], interpolation_order=interpolation_order)
     end
-
+    
     ρ_0 = full_hs_matrix(tofockbasis(ppgf.density_matrix(expansion.P0), ed), ed)
     
     if N_seqs > 1
@@ -87,6 +89,8 @@ function run_bethe(nτ, orders, orders_bare, N_samples, N_seqs; interpolate_gfs=
     else
         rand_params = RandomizationParams()
     end
+
+    time = @elapsed begin
     
     P_orders, P_orders_std = inchworm!(expansion,
                                        grid,
@@ -94,9 +98,12 @@ function run_bethe(nτ, orders, orders_bare, N_samples, N_seqs; interpolate_gfs=
                                        orders_bare,
                                        N_samples; n_pts_after_max=1,
                                        n_bare_steps=nτ-1,
-                                       #n_bare_steps=4,
+                                       #n_bare_steps=interpolation_order,
                                        rand_params=rand_params)
 
+    end
+    @show time
+        
     if interpolate_gfs
         P = [p.GF for p in expansion.P]
         ppgf.normalize!(P, β)
@@ -127,7 +134,7 @@ function run_bethe(nτ, orders, orders_bare, N_samples, N_seqs; interpolate_gfs=
         @printf "ρ_wrm = %16.16f %16.16f \n" real(diag(ρ_wrm))...
         @show diff
     end
-    return diff, pto_hist
+    return diff, pto_hist, time
 end
 
 function run_nτ_calc(nτ, orders, N_sampless, N_seqs)
@@ -143,6 +150,7 @@ function run_nτ_calc(nτ, orders, N_sampless, N_seqs)
 
     diffs = [el[1] for el in diffs_pto_hists]
     pto_hists = [el[2] for el in diffs_pto_hists]
+    times = [el[3] for el in diffs_pto_hists]
 
     if ismaster()
         max_order = maximum(orders)
@@ -162,6 +170,7 @@ function run_nτ_calc(nτ, orders, N_sampless, N_seqs)
             g["N_seqs"] = N_seqs
 
             g["diffs"] = diffs
+            g["times"] = times
             g["pto_hists"] = reduce(hcat, pto_hists)
         end
     end
@@ -169,17 +178,24 @@ function run_nτ_calc(nτ, orders, N_sampless, N_seqs)
 end
 
 nτs = [2]
+#nτs = [1024]
+#nτs = [128]
+
 #nτs = [64]
 #nτs = [1024 * 8 * 4]
 #N_sampless = 2 .^ (3:15)
 #N_sampless = 2 .^ (3:15)
 
-N_sampless = 2 .^ (3:18)
-N_seqs = 8
+#N_sampless = 2 .^ (3:18)
+#N_sampless = 2 .^ (3:10)
+#N_sampless = 2 .^ (3:15)
+N_sampless = 2 .^ (3:10)
+N_seqs = 1
 
 orderss = [0:5]
 #orderss = [0:4]
 #orderss = [0:3]
+#orderss = [0:2]
 
 if ismaster()
     @show nτs
