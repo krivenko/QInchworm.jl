@@ -51,7 +51,8 @@ if __name__ == "__main__":
                         help="Name of the QInchworm HDF5 results files")
     parser.add_argument('--cthyb_filename',
                         type=str,
-                        default="data_bethe_cthyb.h5",
+                        #default="data_bethe_cthyb.h5",
+                        default="data_bethe_cthyb_new.h5",
                         help="Name of the CTHYB HDF5 results file")
 
     args = parser.parse_args()
@@ -59,22 +60,35 @@ if __name__ == "__main__":
     args.qinchworm_filenames = sum(list(map(
         glob.glob, args.qinchworm_filenames)), start=[])
 
-    diffs, N_sampless = [], []
+    diffs, times, N_sampless, N_seqss = [], [], [], []
     for filename in args.qinchworm_filenames:
         print(f'--> Loading: {filename}')
         with HDFArchive(filename, 'r') as a:
             d = a['data']
-            diffs += list(d['diffs'])
-            N_sampless += list(d['N_sampless'])
+            diffs.append(list(d['diffs']))
+            times.append(list(d['times']))
+            if 'N_seqs' in d.keys():
+                N_seqs = d['N_seqs']
+            else:
+                N_seqs = 1
+            N_seqss.append(N_seqs)
 
-    diffs, N_sampless = np.array(diffs), np.array(N_sampless)
-    sidx = np.argsort(N_sampless)
-    diffs, N_sampless = diffs[sidx], N_sampless[sidx]
+            N_sampless.append( list(np.array(N_seqs * d['N_sampless'])) )
+            #N_sampless.append( list(np.array(d['N_sampless'])) )
+
+    #diffs, N_sampless = np.array(diffs), np.array(N_sampless)
+    #sidx = np.argsort(N_sampless)
+    #diffs, N_sampless = diffs[sidx], N_sampless[sidx]
+
+    print(f'N_sampless = {N_sampless}')
+    print(f'diffs = {diffs}')
+    print(f'times = {times}')
 
     print(f'--> Loading: {args.cthyb_filename}')
     with HDFArchive(args.cthyb_filename, 'r') as a:
         ps = a['ps']
         n_ref = 1 - a['n_ref']
+        times_cthyb = a['times']
 
     ds = []
     pto_max = 7
@@ -105,8 +119,8 @@ if __name__ == "__main__":
         return np.sum(np.abs(err_avgs / (C / np.sqrt(x)) - 1.))
 
     def target_function_qmc(C):
-        x = N_sampless
-        y = diffs
+        x = N_sampless[0]
+        y = diffs[0]
 
         n_cut = 5
         x, y = x[:n_cut], y[:n_cut]
@@ -115,6 +129,25 @@ if __name__ == "__main__":
 
     res = minimize(target_function, 0.1)
     res_qmc = minimize(target_function_qmc, 0.001)
+
+    # -- Timing vs N
+
+    plt.figure(figsize=(3.25, 2.))
+    plt.plot(slice_ds("n_samples"), times_cthyb, 'o', alpha=0.1, label='CTHYB')
+    for N_samples, time, N_seqs in zip(N_sampless, times, N_seqss):
+        print(time)
+        print(N_sampless)
+        plt.plot(N_sampless[0], time, '-s', label='Inchworm', alpha=0.75)
+
+    plt.legend(loc='best')
+    plt.loglog([], [])
+    plt.grid(True)
+    plt.xlabel(r'Samples $N$')
+    plt.ylabel(r'Time (sec)')
+
+    #plt.show(); exit()
+
+    # -- Convergence vs N
 
     for label in ['1', '2']:
         plt.figure(figsize=(3.25, 2.))
@@ -132,7 +165,8 @@ if __name__ == "__main__":
         plt.plot(N, res.x / np.sqrt(N), '--k', lw=0.5)
 
         if label == '2':
-            plt.plot(N_sampless, diffs, 'o-', markersize=2.5, alpha=0.75, label='Quasi Monte Carlo')
+            for N_samples, diff, N_seqs in zip(N_sampless, diffs, N_seqss):
+                plt.plot(N_samples, diff, 'o-', markersize=2.5, alpha=0.75, label=f'Quasi Monte Carlo Nseq = {N_seqs}')
             plt.text(2e7, 5e-8, r'$\propto 1/N$', ha='center', va='top')
             N = np.logspace(0.2, 6.5, num=10)
             plt.plot(N, res_qmc.x / N, ':k', lw=0.5)
@@ -150,7 +184,7 @@ if __name__ == "__main__":
         plt.grid(True)
         plt.xlabel(r'Samples $N$')
         plt.ylabel(r'$|\rho - \rho_{exact}|$')
-        plt.legend(loc='best')
+        plt.legend(loc='upper right')
 
         plt.axis('equal')
         plt.ylim([1e-8, 1e0])
