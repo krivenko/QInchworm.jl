@@ -82,15 +82,10 @@ def calc_single_fermion(
     S.solve(
         h_int=H, h_loc0=0*H,
         n_cycles=int(n_cycles),
-        length_cycle=2,
-        #length_cycle=128,
         n_warmup_cycles=int(n_cycles)//4,
         measure_pert_order=True,
         use_norm_as_weight=True,
-        #measure_G_tau=True,
-        move_double=True,
         measure_density_matrix=True,
-        #random_seed=34788 + 928374 * MPI.rank,
         random_seed=seed,
         )
 
