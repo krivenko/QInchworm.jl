@@ -102,8 +102,7 @@ function run_bethe(nτ, orders, orders_bare, N_samples, N_seqs; interpolate_gfs=
                                        rand_params=rand_params)
 
     end
-    @show time
-        
+            
     if interpolate_gfs
         P = [p.GF for p in expansion.P]
         ppgf.normalize!(P, β)
@@ -127,6 +126,7 @@ function run_bethe(nτ, orders, orders_bare, N_samples, N_seqs; interpolate_gfs=
     diff = maximum(abs.(ρ_ref - ρ_wrm))
 
     if ismaster()
+        @show time
         @show ρ_wrm_orders
         @show pto_hist
         @printf "ρ_0   = %16.16f %16.16f \n" real(diag(ρ_0))...
@@ -168,6 +168,7 @@ function run_nτ_calc(nτ, orders, N_sampless, N_seqs)
             g["orders_bare"] = collect(orders_bare)
             g["N_sampless"] = N_sampless
             g["N_seqs"] = N_seqs
+            g["mpi_ranks"] = MPI.Comm_size(MPI.COMM_WORLD)
 
             g["diffs"] = diffs
             g["times"] = times
@@ -180,22 +181,21 @@ end
 nτs = [2]
 #nτs = [1024]
 #nτs = [128]
-
 #nτs = [64]
 #nτs = [1024 * 8 * 4]
-#N_sampless = 2 .^ (3:15)
-#N_sampless = 2 .^ (3:15)
 
-#N_sampless = 2 .^ (3:18)
 #N_sampless = 2 .^ (3:10)
 #N_sampless = 2 .^ (3:15)
-N_sampless = 2 .^ (3:10)
+#N_sampless = 2 .^ (3:18)
+N_sampless = 2 .^ (3:20)
+
 N_seqs = 1
 
 orderss = [0:5]
 #orderss = [0:4]
 #orderss = [0:3]
 #orderss = [0:2]
+#orderss = [0:1]
 
 if ismaster()
     @show nτs
