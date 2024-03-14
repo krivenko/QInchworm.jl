@@ -80,7 +80,9 @@ function calc_gf_yrs(ϵ, U, Δ, J, D, Γ, β, orders, orders_gf, nτ, N_samples)
         # Anomalous component
         Δ_anomalous = -V2 * kd.ImaginaryTimeGF(anomalous_dos(D=D, Δ=Δ), grid)
         push!(ips, InteractionPair(op.c_dag("up", o), op.c_dag("dn", o), Δ_anomalous))
+        push!(ips, InteractionPair(op.c_dag("dn", o), op.c_dag("up", o), -Δ_anomalous))
         push!(ips, InteractionPair(op.c("dn", o), op.c("up", o), Δ_anomalous))
+        push!(ips, InteractionPair(op.c("up", o), op.c("dn", o), -Δ_anomalous))
     end
 
     expansion = Expansion(ed, grid, ips)
