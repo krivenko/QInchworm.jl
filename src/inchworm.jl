@@ -184,7 +184,7 @@ function inchworm_step(expansion::Expansion,
                     N = length(N_range)
                 )
                 if rank_weight == 0.0
-                    res = zero_sector_block_matrix
+                    res = deepcopy(zero_sector_block_matrix)
                 end
                 @timeit tmr "MPI all_reduce" begin
                 all_reduce!(res, +)
@@ -286,7 +286,7 @@ function inchworm_step_bare(expansion::Expansion,
                     N = length(N_range)
                 )
                 if rank_weight == 0.0
-                    res = zero_sector_block_matrix
+                    res = deepcopy(zero_sector_block_matrix)
                 end
                 @timeit tmr "MPI all_reduce" begin
                 all_reduce!(res, +)
@@ -593,7 +593,7 @@ function diff_inchworm_step!(expansion::Expansion,
                     N = length(N_range)
                 )
                 if rank_weight == 0.0
-                    res = zero_sector_block_matrix
+                    res = deepcopy(zero_sector_block_matrix)
                 end
                 @timeit tmr "MPI all_reduce" begin
                 all_reduce!(res, +)
@@ -874,7 +874,7 @@ function correlator_2p(expansion::Expansion,
                     N = length(N_range)
                 )
                 if rank_weight == 0.0
-                    res = zero_sector_block_matrix
+                    res = deepcopy(zero_sector_block_matrix)
                 end
                 @timeit tmr "MPI all_reduce" begin
                 MPI.Allreduce(res, +, MPI.COMM_WORLD)
