@@ -70,18 +70,25 @@ def calc_single_fermion(
         delta_x = d.dlr_from_tau(delta_i)
         g_x = d.dyson_dlr(np.array([[e0]]), delta_x, beta)
         n_ref = -d.eval_dlr_tau(g_x, np.array([beta]), beta)[0, 0][0]
-        if mpi.rank == 0: print(f'n_ref = {n_ref:16.16f}')
+        if mpi.is_master_node(): print(f'n_ref = {n_ref:16.16f}')
 
         delta_tau = V**2 * eval_semi_circ_tau(tau, beta, mu_bethe, t_bethe)
 
 
-    if mpi.rank == 0:
+    if mpi.is_master_node():
         print(f'tau = {tau}')
         
     for s, delta in S.Delta_tau:
         delta.data[:, 0, 0] = delta_tau
 
     seed = seed + 13 * mpi.rank
+
+    if mpi.size > n_cycles:
+        if mpi.is_master_node():
+            print("ERROR: mpi.size > n_cycles")
+        mpi.barrier()
+        raise ValueError
+    
     n_cycles = n_cycles // mpi.size
         
     S.solve(
@@ -94,7 +101,7 @@ def calc_single_fermion(
         random_seed=seed,
         )
 
-    if mpi.rank == 0:
+    if mpi.is_master_node():
         print(S.perturbation_order_total.data[:15])
         print(S.density_matrix)
         diff = np.abs(0.5 - S.density_matrix[0][0, 0])
@@ -114,10 +121,10 @@ if __name__ == "__main__":
     ps = []
     times = []
 
-    n_cycless = 2**np.arange(4, 20)
+    n_cycless = 2**np.arange(7, 25)
     #n_cycless = 2**np.arange(4, 25)
 
-    if mpi.rank == 0: print(f'n_cycless = {n_cycless}')
+    if mpi.is_master_node(): print(f'n_cycless = {n_cycless}')
     
     for n_cycles in n_cycless:
         for seed in seeds:
