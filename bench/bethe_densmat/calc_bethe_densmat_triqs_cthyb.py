@@ -17,6 +17,7 @@
 #
 # Authors: Hugo U. R. Strand, Igor Krivenko
 
+import sys
 import time
 import numpy as np
 
@@ -93,8 +94,9 @@ def calc_single_fermion(
         
     S.solve(
         h_int=H, h_loc0=0*H,
+        length_cycle=4,
         n_cycles=int(n_cycles),
-        n_warmup_cycles=int(n_cycles)//4,
+        n_warmup_cycles=max(1024, int(n_cycles)//4),
         measure_pert_order=True,
         use_norm_as_weight=True,
         measure_density_matrix=True,
@@ -121,10 +123,21 @@ if __name__ == "__main__":
     ps = []
     times = []
 
-    n_cycless = 2**np.arange(7, 25)
+    if len(sys.argv) != 3:
+        raise TypeError
+
+    start, stop = int(sys.argv[1]), int(sys.argv[2])
+    if mpi.is_master_node():
+        print(f'start, stop = {start}, {stop}')
+
+    n_cycless = 2**np.arange(start, stop)
+    #n_cycless = 2**np.arange(4, 6)
+    #n_cycless = 2**np.arange(25, 35)
     #n_cycless = 2**np.arange(4, 25)
 
-    if mpi.is_master_node(): print(f'n_cycless = {n_cycless}')
+    if mpi.is_master_node(): 
+        print(f'n_cycless = {n_cycless}')
+        print(f'n_cycless // mpi.size = {n_cycless // mpi.size}')
     
     for n_cycles in n_cycless:
         for seed in seeds:
@@ -134,9 +147,10 @@ if __name__ == "__main__":
             times.append(p.time)
             ps.append(p)
 
-    filename = 'data_bethe_cthyb_new.h5'
+    filename = f'data_bethe_cthyb_new_{start}_{stop}.h5'
     if mpi.is_master_node():
         print(f'n_ref = {n_ref:16.16E}')
+        print(f'--> Saving: {filename}')
         with HDFArchive(filename, 'w') as a:
             a['ps'] = ps
             a['times'] = times
