@@ -29,6 +29,7 @@ using MPI; MPI.Init()
 using HDF5; h5 = HDF5
 
 using ArgParse
+using Random: MersenneTwister
 
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
@@ -39,9 +40,10 @@ using QInchworm.utility: ph_conj
 using QInchworm.ppgf: normalize!
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.inchworm: diff_inchworm!, correlator_2p
+using QInchworm.randomization: RandomizationParams, RequestStdDev
 using QInchworm.mpi: ismaster
 
-function calc_gf_yrs(ϵ, U, Δ, J, D, Γ, β, orders, orders_gf, nτ, N_samples)
+function calc_gf_yrs(ϵ, U, Δ, J, D, Γ, β, orders, orders_gf, nτ, N_samples, N_seqs)
 
     ## ED solution
     soi = ked.Hilbert.SetOfIndices([[s, o] for s in ("up", "dn") for o in 1:2])
@@ -86,14 +88,20 @@ function calc_gf_yrs(ϵ, U, Δ, J, D, Γ, β, orders, orders_gf, nτ, N_samples)
     end
 
     expansion = Expansion(ed, grid, ips)
-    diff_inchworm!(expansion, grid, orders, N_samples)
+
+    rand_params = RandomizationParams(MersenneTwister(12345678), N_seqs, .0)
+
+    diff_inchworm!(expansion, grid, orders, N_samples; rand_params=rand_params)
     normalize!(expansion.P, β)
 
     for s in ("up", "dn"), o in 1:2
         add_corr_operators!(expansion, (op.c(s, o), op.c_dag(s, o)))
     end
 
-    return expansion, correlator_2p(expansion, grid, orders_gf, N_samples)
+    g, g_std = correlator_2p(expansion, grid, orders_gf, N_samples, RequestStdDev();
+                             rand_params=rand_params)
+
+    return expansion, g, g_std
 end
 
 s = ArgParseSettings()
@@ -110,6 +118,10 @@ s = ArgParseSettings()
         arg_type = Int
         required = true
         help = "Number of qMC samples to be taken"
+    "N_seqs"
+        arg_type = Int
+        default = 4
+        help = "Number of scrambled Sobol sequences to be used"
     "--eps1"
         arg_type = Float64
         default = -25.0
@@ -160,7 +172,7 @@ order = parsed_args["order"]
 orders = 0:order
 orders_gf = 0:(order - 1)
 
-exp, g = calc_gf_yrs(
+exp, g, g_std = calc_gf_yrs(
     [parsed_args["eps1"], parsed_args["eps2"]],
     [parsed_args["U1"], parsed_args["U2"]],
     parsed_args["Delta"],
@@ -171,7 +183,8 @@ exp, g = calc_gf_yrs(
     orders,
     0:(order - 1),
     parsed_args["ntau"],
-    parsed_args["N_samples"]
+    parsed_args["N_samples"],
+    parsed_args["N_seqs"]
 )
 
 if ismaster()
@@ -189,16 +202,20 @@ if ismaster()
         h5.attributes(grp)["Gamma2"] = parsed_args["Gamma2"]
         h5.attributes(grp)["beta"] = parsed_args["beta"]
         h5.attributes(grp)["N_samples"] = parsed_args["N_samples"]
+        h5.attributes(grp)["N_seqs"] = parsed_args["N_seqs"]
 
         grp["orders"] = collect(orders)
         grp["orders_gf"] = collect(orders_gf)
 
         grp["tau"] = collect(kd.imagtimes(first(g).grid))
 
-        grp["gf_up_11"] = g[1].mat.data[1, 1, :]
-        grp["gf_up_22"] = g[2].mat.data[1, 1, :]
-        grp["gf_dn_11"] = g[3].mat.data[1, 1, :]
-        grp["gf_dn_22"] = g[4].mat.data[1, 1, :]
+        grp_gf = h5.create_group(grp, "gf")
+        grp_gf_std = h5.create_group(grp, "gf_std")
+
+        for (i, el) in enumerate(["up_11", "up_22", "dn_11", "dn_22"])
+	    grp_gf[el] = g[i].mat.data[1, 1, :]
+	    grp_gf_std[el] = g_std[i].mat.data[1, 1, :]
+        end
 
         for (s, p) in enumerate(exp.P)
             grp["P_$(s)"] = p.mat.data
