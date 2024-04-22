@@ -172,6 +172,10 @@ order = parsed_args["order"]
 orders = 0:order
 orders_gf = 0:(order - 1)
 
+nτ = parsed_args["ntau"]
+N_samples = parsed_args["N_samples"]
+N_seqs = parsed_args["N_seqs"]
+
 exp, g, g_std = calc_gf_yrs(
     [parsed_args["eps1"], parsed_args["eps2"]],
     [parsed_args["U1"], parsed_args["U2"]],
@@ -182,13 +186,13 @@ exp, g, g_std = calc_gf_yrs(
     parsed_args["beta"],
     orders,
     0:(order - 1),
-    parsed_args["ntau"],
-    parsed_args["N_samples"],
-    parsed_args["N_seqs"]
+    nτ,
+    N_samples,
+    N_seqs
 )
 
 if ismaster()
-    h5.h5open("gf_ysr.h5", "w") do fid
+	h5.h5open("gf_ysr.order$(order)_ntau$(nτ)_N_samples$(N_samples)_N_seqs$(N_seqs).h5", "w") do fid
         grp = h5.create_group(fid, "data")
 
         h5.attributes(grp)["eps1"] = parsed_args["eps1"]
