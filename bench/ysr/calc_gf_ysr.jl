@@ -39,7 +39,7 @@ include("dos.jl")
 using QInchworm.utility: ph_conj
 using QInchworm.ppgf: normalize!
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
-using QInchworm.inchworm: diff_inchworm!, correlator_2p
+using QInchworm.inchworm: inchworm!, correlator_2p
 using QInchworm.randomization: RandomizationParams, RequestStdDev
 using QInchworm.mpi: ismaster
 
@@ -91,7 +91,7 @@ function calc_gf_yrs(ϵ, U, Δ, J, D, Γ, β, orders, orders_gf, nτ, N_samples,
 
     rand_params = RandomizationParams(MersenneTwister(12345678), N_seqs, .0)
 
-    diff_inchworm!(expansion, grid, orders, N_samples; rand_params=rand_params)
+    inchworm!(expansion, grid, orders, N_samples; rand_params=rand_params)
     normalize!(expansion.P, β)
 
     for s in ("up", "dn"), o in 1:2
