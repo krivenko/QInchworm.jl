@@ -91,7 +91,7 @@ function calc_gf_yrs(ϵ, U, Δ, J, D, Γ, β, orders, orders_gf, nτ, N_samples,
 
     rand_params = RandomizationParams(MersenneTwister(12345678), N_seqs, .0)
 
-    inchworm!(expansion, grid, orders, N_samples; rand_params=rand_params)
+    inchworm!(expansion, grid, orders, orders, N_samples; rand_params=rand_params)
     normalize!(expansion.P, β)
 
     for s in ("up", "dn"), o in 1:2
