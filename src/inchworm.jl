@@ -38,7 +38,7 @@ using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED
 
 using QInchworm.sector_block_matrix: SectorBlockMatrix
-using QInchworm.ppgf: partition_function, set_ppgf!
+using QInchworm.ppgf: partition_function, set_ppgf!, normalize!
 
 using QInchworm; teval = QInchworm.topology_eval
 using QInchworm.diagrammatics: get_topologies_at_order
@@ -487,6 +487,7 @@ function inchworm!(expansion::Expansion,
             inchworm_step(expansion, grid.contour, τ_i, τ_w, τ_f, top_data, tmr=tmr)
 
         set_ppgf!(expansion.P, τ_i, τ_f, result)
+        normalize!(expansion.P, τ_f) # Suppress exponential growth by normalization
         for order in keys(P_order_contribs)
             set_ppgf!(P_orders[order], τ_i, τ_f, P_order_contribs[order])
             set_ppgf!(P_orders_std[order], τ_i, τ_f, P_order_contribs_std[order])

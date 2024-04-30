@@ -48,7 +48,7 @@ module ppgf
 
 using DocStringExtensions
 
-using LinearAlgebra: Diagonal, tr, I, diagm
+using LinearAlgebra: Diagonal, tr, I, diagm, diag
 
 using Keldysh; kd = Keldysh;
 using KeldyshED; ked = KeldyshED;
@@ -625,13 +625,31 @@ Normalize a pseudo-particle Green's function `P` by multiplying it by
 # Returns
 The energy shift ``\\lambda``.
 """
-function normalize!(P::Vector{<:kd.AbstractTimeGF}, β)
+function normalize!(P::Vector{<:kd.AbstractTimeGF}, β::Float64)
     Z = partition_function(P)
     λ = log(Z) / β
     for P_s in P
         normalize!(P_s, λ)
     end
     return λ
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Normalize a pseudo-particle Green's function `P` by multiplying it by
+``e^{-i\\lambda (z-z')}`` with ``\\lambda`` chosen such that
+``\\mathrm{max}[i P(-i\\tau, 0)] = 1``.
+
+"""
+function normalize!(P::Vector{<:kd.AbstractTimeGF}, τ::kd.TimeGridPoint)
+    tau_grid = P[1].grid[kd.imaginary_branch]
+    τ_0 = tau_grid[1]
+    P_max = maximum(vcat([ -imag(diag(P_s[τ, τ_0])) for P_s in P ]...))
+    λ = log(P_max) / imag(-τ.bpoint.val)
+    for P_s in P
+        normalize!(P_s, λ)
+    end
 end
 
 """
