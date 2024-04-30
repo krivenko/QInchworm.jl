@@ -48,13 +48,16 @@ module ppgf
 
 using DocStringExtensions
 
-using LinearAlgebra: Diagonal, tr, I, diagm
+using LinearAlgebra: Diagonal, tr, I, diagm, diag
 
 using Keldysh; kd = Keldysh;
 using KeldyshED; ked = KeldyshED;
 
 using QInchworm.sector_block_matrix: SectorBlockMatrix
-using QInchworm.spline_gf: SplineInterpolatedGF, IncSplineImaginaryTimeGF, extend!
+using QInchworm.spline_gf: SplineInterpolatedGF,
+                           IncSplineImaginaryTimeGF,
+                           extend!,
+                           make_inc_interpolant
 
 export FullTimePPGF, ImaginaryTimePPGF
 export atomic_ppgf
@@ -623,13 +626,31 @@ Normalize a pseudo-particle Green's function `P` by multiplying it by
 # Returns
 The energy shift ``\\lambda``.
 """
-function normalize!(P::Vector{<:kd.AbstractTimeGF}, β)
+function normalize!(P::Vector{<:kd.AbstractTimeGF}, β::Float64)
     Z = partition_function(P)
     λ = log(Z) / β
     for P_s in P
         normalize!(P_s, λ)
     end
     return λ
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Normalize a pseudo-particle Green's function `P` by multiplying it by
+``e^{-i\\lambda (z-z')}`` with ``\\lambda`` chosen such that
+``\\mathrm{max}[i P(-i\\tau, 0)] = 1``.
+
+"""
+function normalize!(P::Vector{<:kd.AbstractTimeGF}, τ::kd.TimeGridPoint)
+    tau_grid = P[1].grid[kd.imaginary_branch]
+    τ_0 = tau_grid[1]
+    P_max = maximum(vcat([ -imag(diag(P_s[τ, τ_0])) for P_s in P ]...))
+    λ = log(P_max) / imag(-τ.bpoint.val)
+    for P_s in P
+        normalize!(P_s, λ)
+    end
 end
 
 """
@@ -643,6 +664,33 @@ function normalize!(P_s::kd.AbstractTimeGF, λ)
     τ_0 = tau_grid[1]
     for τ in tau_grid
         P_s[τ, τ_0] = P_s[τ, τ_0] .* exp(-1im * τ.bpoint.val * λ)
+    end
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Multiply a given diagonal block of a pseudo-particle Green's function `P_s` by
+``e^{-i\\lambda (z-z')}``. This method is defined for the spline-interpolated imaginary-time
+propagators.
+"""
+function normalize!(P_s::IncSplineImaginaryTimeGF{ComplexF64, false}, λ)
+    n = length(P_s.interpolants[1, 1].data)
+
+    tau_grid = P_s.grid[kd.imaginary_branch]
+    τ_0 = tau_grid[1]
+    for τ in tau_grid[1:n]
+        P_s.GF[τ, τ_0] = P_s.GF[τ, τ_0] .* exp(-1im * τ.bpoint.val * λ)
+    end
+
+    norb = kd.norbitals(P_s.GF)
+    for k=1:norb, l=1:norb
+        int = P_s.interpolants[k, l]
+        derivative_at_0 = int.der_data[1] / step(int.knots) - 1im * λ * int.data[1]
+        P_s.interpolants[k, l] = make_inc_interpolant(P_s.GF, k, l, derivative_at_0)
+        for τ in tau_grid[2:n]
+            extend!(P_s.interpolants[k, l], P_s.GF[k, l, τ, τ_0])
+        end
     end
 end
 
