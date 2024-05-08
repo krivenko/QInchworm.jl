@@ -157,7 +157,7 @@ s = ArgParseSettings()
            "Hybridization strength Γ₁ between the first ligand orbital and the substrate"
     "--Gamma2"
         arg_type = Float64
-        default = 3.75
+        default = 37.5
         help =
             "Hybridization strength Γ₂ between the second ligand orbital and the substrate"
     "--beta"
