@@ -33,7 +33,7 @@ using QInchworm.inchworm: inchworm!
 
 #using QInchworm.utility: ph_conj
 
-import Lehmann; le = Lehmann
+using Lehmann; le = Lehmann
 using QInchworm.keldysh_dlr: DLRImaginaryTimeGrid, DLRImaginaryTimeGF, ph_conj
 
 # Solve non-interacting two fermion impurity model coupled to semi-circular (Bethe lattice)
@@ -74,7 +74,7 @@ using QInchworm.keldysh_dlr: DLRImaginaryTimeGrid, DLRImaginaryTimeGF, ph_conj
         H_imp = -μ * (op.n(1) + op.n(2))
         soi = ked.Hilbert.SetOfIndices([[1], [2]])
         ed = ked.EDCore(H_imp, soi)
-        
+
         # Imaginary time grid
 
         contour = kd.ImaginaryContour(β=β)
@@ -100,7 +100,7 @@ using QInchworm.keldysh_dlr: DLRImaginaryTimeGrid, DLRImaginaryTimeGF, ph_conj
         ip_bwd_2= InteractionPair(op.c(2), op.c_dag(2), ph_conj(Δ))
 
         expansion = Expansion(ed, grid, [ip_fwd_1, ip_bwd_1, ip_fwd_2, ip_bwd_2])
-        
+
         ρ_0 = full_hs_matrix(tofockbasis(density_matrix(expansion.P0), ed), ed)
 
         inchworm!(expansion, grid, orders, orders_bare, N_samples)
