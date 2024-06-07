@@ -175,7 +175,9 @@ function inchworm_step(expansion::Expansion,
                                         td.rand_params,
                                         seq_type=seq_type) do seq
                 skip!(seq, first(N_range) - 1, exact=true)
-                res::SectorBlockMatrix = rank_weight * contour_integral(
+                res::SectorBlockMatrix = (rank_weight == 0.0) ?
+                deepcopy(zero_sector_block_matrix) :
+                rank_weight * contour_integral(
                     t -> eval(td.topologies, t),
                     c,
                     trans,
@@ -183,9 +185,6 @@ function inchworm_step(expansion::Expansion,
                     seq = seq,
                     N = length(N_range)
                 )
-                if rank_weight == 0.0
-                    res = deepcopy(zero_sector_block_matrix)
-                end
                 @timeit tmr "MPI all_reduce" begin
                 all_reduce!(res, +)
                 end # tmr
@@ -277,7 +276,9 @@ function inchworm_step_bare(expansion::Expansion,
             contrib_mean, contrib_std =
             mean_std_from_randomization(d, td.rand_params, seq_type=seq_type) do seq
                 skip!(seq, first(N_range) - 1, exact=true)
-                res::SectorBlockMatrix = rank_weight * contour_integral(
+                res::SectorBlockMatrix = (rank_weight == 0.0) ?
+                deepcopy(zero_sector_block_matrix) :
+                rank_weight * contour_integral(
                     t -> eval(td.topologies, t),
                     c,
                     trans,
@@ -285,9 +286,6 @@ function inchworm_step_bare(expansion::Expansion,
                     seq = seq,
                     N = length(N_range)
                 )
-                if rank_weight == 0.0
-                    res = deepcopy(zero_sector_block_matrix)
-                end
                 @timeit tmr "MPI all_reduce" begin
                 all_reduce!(res, +)
                 end # tmr
@@ -584,7 +582,9 @@ function diff_inchworm_step!(expansion::Expansion,
                                         td.rand_params,
                                         seq_type=seq_type) do seq
                 skip!(seq, first(N_range) - 1, exact=true)
-                res::SectorBlockMatrix = rank_weight * contour_integral(
+                res::SectorBlockMatrix = (rank_weight == 0.0) ?
+                deepcopy(zero_sector_block_matrix) :
+                rank_weight * contour_integral(
                     t -> eval(td.topologies, t),
                     c,
                     trans,
@@ -592,9 +592,6 @@ function diff_inchworm_step!(expansion::Expansion,
                     seq = seq,
                     N = length(N_range)
                 )
-                if rank_weight == 0.0
-                    res = deepcopy(zero_sector_block_matrix)
-                end
                 @timeit tmr "MPI all_reduce" begin
                 all_reduce!(res, +)
                 end # tmr
@@ -865,7 +862,9 @@ function correlator_2p(expansion::Expansion,
                                         td.rand_params,
                                         seq_type=seq_type) do seq
                 skip!(seq, first(N_range) - 1, exact=true)
-                res::ComplexF64 = rank_weight * contour_integral(
+                res::ComplexF64 = (rank_weight == 0.0) ?
+                deepcopy(zero_sector_block_matrix) :
+                rank_weight * contour_integral(
                     t -> tr(eval(td.topologies, t)),
                     grid.contour,
                     trans,
@@ -873,9 +872,6 @@ function correlator_2p(expansion::Expansion,
                     seq = seq,
                     N = length(N_range)
                 )
-                if rank_weight == 0.0
-                    res = deepcopy(zero_sector_block_matrix)
-                end
                 @timeit tmr "MPI all_reduce" begin
                 MPI.Allreduce(res, +, MPI.COMM_WORLD)
                 end # tmr
