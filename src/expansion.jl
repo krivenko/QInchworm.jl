@@ -32,6 +32,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm.sector_block_matrix: SectorBlockMatrix, operator_to_sector_block_matrix
 using QInchworm.ppgf
+using QInchworm.exact_atomic_ppgf: atomic_ppgf, ExactAtomicPPGF
 using QInchworm.diagrammatics: Topology
 using QInchworm.spline_gf: SplineInterpolatedGF
 using QInchworm.spline_gf: IncSplineImaginaryTimeGF, extend!
@@ -44,6 +45,7 @@ const Operator = op.RealOperatorExpr
 const AllPPGFSectorTypes = Union{
     ppgf.FullTimePPGFSector,
     ppgf.ImaginaryTimePPGFSector,
+    ExactAtomicPPGF,
     SplineInterpolatedGF{ppgf.FullTimePPGFSector, ComplexF64, false},
     SplineInterpolatedGF{ppgf.ImaginaryTimePPGFSector, ComplexF64, false},
     IncSplineImaginaryTimeGF{ComplexF64, false}
@@ -53,6 +55,7 @@ const AllPPGFSectorTypes = Union{
 const AllPPGFTypes = Union{
     Vector{ppgf.FullTimePPGFSector},
     Vector{ppgf.ImaginaryTimePPGFSector},
+    Vector{ExactAtomicPPGF},
     Vector{SplineInterpolatedGF{ppgf.FullTimePPGFSector, ComplexF64, false}},
     Vector{SplineInterpolatedGF{ppgf.ImaginaryTimePPGFSector, ComplexF64, false}},
     Vector{IncSplineImaginaryTimeGF{ComplexF64, false}}
@@ -101,13 +104,13 @@ pseudo-particle expansion problem.
 # Fields
 $(FIELDS)
 """
-struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPGFTypes}
+struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF_P0 <: AllPPGFTypes, PPGF_P <: AllPPGFTypes}
     "Exact diagonalization solver for the local degrees of freedom"
     ed::ked.EDCore
     "Non-interacting propagator (pseudo-particle Green's function)"
-    P0::PPGF
+    P0::PPGF_P0
     "Interacting propagator (pseudo-particle Green's function)"
-    P::PPGF
+    P::PPGF_P
     "List of pseudo-particle interactions"
     pairs::Vector{InteractionPair{ScalarGF}}
     "List of hybridization function determinants (not implemented yet)"
@@ -147,28 +150,18 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
             interaction_pairs::Vector{InteractionPair{ScalarGF}};
             corr_operators::Vector{Tuple{Operator, Operator}} = Tuple{Operator, Operator}[],
             interpolate_ppgf = false) where ScalarGF
-        P0 = ppgf.atomic_ppgf(grid, ed)
-        dP0 = ppgf.initial_ppgf_derivative(ed, grid.contour.β)
-        P = deepcopy(P0)
 
+        P0 = atomic_ppgf(grid.contour.β, ed)
+        P = ppgf.atomic_ppgf(grid, ed)
+        
         if interpolate_ppgf
-
-            P0_interp = [
-                IncSplineImaginaryTimeGF(P0_s, dP0_s) for (P0_s, dP0_s) in zip(P0, dP0)
-            ]
+            
+            dP = ppgf.initial_ppgf_derivative(ed, grid.contour.β)
+            
             P_interp = [
-                IncSplineImaginaryTimeGF(P_s, dP0_s) for (P_s, dP0_s) in zip(P, dP0)
+                IncSplineImaginaryTimeGF(P_s, dP_s) for (P_s, dP_s) in zip(P, dP)
             ]
 
-            # -- Fill up P0 with all values
-            for (s, p0_interp) in enumerate(P0_interp)
-                τ_0 = grid[1]
-                for τ in grid[2:end]
-                    extend!(p0_interp, P0[s][τ, τ_0])
-                end
-            end
-
-            P0 = P0_interp
             P = P_interp
         end
 
@@ -189,7 +182,7 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF <: AllPPG
             for s in eachindex(ed.subspaces)
         ]
 
-        return new{ScalarGF, typeof(P0)}(
+        return new{ScalarGF, typeof(P0), typeof(P)}(
             ed,
             P0,
             P,
