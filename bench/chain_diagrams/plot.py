@@ -40,7 +40,7 @@ def load_h5(filename):
 
     return d
 
-path = '../../experiments/diagrammatics/'
+path = '../../../experiments/diagrammatics/'
 #filename = '../../experiments/diagrammatics/data_analytic_chain_integral.h5'
 #filename = path + 'data_analytic_chain_integral_beta_10_V_20_n_max_128.h5'
 #filename = path + 'data_analytic_chain_integral_beta_1000_V_1.375_n_max_256.h5'
@@ -48,7 +48,8 @@ path = '../../experiments/diagrammatics/'
 #filename = path + 'data_analytic_chain_integral_beta_1_V_1_n_max_128.h5'
 #filename = path + 'data_analytic_chain_integral_beta_1_V_1_n_max_256.h5'
 #filename = path + 'data_analytic_chain_integral_beta_1_V_1_n_max_512.h5'
-filename = path + 'data_analytic_chain_integral_beta_1_V_1_n_max_1024.h5'
+#filename = path + 'data_analytic_chain_integral_beta_1_V_1_n_max_1024.h5'
+filename = path + 'data_analytic_chain_integral_beta_1_V_1_n_max_13_invlap.h5'
 
 print(f'--> Loading: {filename}')
 ref = load_h5(filename)
@@ -63,7 +64,7 @@ for filename in filenames:
 
 # -- order by order convergence
 
-plt.figure(figsize=(3.25, 2.25))
+plt.figure(figsize=(3.25, 2.0))
 
 gs = GridSpec(
     1, 1,
@@ -75,29 +76,46 @@ gs = GridSpec(
     )
 
 plt.subplot(gs[0])
+
+print(ref.ns)
+print(ref.Ds)
+print(ref.ns.dtype)
+
+#exit()
+
+n = 22
     
 for r in sorted(results, key=lambda r: r.parm.order):
-    if r.parm.order < 4: continue
-    if len(ref.Ds) < r.parm.order:
-        exact = ref.Ds[-1]
-    else:
-        exact = ref.Ds[r.parm.order - 1]
 
+    if r.parm.order < 4: continue
+    
+    #if len(ref.Ds) < r.parm.order:
+    #    exact = ref.Ds[-1]
+    #else:
+    #    exact = ref.Ds[r.parm.order - 1]
+
+    if r.parm.order in ref.ns:
+        idx = list(ref.ns).index(r.parm.order)
+        print(idx, ref.Ds[idx])
+        exact = ref.Ds[idx]
+
+    print(f"order = {r.parm.order:4d} val = {exact}")
     #exact = np.exp(-3/2)
     
     rel_err = np.abs((r.results - exact) / exact)
-    plt.plot(r.N_samples_list, rel_err, '.-', label=f'{r.parm.order}', alpha=0.75)
+    plt.plot(r.N_samples_list[:n], rel_err[:n], '.-', label=f'{r.parm.order}', alpha=0.5)
 
 n = np.logspace(1.0, 8.75)
-plt.plot(n, 15/n, '--k', lw=1.5, alpha=0.5, label='$\sim N_{qMC}^{-1}$')
+plt.plot(n, 15/n, '--k', lw=0.5, alpha=1.0, label='$\sim N^{-1}$')
     
 plt.loglog([], [])
-plt.legend(title='Diagram order', ncol=1, loc='upper right')
+plt.legend(title='Diagram order', ncol=1, fontsize=6, loc='center right')
 plt.grid(True)
 plt.axis('equal')
-plt.xlabel(r'$N_{qMC}$')
+plt.xlabel(r'$N$', labelpad=2)
 plt.ylabel(r'$d_n$ (relative error)')
 plt.xlim(right=1e13)
+plt.yticks([1e0, 1e-2, 1e-4, 1e-6, 1e-8])
 plt.savefig('figure_chain_diagram_convergence.pdf')
 #plt.show()
 
