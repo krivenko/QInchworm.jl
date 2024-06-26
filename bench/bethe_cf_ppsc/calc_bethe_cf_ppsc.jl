@@ -33,6 +33,9 @@ using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.inchworm: inchworm!, correlator_2p
 using QInchworm.mpi: ismaster
 
+using QInchworm.keldysh_dlr: DLRImaginaryTimeGrid, DLRImaginaryTimeGF, ph_conj
+import Lehmann; le = Lehmann
+
 include("ppsc_reference_data.jl")
 
 # Solve non-interacting two fermion AIM coupled to
@@ -72,10 +75,17 @@ function run_dimer(nτ, orders, orders_bare, orders_gf, N_samples)
     soi = ked.Hilbert.SetOfIndices([[1], [2]])
     ed = ked.EDCore(H_imp, soi)
 
-    # Hybridization propagator
+    # Hybridization function
 
-    Δ = V^2 * kd.ImaginaryTimeGF(kd.bethe_dos(t=t_bethe/2, ϵ=μ_bethe), grid)
+    # -- Equidistant discretization
+    #Δ = V^2 * kd.ImaginaryTimeGF(kd.bethe_dos(t=t_bethe/2, ϵ=μ_bethe), grid)
 
+    # -- Discrete Lehmann Representation (DLR) discretizatio
+    dlr = le.DLRGrid(Euv=1.25, β=β, isFermi=true, rtol=1e-6, rebuild=true, verbose=false)
+    dlr_grid = DLRImaginaryTimeGrid(contour, dlr)
+    Δ = DLRImaginaryTimeGF(kd.bethe_dos(t=t_bethe/2, ϵ=μ_bethe), dlr_grid)
+    Δ.mat.data[:] = Δ.mat.data .* V^2 # Fixme! Enable scalar multiplication
+    
     # Pseudo Particle Strong Coupling Expansion
 
     ip_1_fwd = InteractionPair(op.c_dag(1), op.c(1), Δ)
@@ -84,7 +94,7 @@ function run_dimer(nτ, orders, orders_bare, orders_gf, N_samples)
     ip_2_bwd = InteractionPair(op.c(2), op.c_dag(2), ph_conj(Δ))
     expansion = Expansion(ed, grid, [ip_1_fwd, ip_1_bwd, ip_2_fwd, ip_2_bwd])
 
-    inchworm!(expansion, grid, orders, orders_bare, N_samples; n_pts_after_max=1)
+    inchworm!(expansion, grid, orders, orders_bare, N_samples; n_pts_after_max=1, n_bare_steps=4)
 
     normalize!(expansion.P, β)
 
@@ -116,11 +126,12 @@ function run_dimer(nτ, orders, orders_bare, orders_gf, N_samples)
             plt.legend(loc="best")
 
             plt.subplot(subp...); subp[end] += 1;
-            plt.plot(τ_ref, P - get_P_nca()[s], "k--", label="NCA $s ref", alpha=0.25)
-            plt.plot(τ_ref, P - get_P_oca()[s], "k:", label="OCA $s ref", alpha=0.25)
-            plt.plot(τ_ref, P - get_P_tca()[s], "k-.", label="TCA $s ref", alpha=0.25)
+            plt.plot(τ_ref, abs.(P - get_P_nca()[s]), "k--", label="NCA $s ref", alpha=0.25)
+            plt.plot(τ_ref, abs.(P - get_P_oca()[s]), "k:", label="OCA $s ref", alpha=0.25)
+            plt.plot(τ_ref, abs.(P - get_P_tca()[s]), "k-.", label="TCA $s ref", alpha=0.25)
             plt.ylabel(raw"$\Delta P_\Gamma(\tau)$")
             plt.xlabel(raw"$\tau$")
+            plt.semilogy([], [])
         end
 
         x = collect(τ)
@@ -153,12 +164,14 @@ function run_dimer(nτ, orders, orders_bare, orders_gf, N_samples)
     end
 end
 
-for o = [1, 2, 3]
+#for o = [1, 2, 3]
+for o = [1]
     orders = 0:o
+    orders_bare = 0:o+2
     orders_gf = 0:(o-1)
-    for nτ = [128*8]
+    for nτ = [128]
         for N_samples = [8*2^7]
-            run_dimer(nτ, orders, orders, orders_gf, N_samples)
+            run_dimer(nτ, orders, orders_bare, orders_gf, N_samples)
         end
     end
 end
