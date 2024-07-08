@@ -336,12 +336,17 @@ function inchworm!(expansion::Expansion,
                    N_samples::Int64;
                    n_pts_after_max::Int64 = typemax(Int64),
                    rand_params::RandomizationParams = RandomizationParams(),
-                   seq_type::Type{SeqType} = ScrambledSobolSeq) where SeqType
+                   seq_type::Type{SeqType} = ScrambledSobolSeq,
+                   n_bare_steps::Int64 = -1) where SeqType
 
     tmr = TimerOutput()
 
     @assert N_samples == 0 || ispow2(N_samples)
     @assert rand_params.N_seqs > 0
+
+    if n_bare_steps < 1
+        n_bare_steps = expansion.interpolation_order
+    end
 
     if ismaster()
         comm = MPI.COMM_WORLD
@@ -355,6 +360,7 @@ function inchworm!(expansion::Expansion,
         n_τ = $(length(grid))
         orders_bare = $(orders_bare)
         orders = $(orders)
+        n_bare_steps = $(n_bare_steps)
         n_pts_after_max = $(n_pts_after_max == typemax(Int64) ? "unrestricted" :
                                                                 n_pts_after_max)
         # qMC samples = $(N_samples)
@@ -401,18 +407,30 @@ function inchworm!(expansion::Expansion,
         @info "Initial inchworm step: Evaluating diagrams with bare propagators"
     end
 
-    result, P_order_contribs, P_order_contribs_std =
-        inchworm_step_bare(expansion,
-                           grid.contour,
-                           grid[1], grid[2],
-                           top_data,
-                           seq_type=seq_type,
-                           tmr=tmr)
+    iter = 1:n_bare_steps
+    if ismaster()
+        logger = Logging.current_logger()
+        if isa(logger, Logging.ConsoleLogger) && logger.min_level <= Logging.Info
+            iter = ProgressBar(iter)
+        end
+    end
 
-    set_ppgf!(expansion.P, grid[1], grid[2], result)
-    for order in keys(P_order_contribs)
-        set_ppgf!(P_orders[order], grid[1], grid[2], P_order_contribs[order])
-        set_ppgf!(P_orders_std[order], grid[1], grid[2], P_order_contribs_std[order])
+    τ_i = grid[1]
+    for n in iter
+        τ_f = grid[1 + n]
+        result, P_order_contribs, P_order_contribs_std =
+            inchworm_step_bare(expansion,
+                               grid.contour,
+                               τ_i, τ_f,
+                               top_data,
+                               seq_type=seq_type,
+                               tmr=tmr)
+
+        set_ppgf!(expansion.P, τ_i, τ_f, result)
+        for order in keys(P_order_contribs)
+            set_ppgf!(P_orders[order], τ_i, τ_f, P_order_contribs[order])
+            set_ppgf!(P_orders_std[order], τ_i, τ_f, P_order_contribs_std[order])
+        end
     end
 
     # The rest of inching
@@ -463,7 +481,7 @@ function inchworm!(expansion::Expansion,
         @info "Evaluating diagrams with bold propagators"
     end
 
-    iter = 2:length(grid)-1
+    iter = n_bare_steps+1:length(grid)-1
     if ismaster()
         logger = Logging.current_logger()
         if isa(logger, Logging.ConsoleLogger) && logger.min_level <= Logging.Info
