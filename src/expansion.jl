@@ -131,6 +131,9 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF_P0 <: All
     """
     subspace_attachable_pairs::Vector{Vector{Int64}}
 
+    "Order of PPGF barycentric interpolation"
+    interpolation_order::Int64
+
     @doc """
         $(TYPEDSIGNATURES)
 
@@ -149,7 +152,8 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF_P0 <: All
             grid::kd.AbstractTimeGrid,
             interaction_pairs::Vector{InteractionPair{ScalarGF}};
             corr_operators::Vector{Tuple{Operator, Operator}} = Tuple{Operator, Operator}[],
-            interpolate_ppgf = false) where ScalarGF
+            interpolate_ppgf = false,
+            interpolation_order = 1) where ScalarGF
 
         P0 = atomic_ppgf(grid.contour.β, ed)
         P = ppgf.atomic_ppgf(grid, ed)
@@ -192,7 +196,8 @@ struct Expansion{ScalarGF <: kd.AbstractTimeGF{ComplexF64, true}, PPGF_P0 <: All
             identity_mat,
             pair_operator_mat,
             corr_operators_mat,
-            subspace_attachable_pairs)
+            subspace_attachable_pairs,
+            interpolation_order)
     end
 end
 
@@ -226,7 +231,8 @@ function Expansion(
         hybridization::kd.ImaginaryTimeGF{ComplexF64, false},
         nn_interaction::Union{kd.ImaginaryTimeGF{Float64, false}, Nothing} = nothing,
         corr_operators::Vector{Tuple{Operator, Operator}} = Tuple{Operator, Operator}[],
-        interpolate_ppgf = false
+        interpolate_ppgf = false,
+        interpolation_order = 1
     )
     @assert kd.norbitals(hybridization) == length(soi)
 
@@ -286,7 +292,8 @@ function Expansion(
         grid,
         interactions,
         corr_operators=corr_operators,
-        interpolate_ppgf=interpolate_ppgf
+        interpolate_ppgf=interpolate_ppgf,
+        interpolation_order=interpolation_order
     )
 end
 
