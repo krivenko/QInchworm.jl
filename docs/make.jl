@@ -40,6 +40,7 @@ makedocs(;
             "modules/expansion.md",
             "modules/inchworm.md",
             "modules/ppgf.md",
+            "modules/exact_atomic_ppgf.md",
             "modules/sector_block_matrix.md",
             "modules/spline_gf.md",
             "modules/utility.md",
