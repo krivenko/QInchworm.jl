@@ -59,8 +59,6 @@ using QInchworm.spline_gf: SplineInterpolatedGF,
                            extend!,
                            make_inc_interpolant
 
-import KeldyshED: partition_function
-
 export FullTimePPGF, ImaginaryTimePPGF
 export atomic_ppgf
 export partition_function, density_matrix

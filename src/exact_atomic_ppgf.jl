@@ -31,10 +31,9 @@ using DocStringExtensions
 using LinearAlgebra: Diagonal, tr
 
 using Keldysh: BranchPoint, AbstractTimeGF
-using KeldyshED: EDCore, energies
+using KeldyshED; ked = KeldyshED;
 
 import Keldysh: interpolate!
-import KeldyshED: partition_function
 import QInchworm.ppgf: partition_function, atomic_ppgf, density_matrix
 
 export ExactAtomicPPGF, partition_function, atomic_ppgf, density_matrix, interpolate!
@@ -125,8 +124,8 @@ Construct the exact atomic pseudo-particle Green's function.
 - `ed`: Exact diagonalization structure describing the atomic problem.
 
 """
-function atomic_ppgf(β::Float64, ed::EDCore)::Vector{ExactAtomicPPGF}
-    Z = partition_function(ed, β)
+function atomic_ppgf(β::Float64, ed::ked.EDCore)::Vector{ExactAtomicPPGF}
+    Z = ked.partition_function(ed, β)
     λ = log(Z) / β # Pseudo-particle chemical potential (enforcing Tr[i P(β)] = Tr[ρ] = 1)
     P = [ ExactAtomicPPGF(β, E .+ λ) for E in energies(ed) ]
     return P
