@@ -18,9 +18,8 @@
 # Authors: Hugo U. R. Strand, Igor Krivenko
 
 """
-Exact atomic pseudo-particle Green's function (exact_atomic_ppgf) module
-Enabling exact evaluation of the atomic ``P_0(z)`` propagator by evaluating
-the exponential ``P_0(z) = -i e^{-iz H_{loc}}``.
+Exact atomic pseudo-particle Green's function module enabling exact evaluation of the atomic
+propagator ``P_0(z)`` by evaluating the exponential ``P_0(z) = -i e^{-iz \\hat H_{loc}}``.
 
 # Exports
 $(EXPORTS)
@@ -39,7 +38,7 @@ import KeldyshED: partition_function
 import QInchworm.ppgf: partition_function, atomic_ppgf, density_matrix
 
 export ExactAtomicPPGF, partition_function, atomic_ppgf, density_matrix, interpolate!
-    
+
 """
 $(TYPEDEF)
 
@@ -49,7 +48,9 @@ Exact atomic pseudo-particle Green's function type.
 $(TYPEDFIELDS)
 """
 struct ExactAtomicPPGF <: AbstractTimeGF{ComplexF64, false}
+    "Inverse temperature"
     β::Float64
+    "Eigenvalues of the atomic Hamiltonian"
     E::Array{Float64, 1}
 end
 
@@ -92,10 +93,12 @@ end
 """
     $(TYPEDSIGNATURES)
 
-Inplace evaluation of the atomic propagator at the difference between imaginary time branch points.
+In-place evaluation of the atomic propagator at the difference between imaginary time branch
+points.
 
 # Parameters
 - `x`: Matrix to store the value of the atomic pseudo-particle propagator in.
+- `P_0`: Atomic pseudo-particle propagator.
 - `z1`: first branch point.
 - `z2`: second branch point.
 
@@ -104,9 +107,12 @@ Inplace evaluation of the atomic propagator at the difference between imaginary 
   `Diagonal`.
 
 """
-function interpolate!(x::Matrix{ComplexF64}, P::ExactAtomicPPGF, z1::BranchPoint, z2::BranchPoint)
+function interpolate!(x::Matrix{ComplexF64},
+                      P_0::ExactAtomicPPGF,
+                      z1::BranchPoint,
+                      z2::BranchPoint)
     Δz = z1.val - z2.val
-    x[:] = P(Δz)
+    x[:] = P_0(Δz)
 end
 
 """
@@ -116,8 +122,7 @@ Construct the exact atomic pseudo-particle Green's function.
 
 # Parameters
 - `β`: Inverse temperature.
-- `ed`: Exact diagonalization struct describing the atomic problem
-  `KeldyshED.EDCore`.
+- `ed`: Exact diagonalization structure describing the atomic problem.
 
 """
 function atomic_ppgf(β::Float64, ed::EDCore)::Vector{ExactAtomicPPGF}
@@ -130,11 +135,11 @@ end
 """
     $(TYPEDSIGNATURES)
 
-Extract the partition function ``Z = \\mathrm{Tr}[i P(-i\\beta, 0)]`` from a un-normalized
-pseudo-particle Green's function `P`.
+Extract the partition function ``Z = \\mathrm{Tr}[i P_0(-i\\beta, 0)]`` from a un-normalized
+pseudo-particle Green's function `P_0`.
 """
-function partition_function(P::Vector{ExactAtomicPPGF})::ComplexF64
-    return sum(P, init=0im) do P_s
+function partition_function(P_0::Vector{ExactAtomicPPGF})::ComplexF64
+    return sum(P_0, init=0im) do P_s
         im * tr(P_s(-im * P_s.β))
     end
 end
