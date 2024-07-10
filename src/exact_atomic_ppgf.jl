@@ -18,9 +18,9 @@
 # Authors: Hugo U. R. Strand, Igor Krivenko
 
 """
-Exact atomic pseudo particle Green's function (exact_atomic_ppgf) module
-Enabling exact evaluation of the atomic ``P_0(τ)`` propagator by evaluating
-the exponential ``P_0(τ) = e^{-τ H_{loc}}``.
+Exact atomic pseudo-particle Green's function (exact_atomic_ppgf) module
+Enabling exact evaluation of the atomic ``P_0(z)`` propagator by evaluating
+the exponential ``P_0(z) = -i e^{-iz H_{loc}}``.
 
 # Exports
 $(EXPORTS)
@@ -43,7 +43,7 @@ export ExactAtomicPPGF, partition_function, atomic_ppgf, density_matrix, interpo
 """
 $(TYPEDEF)
 
-Exact atomic pseudo particle Green's function type.
+Exact atomic pseudo-particle Green's function type.
 
 # Fields
 $(TYPEDFIELDS)
@@ -56,18 +56,18 @@ end
 """
     $(TYPEDSIGNATURES)
 
-Evaluate atomic propagator at imaginary time `τ`.
+Evaluate atomic propagator at complex contour time `z`.
 
 # Parameters
-- `τ`: scalar imaginary time.
+- `z`: scalar time.
 
 # Returns
-- Value of atomic pseudo particle propagator ``P_0(τ)`` as a diagonal matrix
+- Value of atomic pseudo-particle propagator ``P_0(z)`` as a diagonal matrix
   `Diagonal`.
 
 """
-function (P::ExactAtomicPPGF)(t::Number)
-    return -im * Diagonal(exp.(-im * t * P.E))
+function (P::ExactAtomicPPGF)(z::Number)
+    return -im * Diagonal(exp.(-im * z * P.E))
 end
 
 """
@@ -76,17 +76,17 @@ end
 Evaluate atomic propagator at the difference between imaginary time branch points.
 
 # Parameters
-- `t1`: first branch point.
-- `t2`: second branch point.
+- `z1`: first branch point.
+- `z2`: second branch point.
 
 # Returns
-- Value of atomic pseudo particle propagator ``P_0(t_1 - t_2)`` as a diagonal matrix
+- Value of atomic pseudo-particle propagator ``P_0(z_1 - z_2)`` as a diagonal matrix
   `Diagonal`.
 
 """
-function (P::ExactAtomicPPGF)(t1::BranchPoint, t2::BranchPoint)
-    Δt = t1.val - t2.val
-    return P(Δt)
+function (P::ExactAtomicPPGF)(z1::BranchPoint, z2::BranchPoint)
+    Δz = z1.val - z2.val
+    return P(Δz)
 end
 
 """
@@ -95,18 +95,18 @@ end
 Inplace evaluation of the atomic propagator at the difference between imaginary time branch points.
 
 # Parameters
-- `x`: Matrix to store the value of the atomic pseudo particle propagator in.
-- `t1`: first branch point.
-- `t2`: second branch point.
+- `x`: Matrix to store the value of the atomic pseudo-particle propagator in.
+- `z1`: first branch point.
+- `z2`: second branch point.
 
 # Returns
-- Value of atomic pseudo particle propagator ``P_0(t_1 - t_2)`` as a diagonal matrix
+- Value of atomic pseudo-particle propagator ``P_0(z_1 - z_2)`` as a diagonal matrix
   `Diagonal`.
 
 """
-function interpolate!(x::Matrix{ComplexF64}, P::ExactAtomicPPGF, t1::BranchPoint, t2::BranchPoint)
-    Δt = t1.val - t2.val
-    x[:] = P(Δt)
+function interpolate!(x::Matrix{ComplexF64}, P::ExactAtomicPPGF, z1::BranchPoint, z2::BranchPoint)
+    Δz = z1.val - z2.val
+    x[:] = P(Δz)
 end
 
 """
@@ -133,7 +133,7 @@ end
 Extract the partition function ``Z = \\mathrm{Tr}[i P(-i\\beta, 0)]`` from a un-normalized
 pseudo-particle Green's function `P`.
 """
-function partition_function(P::Vector{ExactAtomicPPGF})
+function partition_function(P::Vector{ExactAtomicPPGF})::ComplexF64
     return sum(P, init=0im) do P_s
         im * tr(P_s(-im * P_s.β))
     end

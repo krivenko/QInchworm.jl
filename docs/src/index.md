@@ -40,6 +40,7 @@ two-point correlation functions for it.
 - [`QInchworm.expansion`](@ref QInchworm.expansion)
 - [`QInchworm.inchworm`](@ref QInchworm.inchworm)
 - [`QInchworm.ppgf`](@ref QInchworm.ppgf)
+- [`QInchworm.exact_atomic_ppgf`](@ref QInchworm.exact_atomic_ppgf)
 - [`QInchworm.sector_block_matrix`](@ref QInchworm.sector_block_matrix)
 - [`QInchworm.spline_gf`](@ref QInchworm.spline_gf)
 - [`QInchworm.utility`](@ref QInchworm.utility)
