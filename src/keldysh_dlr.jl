@@ -17,6 +17,14 @@
 #
 # Authors: Hugo U. R. Strand, Igor Krivenko
 
+"""
+Extension of Keldysh.jl defining imaginary time Green's functions
+represented using the Discrete Lehmann Representation as implemented
+in Lehmann.jl.
+
+# Exports
+$(EXPORTS)
+"""
 module keldysh_dlr
 
 using DocStringExtensions
@@ -143,6 +151,16 @@ function interpolate(G::DLRImaginaryTimeGF{T, true}, t1::BranchPoint, t2::Branch
     return le.dlr2tau(dlr, G.mat.data, [τ], axis=3)[1, 1, 1]
 end
 
+#
+# Green's function creation from function 
+#
+
+"""
+    $(TYPEDSIGNATURES)
+
+Make a [`DLRImaginaryTimeGF`](@ref) from a function
+
+"""
 DLRImaginaryTimeGF(f::Function, grid::DLRImaginaryTimeGrid, norb=1, ξ::GFSignEnum=fermionic, scalar=false) = DLRImaginaryTimeGF(f, ComplexF64, grid, norb, ξ, scalar)
 
 function DLRImaginaryTimeGF(f::Function, ::Type{T}, grid::DLRImaginaryTimeGrid, norb=1, ξ::GFSignEnum=fermionic, scalar=false) where T <: Number
@@ -164,6 +182,12 @@ function DLRImaginaryTimeGF(f::Function, ::Type{T}, grid::DLRImaginaryTimeGrid, 
     return G
 end
 
+"""
+    $(TYPEDSIGNATURES)
+
+Make a [`DLRImaginaryTimeGF`](@ref) from an Keldysh.jl AbstracctDOS object.
+
+"""
 function DLRImaginaryTimeGF(dos::AbstractDOS, grid::DLRImaginaryTimeGrid)
     β = grid.contour.β
     DLRImaginaryTimeGF(grid, 1, fermionic, true) do t1, t2
