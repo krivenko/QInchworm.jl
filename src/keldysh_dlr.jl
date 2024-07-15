@@ -34,7 +34,8 @@ using LinearAlgebra: I
 using Lehmann; le = Lehmann
 
 using Keldysh; kd = Keldysh
-using Keldysh: AbstractTimeGrid, ImaginaryContour, TimeGridPoint, PeriodicStorage, GFSignEnum, BranchPoint
+using Keldysh: AbstractTimeGrid
+using Keldysh: ImaginaryContour, TimeGridPoint, PeriodicStorage, GFSignEnum, BranchPoint
 
 import QInchworm.utility: ph_conj
 
@@ -48,7 +49,7 @@ export ph_conj
 """
     $(TYPEDEF)
 
-Wrapper around Lehman.jl describing a Discrete Lehmann Representation imaginary time grid
+Wrapper around Lehmann.jl describing a Discrete Lehmann Representation imaginary time grid
 conforming to the interface of Keldysh.jl TimeGrids.
 
 # Fields
@@ -60,7 +61,7 @@ struct DLRImaginaryTimeGrid <: AbstractTimeGrid
     branch_bounds::NTuple{1, Pair{TimeGridPoint, TimeGridPoint}}
     ntau::Int
     dlr::le.DLRGrid
-    
+
     function DLRImaginaryTimeGrid(c::ImaginaryContour, dlr::le.DLRGrid)
         points::Vector{TimeGridPoint} = []
         for (idx, τ) in enumerate(dlr.τ)
@@ -69,7 +70,7 @@ struct DLRImaginaryTimeGrid <: AbstractTimeGrid
         end
         τ_0 = TimeGridPoint(1, -1, BranchPoint(0., 0., kd.imaginary_branch))
         τ_β = TimeGridPoint(1, -1, BranchPoint(-im * dlr.β, 1., kd.imaginary_branch))
-        
+
         branch_bounds = ( Pair(τ_0, τ_β), )
         ntau = length(dlr.τ)
         return new(c, points, branch_bounds, ntau, dlr)
@@ -79,8 +80,8 @@ end
 """
     $(TYPEDEF)
 
-Wrapper around Lehman.jl describing a Discrete Lehmann Representation imaginary time Green's function
-conforming to the interface of Keldysh.jl AbstractTimeGF.
+Wrapper around Lehman.jl describing a Discrete Lehmann Representation imaginary time Green's
+function conforming to the interface of Keldysh.jl AbstractTimeGF.
 
 # Fields
 $(TYPEDFIELDS)
@@ -98,13 +99,20 @@ Make a [`DLRImaginaryTimeGF`](@ref) from a [`DLRImaginaryTimeGrid`](@ref)
 following the api of Keldysh.ImaginarTimeGF.
 
 """
-function DLRImaginaryTimeGF(::Type{T}, grid::DLRImaginaryTimeGrid, norb=1, ξ::GFSignEnum=fermionic, scalar=false) where T <: Number
+function DLRImaginaryTimeGF(::Type{T},
+                            grid::DLRImaginaryTimeGrid,
+                            norb=1,
+                            ξ::GFSignEnum=fermionic,
+                            scalar=false) where T <: Number
     ntau = grid.ntau
     mat = PeriodicStorage(T, ntau, norb, scalar)
     DLRImaginaryTimeGF(grid, mat, ξ)
 end
 
-DLRImaginaryTimeGF(grid::DLRImaginaryTimeGrid, norb=1, ξ::GFSignEnum=fermionic, scalar=false) = DLRImaginaryTimeGF(ComplexF64, grid, norb, ξ, scalar)
+DLRImaginaryTimeGF(grid::DLRImaginaryTimeGrid,
+                   norb=1,
+                   ξ::GFSignEnum=fermionic,
+                   scalar=false) = DLRImaginaryTimeGF(ComplexF64, grid, norb, ξ, scalar)
 
 norbitals(G::DLRImaginaryTimeGF) = G.mat.norb
 
@@ -130,7 +138,8 @@ function (G::DLRImaginaryTimeGF{T, false})(t1::BranchPoint, t2::BranchPoint) whe
   return interpolate!(x, G, t1, t2)
 end
 
-function interpolate!(x, G::DLRImaginaryTimeGF{T, false}, t1::BranchPoint, t2::BranchPoint) where T
+function interpolate!(x, G::DLRImaginaryTimeGF{T, false},
+                      t1::BranchPoint, t2::BranchPoint) where T
     dlr = G.grid.dlr
     τ = dlr.β*(t1.ref - t2.ref)
     x[:] = le.dlr2tau(dlr, g.mat.data, [τ], axis=3)
@@ -145,14 +154,15 @@ function (G::DLRImaginaryTimeGF{T, true})(t1::BranchPoint, t2::BranchPoint) wher
     return interpolate(G, t1, t2)
 end
 
-function interpolate(G::DLRImaginaryTimeGF{T, true}, t1::BranchPoint, t2::BranchPoint)::T where T
+function interpolate(G::DLRImaginaryTimeGF{T, true},
+                     t1::BranchPoint, t2::BranchPoint)::T where T
     dlr = G.grid.dlr
     τ = dlr.β*(t1.ref - t2.ref)
     return le.dlr2tau(dlr, G.mat.data, [τ], axis=3)[1, 1, 1]
 end
 
 #
-# Green's function creation from function 
+# Green's function creation from function
 #
 
 """
@@ -161,9 +171,18 @@ end
 Make a [`DLRImaginaryTimeGF`](@ref) from a function
 
 """
-DLRImaginaryTimeGF(f::Function, grid::DLRImaginaryTimeGrid, norb=1, ξ::GFSignEnum=fermionic, scalar=false) = DLRImaginaryTimeGF(f, ComplexF64, grid, norb, ξ, scalar)
+DLRImaginaryTimeGF(f::Function,
+                   grid::DLRImaginaryTimeGrid,
+                   norb=1,
+                   ξ::GFSignEnum=fermionic,
+                   scalar=false) = DLRImaginaryTimeGF(f, ComplexF64, grid, norb, ξ, scalar)
 
-function DLRImaginaryTimeGF(f::Function, ::Type{T}, grid::DLRImaginaryTimeGrid, norb=1, ξ::GFSignEnum=fermionic, scalar=false) where T <: Number
+function DLRImaginaryTimeGF(f::Function,
+                            ::Type{T},
+                            grid::DLRImaginaryTimeGrid,
+                            norb=1,
+                            ξ::GFSignEnum=fermionic,
+                            scalar=false) where T <: Number
     G = DLRImaginaryTimeGF(T, grid, norb, ξ, scalar)
 
     t0 = TimeGridPoint(1, -1, BranchPoint(im * 0., 0., kd.imaginary_branch))
@@ -178,7 +197,7 @@ function DLRImaginaryTimeGF(f::Function, ::Type{T}, grid::DLRImaginaryTimeGrid, 
     end
 
     G.mat.data[:] = le.tau2dlr(G.grid.dlr, g_τ, axis=3)
-    
+
     return G
 end
 
@@ -203,7 +222,7 @@ conjugate ``g(\\beta-\\tau)``.
 """
 function ph_conj(g::DLRImaginaryTimeGF{T, true})::DLRImaginaryTimeGF{T, true} where {T}
     g_rev = deepcopy(g)
-    
+
     dlr = g.grid.dlr
     g_τ = le.dlr2tau(dlr, g.mat.data, dlr.β .- dlr.τ, axis=3)
     g_rev.mat.data[:] = le.tau2dlr(dlr, g_τ, axis=3)

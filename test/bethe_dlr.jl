@@ -73,19 +73,24 @@ using QInchworm.keldysh_dlr: DLRImaginaryTimeGrid, DLRImaginaryTimeGF, ph_conj
         H_imp = -μ * (op.n(1) + op.n(2))
         soi = ked.Hilbert.SetOfIndices([[1], [2]])
         ed = ked.EDCore(H_imp, soi)
-        
+
         # Imaginary time grid
 
         contour = kd.ImaginaryContour(β=β)
         grid = kd.ImaginaryTimeGrid(contour, nτ)
 
-        dlr = le.DLRGrid(Euv=1.25, β=β, isFermi=true, rtol=1e-6, rebuild=true, verbose=false)
+        dlr = le.DLRGrid(Euv=1.25,
+                         β=β,
+                         isFermi=true,
+                         rtol=1e-6,
+                         rebuild=true,
+                         verbose=false)
         dlr_grid = DLRImaginaryTimeGrid(contour, dlr)
 
         # Hybridization propagator
 
         Δ = V^2 * DLRImaginaryTimeGF(kd.bethe_dos(t=t_bethe, ϵ=μ_bethe), dlr_grid)
-        
+
         # Pseudo Particle Strong Coupling Expansion
 
         ip_fwd_1 = InteractionPair(op.c_dag(1), op.c(1), Δ)
@@ -95,7 +100,7 @@ using QInchworm.keldysh_dlr: DLRImaginaryTimeGrid, DLRImaginaryTimeGF, ph_conj
         ip_bwd_2= InteractionPair(op.c(2), op.c_dag(2), ph_conj(Δ))
 
         expansion = Expansion(ed, grid, [ip_fwd_1, ip_bwd_1, ip_fwd_2, ip_bwd_2])
-        
+
         ρ_0 = full_hs_matrix(tofockbasis(density_matrix(expansion.P0), ed), ed)
 
         inchworm!(expansion, grid, orders, orders_bare, N_samples)
