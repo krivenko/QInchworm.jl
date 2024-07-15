@@ -39,6 +39,16 @@ using Keldysh; kd = Keldysh
     dos = kd.bethe_dos(t=0.5*t, ϵ=ϵ)
     g = DLRImaginaryTimeGF(dos, grid)
 
+    # Test existence of arithmetic ops
+    G = g * 1
+    G = 1 * G
+    G = G + G
+    G = G - 0.5 * G
+    G = -G
+    G = -1 * G
+
+    @test g ≈ G
+
     # -- Interpolate!
 
     τ_branch = contour.branches[1]

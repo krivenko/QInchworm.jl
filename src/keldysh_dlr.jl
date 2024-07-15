@@ -29,8 +29,6 @@ module keldysh_dlr
 
 using DocStringExtensions
 
-using LinearAlgebra: I
-
 using Lehmann; le = Lehmann
 
 using Keldysh; kd = Keldysh
@@ -64,12 +62,14 @@ struct DLRImaginaryTimeGrid <: AbstractTimeGrid
 
     function DLRImaginaryTimeGrid(c::ImaginaryContour, dlr::le.DLRGrid)
         points::Vector{TimeGridPoint} = []
+        τ_branch = c.branches[1]
+        @assert τ_branch.domain == kd.imaginary_branch
         for (idx, τ) in enumerate(dlr.τ)
-            bpoint = BranchPoint(-im * τ, τ/dlr.β, kd.imaginary_branch)
-            push!(points, TimeGridPoint(1, idx, bpoint))
+            point = TimeGridPoint(1, idx, τ_branch(τ/dlr.β))
+            push!(points, point)
         end
-        τ_0 = TimeGridPoint(1, -1, BranchPoint(0., 0., kd.imaginary_branch))
-        τ_β = TimeGridPoint(1, -1, BranchPoint(-im * dlr.β, 1., kd.imaginary_branch))
+        τ_0 = TimeGridPoint(-1, -1, τ_branch(0.))
+        τ_β = TimeGridPoint(-1, -1, τ_branch(1.))
 
         branch_bounds = ( Pair(τ_0, τ_β), )
         ntau = length(dlr.τ)
@@ -77,10 +77,12 @@ struct DLRImaginaryTimeGrid <: AbstractTimeGrid
     end
 end
 
+Base.:isequal(A::T, B::T) where T <: DLRImaginaryTimeGrid = all(A.points .== B.points)
+
 """
     $(TYPEDEF)
 
-Wrapper around Lehman.jl describing a Discrete Lehmann Representation imaginary time Green's
+Wrapper around Lehmann.jl describing a Discrete Lehmann Representation imaginary time Green's
 function conforming to the interface of Keldysh.jl AbstractTimeGF.
 
 # Fields
@@ -96,7 +98,7 @@ end
     $(TYPEDSIGNATURES)
 
 Make a [`DLRImaginaryTimeGF`](@ref) from a [`DLRImaginaryTimeGrid`](@ref)
-following the api of Keldysh.ImaginarTimeGF.
+following the API of Keldysh.ImaginarTimeGF.
 
 """
 function DLRImaginaryTimeGF(::Type{T},
@@ -106,7 +108,7 @@ function DLRImaginaryTimeGF(::Type{T},
                             scalar=false) where T <: Number
     ntau = grid.ntau
     mat = PeriodicStorage(T, ntau, norb, scalar)
-    DLRImaginaryTimeGF(grid, mat, ξ)
+    return DLRImaginaryTimeGF(grid, mat, ξ)
 end
 
 DLRImaginaryTimeGF(grid::DLRImaginaryTimeGrid,
@@ -120,12 +122,23 @@ norbitals(G::DLRImaginaryTimeGF) = G.mat.norb
 # Arithmetic operations
 #
 
-function Base.:*(G::T, α::Number) where T <: DLRImaginaryTimeGF
-    return T(G.grid, α * G.mat, G.ξ)
+function Base.:+(A::T, B::T) where T <: DLRImaginaryTimeGF
+    @assert A.grid == B.grid
+    return T(A.grid, A.mat + B.mat, A.ξ)
 end
 
-function Base.:*(α::Number, G::T) where T <: DLRImaginaryTimeGF
-    return G * α
+function Base.:-(A::T, B::T) where T <: DLRImaginaryTimeGF
+    @assert A.grid == B.grid
+    return T(A.grid, A.mat - B.mat, A.ξ)
+end
+
+Base.:-(A::T) where T <: DLRImaginaryTimeGF = T(A.grid, -A.mat, A.ξ)
+
+Base.:*(G::T, α::Number) where T <: DLRImaginaryTimeGF = T(G.grid, α * G.mat, G.ξ)
+Base.:*(α::Number, G::T) where T <: DLRImaginaryTimeGF = G * α
+
+function Base.:isapprox(A::T, B::T) where T <: DLRImaginaryTimeGF
+    return (A.mat.data ≈ B.mat.data) && (A.grid == B.grid)
 end
 
 #
@@ -142,6 +155,7 @@ function interpolate!(x, G::DLRImaginaryTimeGF{T, false},
                       t1::BranchPoint, t2::BranchPoint) where T
     dlr = G.grid.dlr
     τ = dlr.β*(t1.ref - t2.ref)
+    @assert 0. <= τ <= dlr.β
     x[:] = le.dlr2tau(dlr, g.mat.data, [τ], axis=3)
     return x
 end
@@ -158,6 +172,7 @@ function interpolate(G::DLRImaginaryTimeGF{T, true},
                      t1::BranchPoint, t2::BranchPoint)::T where T
     dlr = G.grid.dlr
     τ = dlr.β*(t1.ref - t2.ref)
+    @assert 0. <= τ <= dlr.β
     return le.dlr2tau(dlr, G.mat.data, [τ], axis=3)[1, 1, 1]
 end
 
@@ -204,7 +219,7 @@ end
 """
     $(TYPEDSIGNATURES)
 
-Make a [`DLRImaginaryTimeGF`](@ref) from an Keldysh.jl AbstracctDOS object.
+Make a [`DLRImaginaryTimeGF`](@ref) from a Keldysh.jl AbstractDOS object.
 
 """
 function DLRImaginaryTimeGF(dos::AbstractDOS, grid::DLRImaginaryTimeGrid)

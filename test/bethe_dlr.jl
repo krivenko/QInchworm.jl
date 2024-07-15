@@ -22,7 +22,7 @@ using Test
 using MPI; MPI.Init()
 using HDF5
 
-using LinearAlgebra: diag, tr, I
+using LinearAlgebra: diag
 
 using Keldysh; kd = Keldysh
 using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
