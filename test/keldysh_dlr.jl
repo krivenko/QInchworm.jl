@@ -65,11 +65,17 @@ using Keldysh; kd = Keldysh
 
     # -- Interpolate API of Keldysh.jl
 
-    bp = τ_branch(0.1)
+    bp1 = τ_branch(0.3)
+    bp2 = τ_branch(0.1)
 
-    res = g(bp, bp0)
-    ref = kd.dos2gf(dos, β, bp, bp0)
-
+    # test eval for positive time differences
+    ref = kd.dos2gf(dos, β, bp1, bp2)
+    res = g(bp1, bp2)
     @test res ≈ ref
 
+    # test eval for negative time differences
+    ref = kd.dos2gf(dos, β, bp2, bp1)
+    res = g(bp2, bp1)
+    @test res ≈ ref
+    
 end

@@ -69,7 +69,7 @@ struct DLRImaginaryTimeGrid <: AbstractTimeGrid
             push!(points, point)
         end
         τ_0 = TimeGridPoint(-1, -1, τ_branch(0.))
-        τ_β = TimeGridPoint(-1, -1, τ_branch(1.))
+        τ_β = TimeGridPoint(length(points) + 1, length(points) + 1, τ_branch(1.))
 
         branch_bounds = ( Pair(τ_0, τ_β), )
         ntau = length(dlr.τ)
@@ -118,17 +118,23 @@ DLRImaginaryTimeGF(grid::DLRImaginaryTimeGrid,
 
 norbitals(G::DLRImaginaryTimeGF) = G.mat.norb
 
+function compatible(A::T, B::T) where T <: DLRImaginaryTimeGF
+    A.grid == B.grid || throw(DimensionMismatch("The DLR grids of the two Green's functions differ."))
+    A.ξ == B.ξ || throw(DomainError("The statistics of the two Green's functions differ."))
+    return true
+end
+
 #
 # Arithmetic operations
 #
 
 function Base.:+(A::T, B::T) where T <: DLRImaginaryTimeGF
-    @assert A.grid == B.grid
+    @assert compatible(A, B)
     return T(A.grid, A.mat + B.mat, A.ξ)
 end
 
 function Base.:-(A::T, B::T) where T <: DLRImaginaryTimeGF
-    @assert A.grid == B.grid
+    @assert compatible(A, B)
     return T(A.grid, A.mat - B.mat, A.ξ)
 end
 
@@ -138,7 +144,8 @@ Base.:*(G::T, α::Number) where T <: DLRImaginaryTimeGF = T(G.grid, α * G.mat, 
 Base.:*(α::Number, G::T) where T <: DLRImaginaryTimeGF = G * α
 
 function Base.:isapprox(A::T, B::T) where T <: DLRImaginaryTimeGF
-    return (A.mat.data ≈ B.mat.data) && (A.grid == B.grid)
+    @assert compatible(A, B)
+    return A.mat.data ≈ B.mat.data
 end
 
 #
@@ -152,11 +159,9 @@ function (G::DLRImaginaryTimeGF{T, false})(t1::BranchPoint, t2::BranchPoint) whe
 end
 
 function interpolate!(x, G::DLRImaginaryTimeGF{T, false},
-                      t1::BranchPoint, t2::BranchPoint) where T
-    dlr = G.grid.dlr
-    τ = dlr.β*(t1.ref - t2.ref)
-    @assert 0. <= τ <= dlr.β
-    x[:] = le.dlr2tau(dlr, g.mat.data, [τ], axis=3)
+                      z1::BranchPoint, z2::BranchPoint) where T
+    Δτ, sign = Δτ_and_sign(G, z1, z2)
+    x[:] = le.dlr2tau(G.grid.dlr, sign * g.mat.data, [Δτ], axis=3)
     return x
 end
 
@@ -169,11 +174,30 @@ function (G::DLRImaginaryTimeGF{T, true})(t1::BranchPoint, t2::BranchPoint) wher
 end
 
 function interpolate(G::DLRImaginaryTimeGF{T, true},
-                     t1::BranchPoint, t2::BranchPoint)::T where T
-    dlr = G.grid.dlr
-    τ = dlr.β*(t1.ref - t2.ref)
-    @assert 0. <= τ <= dlr.β
-    return le.dlr2tau(dlr, G.mat.data, [τ], axis=3)[1, 1, 1]
+                     z1::BranchPoint, z2::BranchPoint)::T where T
+    Δτ, sign = Δτ_and_sign(G, z1, z2)
+    return le.dlr2tau(G.grid.dlr, sign * G.mat.data, [Δτ], axis=3)[1, 1, 1]
+end
+
+# Interpolation helper function
+
+function Δτ_and_sign(G::DLRImaginaryTimeGF{T, true},
+                     z1::BranchPoint, z2::BranchPoint) where T
+
+    @assert z1.domain == kd.imaginary_branch
+    @assert z2.domain == kd.imaginary_branch
+
+    sign = +1.0
+    Δτ = -imag(z1.val - z2.val) # z = -iτ
+
+    if !kd.heaviside(z1, z2) # !(z1 >= z2)
+        Δτ = G.grid.dlr.β + Δτ
+        sign = sign * Int(G.ξ)
+    end
+
+    @assert 0. <= Δτ <= G.grid.dlr.β
+
+    return Δτ, sign
 end
 
 #
