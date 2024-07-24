@@ -65,7 +65,7 @@ struct DLRImaginaryTimeGrid <: AbstractTimeGrid
         τ_branch = c.branches[1]
         @assert τ_branch.domain == kd.imaginary_branch
         for (idx, τ) in enumerate(dlr.τ)
-            point = TimeGridPoint(1, idx, τ_branch(τ/dlr.β))
+            point = TimeGridPoint(idx, idx, τ_branch(τ/dlr.β))
             push!(points, point)
         end
         τ_0 = TimeGridPoint(-1, -1, τ_branch(0.))
@@ -118,7 +118,7 @@ DLRImaginaryTimeGF(grid::DLRImaginaryTimeGrid,
 
 norbitals(G::DLRImaginaryTimeGF) = G.mat.norb
 
-function compatible(A::T, B::T) where T <: DLRImaginaryTimeGF
+function _compatible(A::T, B::T) where T <: DLRImaginaryTimeGF
     A.grid == B.grid || throw(DimensionMismatch("The DLR grids of the two Green's functions differ."))
     A.ξ == B.ξ || throw(DomainError("The statistics of the two Green's functions differ."))
     return true
@@ -129,12 +129,12 @@ end
 #
 
 function Base.:+(A::T, B::T) where T <: DLRImaginaryTimeGF
-    @assert compatible(A, B)
+    @assert _compatible(A, B)
     return T(A.grid, A.mat + B.mat, A.ξ)
 end
 
 function Base.:-(A::T, B::T) where T <: DLRImaginaryTimeGF
-    @assert compatible(A, B)
+    @assert _compatible(A, B)
     return T(A.grid, A.mat - B.mat, A.ξ)
 end
 
@@ -144,7 +144,7 @@ Base.:*(G::T, α::Number) where T <: DLRImaginaryTimeGF = T(G.grid, α * G.mat, 
 Base.:*(α::Number, G::T) where T <: DLRImaginaryTimeGF = G * α
 
 function Base.:isapprox(A::T, B::T) where T <: DLRImaginaryTimeGF
-    @assert compatible(A, B)
+    @assert _compatible(A, B)
     return A.mat.data ≈ B.mat.data
 end
 
@@ -152,15 +152,15 @@ end
 # Matrix valued Gf interpolator interface
 #
 
-function (G::DLRImaginaryTimeGF{T, false})(t1::BranchPoint, t2::BranchPoint) where T
+function (G::DLRImaginaryTimeGF{T, false})(z1::BranchPoint, z2::BranchPoint) where T
   norb = norbitals(G)
   x = zeros(T, norb, norb)
-  return interpolate!(x, G, t1, t2)
+  return interpolate!(x, G, z1, z2)
 end
 
 function interpolate!(x, G::DLRImaginaryTimeGF{T, false},
                       z1::BranchPoint, z2::BranchPoint) where T
-    Δτ, sign = Δτ_and_sign(G, z1, z2)
+    Δτ, sign = _Δτ_and_sign(G, z1, z2)
     x[:] = le.dlr2tau(G.grid.dlr, sign * g.mat.data, [Δτ], axis=3)
     return x
 end
@@ -169,19 +169,19 @@ end
 # Scalar valued Gf interpolator interface
 #
 
-function (G::DLRImaginaryTimeGF{T, true})(t1::BranchPoint, t2::BranchPoint) where T
-    return interpolate(G, t1, t2)
+function (G::DLRImaginaryTimeGF{T, true})(z1::BranchPoint, z2::BranchPoint) where T
+    return interpolate(G, z1, z2)
 end
 
 function interpolate(G::DLRImaginaryTimeGF{T, true},
                      z1::BranchPoint, z2::BranchPoint)::T where T
-    Δτ, sign = Δτ_and_sign(G, z1, z2)
+    Δτ, sign = _Δτ_and_sign(G, z1, z2)
     return le.dlr2tau(G.grid.dlr, sign * G.mat.data, [Δτ], axis=3)[1, 1, 1]
 end
 
 # Interpolation helper function
 
-function Δτ_and_sign(G::DLRImaginaryTimeGF{T, true},
+function _Δτ_and_sign(G::DLRImaginaryTimeGF{T, true},
                      z1::BranchPoint, z2::BranchPoint) where T
 
     @assert z1.domain == kd.imaginary_branch
@@ -248,8 +248,8 @@ Make a [`DLRImaginaryTimeGF`](@ref) from a Keldysh.jl AbstractDOS object.
 """
 function DLRImaginaryTimeGF(dos::AbstractDOS, grid::DLRImaginaryTimeGrid)
     β = grid.contour.β
-    DLRImaginaryTimeGF(grid, 1, fermionic, true) do t1, t2
-        kd.dos2gf(dos, β, t1.bpoint, t2.bpoint)
+    DLRImaginaryTimeGF(grid, 1, fermionic, true) do z1, z2
+        kd.dos2gf(dos, β, z1.bpoint, z2.bpoint)
     end
 end
 
