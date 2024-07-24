@@ -43,6 +43,7 @@ two-point correlation functions for it.
 - [`QInchworm.exact_atomic_ppgf`](@ref QInchworm.exact_atomic_ppgf)
 - [`QInchworm.sector_block_matrix`](@ref QInchworm.sector_block_matrix)
 - [`QInchworm.spline_gf`](@ref QInchworm.spline_gf)
+- [`QInchworm.keldysh_dlr`](@ref QInchworm.keldysh_dlr)
 - [`QInchworm.utility`](@ref QInchworm.utility)
 - [`QInchworm.mpi`](@ref QInchworm.mpi)
 - [`QInchworm.scrambled_sobol`](@ref QInchworm.scrambled_sobol)
