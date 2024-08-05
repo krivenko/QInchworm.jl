@@ -1,0 +1,3 @@
+[deps]
+ITensorNetworks = "2919e153-833c-4bdc-8836-1ea460a35fc7"
+OMEinsumContractionOrders = "6f22d1fd-8eed-4bb7-9776-e7d684900715"
