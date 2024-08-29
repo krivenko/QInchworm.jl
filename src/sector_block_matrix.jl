@@ -35,7 +35,8 @@ using KeldyshED: EDCore, OperatorExpr, operator_blocks
 Complex block matrix stored as a dictionary of non-vanishing blocks.
 
 Each element of the dictionary has the form
-`right block index => (left block index, block)`.
+`right block index => (left block index, block)`. A block matrix represented by this type is
+allowed to have at most one non-vanishing block per column.
 
 Objects of this type support addition/subtraction, matrix multiplication and
 multiplication/division by a scalar.
@@ -52,6 +53,13 @@ function operator_to_sector_block_matrix(ed::EDCore, op::OperatorExpr)::SectorBl
     sbm = SectorBlockMatrix()
     op_blocks = operator_blocks(ed, op)
     for ((s_f, s_i), mat) in op_blocks
+        if haskey(sbm, s_i)
+            throw(ArgumentError(
+                "Operator $(op) is not representable by a SectorBlockMatrix " *
+                "(more than one non-zero blocks per column)"
+                )
+            )
+        end
         sbm[s_i] = (s_f, mat)
     end
     sbm
