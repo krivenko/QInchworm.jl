@@ -28,6 +28,7 @@ using KeldyshED; ked = KeldyshED; op = KeldyshED.Operators;
 
 using QInchworm.utility: ph_conj
 using QInchworm.ppgf: normalize!, density_matrix, atomic_ppgf!
+#using QInchworm.exact_atomic_ppgf: atomic_ppgf
 using QInchworm.expansion: Expansion, InteractionPair, add_corr_operators!
 using QInchworm.inchworm: inchworm!, correlator_2p
 using QInchworm.mpi: ismaster
