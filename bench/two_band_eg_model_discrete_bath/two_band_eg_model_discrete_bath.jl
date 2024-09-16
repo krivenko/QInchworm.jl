@@ -115,7 +115,6 @@ function run_bethe(nτ, orders, orders_bare, orders_gf, N_samples, n_pts_after_m
     end
 
     expansion = Expansion(ed, grid, ips)
-    atomic_ppgf!(expansion.P0, ed, Δλ=2.0)
 
     inchworm!(expansion, grid, orders, orders_bare, N_samples;
               n_pts_after_max=n_pts_after_max)
@@ -170,7 +169,6 @@ function run_bethe(nτ, orders, orders_bare, orders_gf, N_samples, n_pts_after_m
 
             for (s, p) in enumerate(expansion.P)
                 grp["P_$(s)"] = p.mat.data
-                grp["P0_$(s)"] = expansion.P0[s].mat.data
                 grp["Praw_$(s)"] = P_raw[s].mat.data
             end
 
