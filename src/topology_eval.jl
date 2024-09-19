@@ -26,6 +26,7 @@ using DocStringExtensions
 
 import LinearAlgebra: axpy!
 using TimerOutputs: TimerOutput, @timeit
+using Octavian: matmul!
 
 using Keldysh; kd = Keldysh
 
@@ -128,6 +129,43 @@ function OperatorNode(time::kd.BranchPoint,
 end
 
 """
+A type similar to [`SectorBlockMatrix`](@ref), but storing two matrices per non-vanishing
+block. The two matrices represent an operator evaluated at the initial time and at a certain
+finite time.
+"""
+const EvolvingSectorBlockMatrix =
+    Dict{Int64,Tuple{Int64, Matrix{ComplexF64}, Matrix{ComplexF64}}}
+
+"""
+    $(TYPEDSIGNATURES)
+
+Construct an [`EvolvingSectorBlockMatrix`](@ref) by setting both (initial and finite-time)
+matrices to those taken from a given [`SectorBlockMatrix`](@ref).
+"""
+function EvolvingSectorBlockMatrix(sbm::SectorBlockMatrix)
+    return Dict(s_i => (s_f, mat, copy(mat)) for (s_i, (s_f, mat)) in pairs(sbm))
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Get the finite-time matrix in `esbm` corresponding to the subspace `s`.
+"""
+@inline get_finite_time(esbm::EvolvingSectorBlockMatrix, s::Int) = esbm[s][3]
+
+"""
+    $(TYPEDSIGNATURES)
+
+Update the finite-time matrices in `esbm` by multiplying the initial matrices by a
+block-diagonal matrix `p`.
+"""
+@inline function update_finite_time!(esbm::EvolvingSectorBlockMatrix, p)
+    for (s_i, (s_f, mat0, matt)) in pairs(esbm)
+        matmul!(matt, mat0, p[s_i])
+    end
+end
+
+"""
     $(TYPEDEF)
 
 The evaluation engine for the strong-coupling expansion diagrams.
@@ -185,6 +223,13 @@ struct TopologyEvaluator
     """Pre-allocated matrix product evaluators, one per initial subspace"""
     matrix_prods::Vector{LazyMatrixProduct{ComplexF64}}
 
+    """
+    Pre-allocated space for matrices of nodes multiplied by a PPGF from the right.
+    For the pair nodes, matrices for all pair interactions are stored.
+    """
+    node_mats::Vector{Union{EvolvingSectorBlockMatrix,
+                            Array{EvolvingSectorBlockMatrix, 2}}}
+
     """Pre-allocated container for final evaluation result"""
     result::SectorBlockMatrix
 
@@ -229,6 +274,7 @@ struct TopologyEvaluator
         # Build the `var_time_pos` map.
         var_time_pos = [pos for pos in reverse(1:n_nodes) if !haskey(fixed_nodes, pos)]
 
+        # Pre-allocate various containers
         ppgf_mats = [Matrix{ComplexF64}(undef, norbitals(p), norbitals(p))
                      for _ in 1:(n_nodes-1), p in exp.P]
         pair_ints = Array{ComplexF64}(undef, order, length(exp.pairs))
@@ -244,6 +290,29 @@ struct TopologyEvaluator
         result = Dict(s => (s, zeros(ComplexF64, norbitals(p), norbitals(p)))
                       for (s, p) in enumerate(exp.P))
 
+        node_mats::Vector{Union{EvolvingSectorBlockMatrix,
+                                Array{EvolvingSectorBlockMatrix, 2}}} =
+            map(1:n_nodes) do pos
+            if pos in keys(fixed_nodes)
+                node = fixed_nodes[pos].node
+                if node.kind == operator_flag
+                    return EvolvingSectorBlockMatrix(
+                        exp.corr_operators_mat[node.arc_index][node.operator_index]
+                    )
+                elseif node.kind ∈ (identity_flag, inch_flag)
+                    return EvolvingSectorBlockMatrix(exp.identity_mat)
+                else
+                    return [EvolvingSectorBlockMatrix(mat_i_f[index])
+                            for mat_i_f in exp.pair_operator_mat, index in 1:2
+                    ]
+                end
+            else
+                return [EvolvingSectorBlockMatrix(mat_i_f[index])
+                        for mat_i_f in exp.pair_operator_mat, index in 1:2
+                ]
+            end
+        end
+
         return new(exp,
                    conf,
                    times,
@@ -255,6 +324,7 @@ struct TopologyEvaluator
                    selected_pair_ints,
                    top_result_mats,
                    matrix_prods,
+                   node_mats,
                    result,
                    tmr)
     end
@@ -303,6 +373,20 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
         end
     end
 
+    for pos in eachindex(eval.node_mats)
+        pos == 1 && continue
+
+        node_mat = eval.node_mats[pos]
+        ppgf_mats = @view eval.ppgf_mats[pos - 1, :]
+        if node_mat isa EvolvingSectorBlockMatrix # Static node
+            update_finite_time!(node_mat, ppgf_mats)
+        else # Pair node
+            for m in node_mat
+                update_finite_time!(m, ppgf_mats)
+            end
+        end
+    end
+
     fill!(eval.result, 0.0)
 
     for top in topologies # TODO: Parallelization opportunity I
@@ -326,6 +410,7 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
             end
 
             for (p, int_pair) in enumerate(eval.exp.pairs)
+                # FIXME: Allocates memory
                 eval.pair_ints[a, p] = im * int_pair.propagator(time_f, time_i)
             end
         end
@@ -384,6 +469,8 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
 
     if node.kind == pair_flag
 
+        node_mat = eval.node_mats[pos]
+
         if node.operator_index == 1 # Head of an interaction arc
 
             # Loop over all interaction pairs attachable to this node
@@ -392,8 +479,7 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
                 # Select an interaction for this arc
                 eval.selected_pair_ints[node.arc_index] = int_index
 
-                s_next, mat = eval.exp.pair_operator_mat[int_index][1][s_i]
-                pos != 1 && pushfirst!(eval.matrix_prods[s_f], eval.ppgf_mats[pos - 1, s_i])
+                s_next, _, mat = node_mat[int_index, 1][s_i]
                 pushfirst!(eval.matrix_prods[s_f], mat)
 
                 _traverse_configuration_tree!(eval,
@@ -401,18 +487,19 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
                                               s_next, s_f,
                                               pair_int_weight)
 
-                popfirst!(eval.matrix_prods[s_f], pos == 1 ? 1 : 2)
+                popfirst!(eval.matrix_prods[s_f])
+
             end
 
         else # Tail of an interaction arc
 
             int_index = eval.selected_pair_ints[node.arc_index]
 
-            op_sbm = eval.exp.pair_operator_mat[int_index][2]
-            if haskey(op_sbm, s_i)
+            op_esbm = node_mat[int_index, 2]
 
-                s_next, mat = op_sbm[s_i]
-                pos != 1 && pushfirst!(eval.matrix_prods[s_f], eval.ppgf_mats[pos - 1, s_i])
+            if haskey(op_esbm, s_i)
+
+                s_next, _, mat = op_esbm[s_i]
                 pushfirst!(eval.matrix_prods[s_f], mat)
 
                 pair_int_weight_next =
@@ -423,7 +510,7 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
                                               s_next, s_f,
                                               pair_int_weight_next)
 
-                popfirst!(eval.matrix_prods[s_f], pos == 1 ? 1 : 2)
+                popfirst!(eval.matrix_prods[s_f])
 
             end
 
@@ -431,10 +518,10 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
 
     elseif node.kind == operator_flag
 
-        op_sbm = eval.exp.corr_operators_mat[node.arc_index][node.operator_index]
-        if haskey(op_sbm, s_i)
-            s_next, op_mat = op_sbm[s_i]
-            pos != 1 && pushfirst!(eval.matrix_prods[s_f], eval.ppgf_mats[pos - 1, s_i])
+        op_esbm = eval.node_mats[pos]
+
+        if haskey(op_esbm, s_i)
+            s_next, _, op_mat = op_esbm[s_i]
             pushfirst!(eval.matrix_prods[s_f], op_mat)
 
             _traverse_configuration_tree!(eval,
@@ -443,13 +530,16 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
                                           s_f,
                                           pair_int_weight)
 
-            popfirst!(eval.matrix_prods[s_f], pos == 1 ? 1 : 2)
+            popfirst!(eval.matrix_prods[s_f])
 
         end
 
     elseif node.kind ∈ (identity_flag, inch_flag)
 
-        pos != 1 && pushfirst!(eval.matrix_prods[s_f], eval.ppgf_mats[pos - 1, s_i])
+        if pos != 1
+            op_esbm = eval.node_mats[pos]
+            pushfirst!(eval.matrix_prods[s_f], get_finite_time(op_esbm, s_i))
+        end
 
         _traverse_configuration_tree!(eval,
                                       pos + 1,

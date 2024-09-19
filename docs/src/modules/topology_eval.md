@@ -12,6 +12,10 @@ PairNode
 IdentityNode
 InchNode
 OperatorNode
+EvolvingSectorBlockMatrix
+EvolvingSectorBlockMatrix(::SectorBlockMatrix)
+get_finite_time
+update_finite_time!
 TopologyEvaluator
 TopologyEvaluator(::Expansion, ::Int, ::Bool, ::Dict{Int, FixedNode}; ::TimerOutput)
 TopologyEvaluator(::Topology, ::Vector{kd.BranchPoint})
