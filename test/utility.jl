@@ -67,7 +67,7 @@ end
    dims = [rand(rng, 1:8) for i = 1:6]
    A = [rand(rng, dims[i + 1], dims[i]) for i = 1:5]
 
-   lmp = LazyMatrixProduct(Float64, 6)
+   lmp = LazyMatrixProduct(Float64, 6, 8, dims[1])
 
    pushfirst!(lmp, A[1])
    @test eval!(lmp) == A[1]

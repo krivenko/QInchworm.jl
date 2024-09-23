@@ -175,8 +175,8 @@ struct TopologyEvaluator
     """Pre-allocated container for per-topology evaluation results"""
     top_result_mats::Vector{Matrix{ComplexF64}}
 
-    """Pre-allocated matrix product evaluator"""
-    matrix_prod::LazyMatrixProduct{ComplexF64}
+    """Pre-allocated matrix product evaluators, one per initial subspace"""
+    matrix_prods::Vector{LazyMatrixProduct{ComplexF64}}
 
     """Internal performance timer"""
     tmr::TimerOutput
@@ -224,7 +224,12 @@ struct TopologyEvaluator
         pair_ints = Array{ComplexF64}(undef, order, length(exp.pairs))
         selected_pair_ints = Vector{Int64}(undef, order)
         top_result_mats = [zeros(ComplexF64, norbitals(p), norbitals(p)) for p in exp.P]
-        matrix_prod = LazyMatrixProduct(ComplexF64, 2 * n_nodes - 1)
+
+        max_n_orbitals = maximum(norbitals.(exp.P))
+        matrix_prods = [LazyMatrixProduct(ComplexF64,
+                                          2 * n_nodes - 1,
+                                          max_n_orbitals,
+                                          norbitals(p)) for p in exp.P]
 
         return new(exp,
                    conf,
@@ -236,7 +241,7 @@ struct TopologyEvaluator
                    pair_ints,
                    selected_pair_ints,
                    top_result_mats,
-                   matrix_prod,
+                   matrix_prods,
                    tmr)
     end
 end
@@ -317,7 +322,7 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
 
         # Traverse the configuration tree for each initial subspace
         for s_i in eachindex(eval.exp.P) # TODO: Parallelization opportunity II
-            @assert eval.matrix_prod.n_mats == 0
+            @assert eval.matrix_prods[s_i].n_mats == 0
             _traverse_configuration_tree!(eval,
                                           1,
                                           s_i, s_i,
@@ -356,7 +361,7 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
     # Are we at a leaf?
     if pos > length(eval.conf)
         if s_i == s_f # Is the resulting configuration block-diagonal?
-            eval.top_result_mats[s_i] .+= pair_int_weight * eval!(eval.matrix_prod)
+            eval.top_result_mats[s_i] .+= pair_int_weight .* eval!(eval.matrix_prods[s_f])
         end
         return
     end
@@ -374,15 +379,15 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
                 eval.selected_pair_ints[node.arc_index] = int_index
 
                 s_next, mat = eval.exp.pair_operator_mat[int_index][1][s_i]
-                pos != 1 && pushfirst!(eval.matrix_prod, eval.ppgf_mats[pos - 1, s_i])
-                pushfirst!(eval.matrix_prod, mat)
+                pos != 1 && pushfirst!(eval.matrix_prods[s_f], eval.ppgf_mats[pos - 1, s_i])
+                pushfirst!(eval.matrix_prods[s_f], mat)
 
                 _traverse_configuration_tree!(eval,
                                               pos + 1,
                                               s_next, s_f,
                                               pair_int_weight)
 
-                popfirst!(eval.matrix_prod, pos == 1 ? 1 : 2)
+                popfirst!(eval.matrix_prods[s_f], pos == 1 ? 1 : 2)
             end
 
         else # Tail of an interaction arc
@@ -393,8 +398,8 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
             if haskey(op_sbm, s_i)
 
                 s_next, mat = op_sbm[s_i]
-                pos != 1 && pushfirst!(eval.matrix_prod, eval.ppgf_mats[pos - 1, s_i])
-                pushfirst!(eval.matrix_prod, mat)
+                pos != 1 && pushfirst!(eval.matrix_prods[s_f], eval.ppgf_mats[pos - 1, s_i])
+                pushfirst!(eval.matrix_prods[s_f], mat)
 
                 pair_int_weight_next =
                     eval.pair_ints[node.arc_index, int_index] * pair_int_weight
@@ -404,7 +409,7 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
                                               s_next, s_f,
                                               pair_int_weight_next)
 
-                popfirst!(eval.matrix_prod, pos == 1 ? 1 : 2)
+                popfirst!(eval.matrix_prods[s_f], pos == 1 ? 1 : 2)
 
             end
 
@@ -415,8 +420,8 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
         op_sbm = eval.exp.corr_operators_mat[node.arc_index][node.operator_index]
         if haskey(op_sbm, s_i)
             s_next, op_mat = op_sbm[s_i]
-            pos != 1 && pushfirst!(eval.matrix_prod, eval.ppgf_mats[pos - 1, s_i])
-            pushfirst!(eval.matrix_prod, op_mat)
+            pos != 1 && pushfirst!(eval.matrix_prods[s_f], eval.ppgf_mats[pos - 1, s_i])
+            pushfirst!(eval.matrix_prods[s_f], op_mat)
 
             _traverse_configuration_tree!(eval,
                                           pos + 1,
@@ -424,26 +429,25 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
                                           s_f,
                                           pair_int_weight)
 
-            popfirst!(eval.matrix_prod, pos == 1 ? 1 : 2)
+            popfirst!(eval.matrix_prods[s_f], pos == 1 ? 1 : 2)
 
         end
 
     elseif node.kind ∈ (identity_flag, inch_flag)
 
-        pos != 1 && pushfirst!(eval.matrix_prod, eval.ppgf_mats[pos - 1, s_i])
+        pos != 1 && pushfirst!(eval.matrix_prods[s_f], eval.ppgf_mats[pos - 1, s_i])
 
         _traverse_configuration_tree!(eval,
                                       pos + 1,
                                       s_i, s_f,
                                       pair_int_weight)
 
-        pos != 1 && popfirst!(eval.matrix_prod)
+        pos != 1 && popfirst!(eval.matrix_prods[s_f])
 
     else
         @assert false
     end
 
-    return
 end
 
 end # module topology_eval

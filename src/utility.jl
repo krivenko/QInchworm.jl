@@ -28,7 +28,8 @@ module utility
 using DocStringExtensions
 
 import Interpolations
-using Octavian: matmul
+using Octavian: matmul!
+using TransmuteDims: transmute
 
 import QInchworm.scrambled_sobol: next!, skip!
 using Random: AbstractRNG, rand, rand!
@@ -247,16 +248,22 @@ end
 Make a [`LazyMatrixProduct`](@ref) instance and pre-allocate all necessary containers.
 
 # Parameters
-- `T`:           Element type of the matrices to be multiplied.
-- `max_n_mats` : Maximal number of matrices in the product used to pre-allocate containers.
+- `T`:          Element type of the matrices to be multiplied.
+- `max_n_mats`: Maximal number of matrices in the product used to pre-allocate containers.
+- `max_n_rows`: Maximal number of rows of matrices ``A`` added to the product.
+- `n_cols`:     Number of columns of the matrix ``A_1``.
 """
-function LazyMatrixProduct(::Type{T}, max_n_mats::Int) where {T <: Number}
+function LazyMatrixProduct(::Type{T},
+                           max_n_mats::Int,
+                           max_n_rows::Int,
+                           n_cols::Int) where {T <: Number}
     @assert max_n_mats > 0
-    LazyMatrixProduct(
-        Vector{Matrix{T}}(undef, max_n_mats),
-        Vector{Matrix{T}}(undef, max_n_mats),
-        0, 0
-    )
+    @assert max_n_rows > 0
+    @assert n_cols > 0
+
+    matrices = Vector{Matrix{T}}(undef, max_n_mats)
+    partial_prods = [Matrix{T}(undef, n_cols, max_n_rows) for _ in 1:max_n_mats]
+    LazyMatrixProduct(matrices, partial_prods, 0, 0)
 end
 
 """
@@ -291,18 +298,28 @@ function eval!(lmp::LazyMatrixProduct{T}) where {T <: Number}
 
     # The first partial product is simply A_1
     if lmp.n_prods == 0
-        lmp.partial_prods[1] = lmp.matrices[1]
+        M = lmp.matrices[1]
+        @inbounds v = transmute(view(lmp.partial_prods[1], :, 1:size(M, 1)), Val((2, 1)))
+        @inbounds v[:] = M
         lmp.n_prods = 1
     end
 
     # Do the multiplication
     for n = (lmp.n_prods + 1):lmp.n_mats
-        lmp.partial_prods[n] = matmul(lmp.matrices[n], lmp.partial_prods[n - 1])
+        M = lmp.matrices[n]
+        @inbounds partial_prod_n =
+            transmute(view(lmp.partial_prods[n], :, 1:size(M, 1)), Val((2, 1)))
+        @inbounds partial_prod_n1 =
+            transmute(view(lmp.partial_prods[n - 1], :, 1:size(M, 2)), Val((2, 1)))
+        matmul!(partial_prod_n, M, partial_prod_n1)
     end
 
     lmp.n_prods = lmp.n_mats
 
-    return lmp.partial_prods[lmp.n_prods]
+    return transmute(
+        view(lmp.partial_prods[lmp.n_prods], :, 1:size(lmp.matrices[lmp.n_mats], 1)),
+        Val((2, 1))
+    )
 end
 
 #
