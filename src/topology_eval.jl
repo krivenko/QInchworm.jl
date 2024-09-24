@@ -24,6 +24,7 @@ module topology_eval
 
 using DocStringExtensions
 
+import LinearAlgebra: axpy!
 using TimerOutputs: TimerOutput, @timeit
 
 using Keldysh; kd = Keldysh
@@ -37,6 +38,12 @@ using QInchworm.diagrammatics: Topology,
 using QInchworm.utility: LazyMatrixProduct, eval!
 
 Base.isless(t1::kd.BranchPoint, t2::kd.BranchPoint) = !kd.heaviside(t1, t2)
+
+function axpy!(α, x::Vector{Matrix{ComplexF64}}, y::SectorBlockMatrix)
+    for (s, x_i) in enumerate(x)
+        axpy!(α, x_i, y[s][2])
+    end
+end
 
 """
 $(TYPEDEF)
@@ -178,6 +185,9 @@ struct TopologyEvaluator
     """Pre-allocated matrix product evaluators, one per initial subspace"""
     matrix_prods::Vector{LazyMatrixProduct{ComplexF64}}
 
+    """Pre-allocated container for final evaluation result"""
+    result::SectorBlockMatrix
+
     """Internal performance timer"""
     tmr::TimerOutput
 
@@ -231,6 +241,9 @@ struct TopologyEvaluator
                                           max_n_orbitals,
                                           norbitals(p)) for p in exp.P]
 
+        result = Dict(s => (s, zeros(ComplexF64, norbitals(p), norbitals(p)))
+                      for (s, p) in enumerate(exp.P))
+
         return new(exp,
                    conf,
                    times,
@@ -242,6 +255,7 @@ struct TopologyEvaluator
                    selected_pair_ints,
                    top_result_mats,
                    matrix_prods,
+                   result,
                    tmr)
     end
 end
@@ -285,11 +299,11 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
             else
                 kd.interpolate!(eval.ppgf_mats[i, s], eval.exp.P0[s], time_f, time_i)
             end
-            eval.ppgf_mats[i, s] *= im
+            eval.ppgf_mats[i, s] .*= im
         end
     end
 
-    result_mats = [zeros(ComplexF64, norbitals(p), norbitals(p)) for p in eval.exp.P]
+    fill!(eval.result, 0.0)
 
     for top in topologies # TODO: Parallelization opportunity I
 
@@ -329,12 +343,12 @@ function (eval::TopologyEvaluator)(topologies::Vector{Topology},
                                           ComplexF64(1))
         end
 
-        result_mats .+= -im * top.parity * (-1)^top.order * eval.top_result_mats
+        axpy!(-1.0im * top.parity * (-1)^top.order, eval.top_result_mats, eval.result)
 
         end # tmr
     end
 
-    return Dict(s => (s, mat) for (s, mat) in enumerate(result_mats))
+    return eval.result
 end
 
 """
