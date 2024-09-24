@@ -106,12 +106,15 @@ points.
   `Diagonal`.
 
 """
-function interpolate!(x::Matrix{ComplexF64},
-                      P_0::ExactAtomicPPGF,
-                      z1::BranchPoint,
-                      z2::BranchPoint)
+@inline function interpolate!(x::Matrix{ComplexF64},
+                              P_0::ExactAtomicPPGF,
+                              z1::BranchPoint,
+                              z2::BranchPoint)
     Δz = z1.val - z2.val
-    x[:] = P_0(Δz)
+    fill!(x, 0.0)
+    for i in eachindex(P_0.E)
+        x[i, i] = -im * exp(-im * Δz * P_0.E[i])
+    end
 end
 
 """
