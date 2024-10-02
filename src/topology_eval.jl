@@ -459,9 +459,10 @@ function _traverse_configuration_tree!(eval::TopologyEvaluator,
 
     # Are we at a leaf?
     if pos > length(eval.conf)
-        if s_i == s_f # Is the resulting configuration block-diagonal?
-            eval.top_result_mats[s_i] .+= pair_int_weight .* eval!(eval.matrix_prods[s_f])
-        end
+        @assert(s_i == s_f, "A block off-diagonal contribution to a pseudo-particle \
+                propagator detected, try passing more 'symmetry_breakers' when \
+                constructing the local exact diagonalization object")
+        eval.top_result_mats[s_i] .+= pair_int_weight .* eval!(eval.matrix_prods[s_f])
         return
     end
 
