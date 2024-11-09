@@ -22,7 +22,7 @@ using Documenter
 
 makedocs(;
     modules=[QInchworm],
-    authors="Igor Krivenko <igor.s.krivenko@gmail.com>, " *
+    authors="Igor Krivenko <iskrivenko@proton.me>, " *
             "Hugo U. R. Strand <hugo.strand@gmail.com>, " *
             "Joseph Kleinhenz <kleinhenz.joseph@gmail.com>",
     repo=Documenter.Remotes.GitHub("krivenko", "QInchworm.jl"),
