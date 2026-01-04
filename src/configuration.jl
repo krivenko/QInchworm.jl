@@ -399,7 +399,7 @@ function update_pair_node_times!(configuration::Configuration, diagram::Diagram,
     end
 end
 
-function eval(exp::Expansion, pairs::Vector{NodePair}, parity::Float64)
+function eval_weight(exp::Expansion, pairs::Vector{NodePair}, parity::Float64)
 
     order = length(pairs)
     val::ComplexF64 = parity * (-1)^order
@@ -445,7 +445,7 @@ function sector_block_matrix_from_ppgf(z2::Time, z1::Time,
     return M
 end
 
-function eval(exp::Expansion, nodes::Vector{Node})
+function eval_weight(exp::Expansion, nodes::Vector{Node})
 
     node = first(nodes)
     val = get_block_matrix(exp, node)
@@ -489,10 +489,10 @@ function get_paths(exp::Expansion, nodes::Vector{Node})::Vector{Path}
     return paths
 end
 
-function eval(exp::Expansion,
-              nodes::Vector{Node},
-              paths::Vector{Path},
-              has_split_node::Bool)::SectorBlockMatrix
+function eval_weight(exp::Expansion,
+                     nodes::Vector{Node},
+                     paths::Vector{Path},
+                     has_split_node::Bool)::SectorBlockMatrix
 
     val = SectorBlockMatrix()
 
@@ -519,10 +519,10 @@ function eval(exp::Expansion,
     return val
 end
 
-function eval_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
-                   exp::Expansion, nodes::Vector{Node},
-                   paths::Vector{Path},
-                   has_split_node::Bool)
+function eval_weight_acc!(val::SectorBlockMatrix, scalar::ComplexF64,
+                          exp::Expansion, nodes::Vector{Node},
+                          paths::Vector{Path},
+                          has_split_node::Bool)
 
     P = has_split_node ? exp.P : exp.P0
 
@@ -560,17 +560,17 @@ $(TYPEDSIGNATURES)
 
 Evaluate the configuration `conf` in the pseud-particle expansion `exp`.
 """
-function eval(exp::Expansion, conf::Configuration)::SectorBlockMatrix
-    return eval(exp, conf.pairs, conf.parity) *
-           eval(exp, conf.nodes, conf.paths, !isnothing(conf.split_node_idx))
+function eval_weight(exp::Expansion, conf::Configuration)::SectorBlockMatrix
+    return eval_weight(exp, conf.pairs, conf.parity) *
+           eval_weight(exp, conf.nodes, conf.paths, !isnothing(conf.split_node_idx))
 end
 
-function eval_acc!(value::SectorBlockMatrix, exp::Expansion, conf::Configuration)
-    scalar::ComplexF64 = eval(exp, conf.pairs, conf.parity)
-    eval_acc!(value, scalar, exp, conf.nodes, conf.paths, !isnothing(conf.split_node_idx))
+function eval_weight_acc!(value::SectorBlockMatrix, exp::Expansion, conf::Configuration)
+    scalar::ComplexF64 = eval_weight(exp, conf.pairs, conf.parity)
+    eval_weight_acc!(value, scalar, exp, conf.nodes, conf.paths, !isnothing(conf.split_node_idx))
 end
 
-function eval(expansion::Expansion,
+function eval_weight(expansion::Expansion,
     diagrams::Vector{Diagram},
     configurations::Vector{Configuration},
     times::Vector{Time},
@@ -579,7 +579,7 @@ function eval(expansion::Expansion,
 
     for (diagram, configuration) in zip(diagrams, configurations)
         update_pair_node_times!(configuration, diagram, times)
-        eval_acc!(value, expansion, configuration)
+        eval_weight_acc!(value, expansion, configuration)
     end
 
     return value

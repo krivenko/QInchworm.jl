@@ -110,7 +110,7 @@ function make_second_order_diag(; nt, nτ, tmax, τ_w_pos, verbose = false)
 
     nodes = [n_f, n_w, n_i]
     conf_0 = Configuration(nodes, NodePair[]);
-    init_0 = zero(cfg.eval(ppsc_exp, conf_0));
+    init_0 = zero(cfg.eval_weight(ppsc_exp, conf_0));
 
     diagram = τ -> begin
         # Loop over spin indices of hybridization lines
@@ -118,13 +118,13 @@ function make_second_order_diag(; nt, nτ, tmax, τ_w_pos, verbose = false)
         for index1 = 1:2, index2 = 1:2
             # 4 arrangements of creation and annihilation operators
             conf = Configuration(nodes, [NodePair(n_f.time, τ[2], index1), NodePair(τ[1], τ[3], index2)])
-            sum += cfg.eval(ppsc_exp, conf)
+            sum += cfg.eval_weight(ppsc_exp, conf)
             conf = Configuration(nodes, [NodePair(τ[2], n_f.time, index1), NodePair(τ[1], τ[3], index2)])
-            sum += cfg.eval(ppsc_exp, conf)
+            sum += cfg.eval_weight(ppsc_exp, conf)
             conf = Configuration(nodes, [NodePair(n_f.time, τ[2], index1), NodePair(τ[3], τ[1], index2)])
-            sum += cfg.eval(ppsc_exp, conf)
+            sum += cfg.eval_weight(ppsc_exp, conf)
             conf = Configuration(nodes, [NodePair(τ[2], n_f.time, index1), NodePair(τ[3], τ[1], index2)])
-            sum += cfg.eval(ppsc_exp, conf)
+            sum += cfg.eval_weight(ppsc_exp, conf)
         end
         return sum
     end

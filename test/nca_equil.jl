@@ -126,7 +126,7 @@ end
             cfg.set_inchworm_node_time!(conf_0, τ_w.bpoint)
             cfg.set_final_node_time!(conf_0, τ_f.bpoint)
 
-            val = cfg.eval(ppsc_exp, conf_0)
+            val = cfg.eval_weight(ppsc_exp, conf_0)
 
             cfg.set_inchworm_node_time!.(confs_1, Ref(τ_w.bpoint))
             cfg.set_final_node_time!.(confs_1, Ref(τ_f.bpoint))
@@ -134,8 +134,8 @@ end
             for τ_1 in tau_grid[1:fidx]
                 pair_node_times = [τ_f.bpoint, τ_1.bpoint]
                 cfg.update_pair_node_times!.(confs_1, diags_1, Ref(pair_node_times))
-                val -= Δτ^2 * cfg.eval(ppsc_exp, confs_1[1])
-                val -= Δτ^2 * cfg.eval(ppsc_exp, confs_1[2])
+                val -= Δτ^2 * cfg.eval_weight(ppsc_exp, confs_1[1])
+                val -= Δτ^2 * cfg.eval_weight(ppsc_exp, confs_1[2])
             end
 
             for (s, P_s) in enumerate(ppsc_exp.P)
@@ -202,7 +202,7 @@ end
             cfg.set_inchworm_node_time!(conf_0, τ_w.bpoint)
             cfg.set_final_node_time!(conf_0, τ_f.bpoint)
 
-            val = cfg.eval(ppsc_exp, conf_0)
+            val = cfg.eval_weight(ppsc_exp, conf_0)
 
             cfg.set_inchworm_node_time!.(confs_1, Ref(τ_w.bpoint))
             cfg.set_final_node_time!.(confs_1, Ref(τ_f.bpoint))
@@ -213,7 +213,8 @@ end
             val -= im * contour_integral(contour, td, init = zero(val), N = N) do τ_1
                     pair_node_times = [τ_f.bpoint, τ_1[1]]
                     cfg.update_pair_node_times!.(confs_1, diags_1, Ref(pair_node_times))
-                    cfg.eval(ppsc_exp, confs_1[1]) + cfg.eval(ppsc_exp, confs_1[2])
+                    return cfg.eval_weight(ppsc_exp, confs_1[1]) +
+                           cfg.eval_weight(ppsc_exp, confs_1[2])
                 end
 
             for (s, P_s) in enumerate(ppsc_exp.P)
